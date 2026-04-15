@@ -265,6 +265,39 @@ export const ProfileSetupModal: React.FC<ProfileSetupModalProps> = ({ isOpen, on
                           Não
                         </button>
                       </div>
+
+                      <AnimatePresence>
+                        {seedOption === 'yes' && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0, scale: 0.95 }}
+                            animate={{ height: 'auto', opacity: 1, scale: 1 }}
+                            exit={{ height: 0, opacity: 0, scale: 0.95 }}
+                            className="overflow-hidden"
+                          >
+                            <div className="flex flex-wrap justify-center gap-1.5 p-3 bg-muted/40 rounded-2xl border border-border/30 mt-2">
+                              {[
+                                { name: 'Salário', color: '#10b981' },
+                                { name: 'Alimentação', color: '#f43f5e' },
+                                { name: 'Moradia', color: '#3b82f6' },
+                                { name: 'Saúde', color: '#ef4444' },
+                                { name: 'Lazer', color: '#84cc16' },
+                                { name: 'Mercado', color: '#10b981' }
+                              ].map(cat => (
+                                <span 
+                                  key={cat.name}
+                                  style={{ borderColor: cat.color + '40', color: cat.color }}
+                                  className="text-[7px] font-black uppercase tracking-tighter px-2 py-1 rounded-lg border bg-background/50"
+                                >
+                                  {cat.name}
+                                </span>
+                              ))}
+                              <span className="text-[7px] font-black uppercase tracking-tighter px-2 py-1 rounded-lg border border-border/50 text-muted-foreground bg-background/50">
+                                +21 Categorias
+                              </span>
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </div>
                   </motion.div>
                 )}
