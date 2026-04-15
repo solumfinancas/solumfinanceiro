@@ -57,3 +57,5 @@ Solum Financeiro é uma plataforma robusta de gestão financeira pessoal e empre
 ---
 
 Este projeto utiliza **Vite**, **React**, **Tailwind CSS** e **Framer Motion** para animações fluidas e design premium.
+
+a
