@@ -1,0 +1,172 @@
+import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { User, Building2, Rocket, ArrowRight, X } from 'lucide-react';
+import { cn } from '../lib/utils';
+import { supabase } from '../lib/supabase';
+import { useAuth } from '../contexts/AuthContext';
+import { useFinance } from '../FinanceContext';
+
+interface SpaceActivationModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  spaceType: 'personal' | 'business';
+  onConfirm: () => void;
+}
+
+export const SpaceActivationModal: React.FC<SpaceActivationModalProps> = ({ 
+  isOpen, 
+  onClose, 
+  spaceType,
+  onConfirm 
+}) => {
+  const { user } = useAuth();
+  const { seedCategories } = useFinance();
+  const [isActivating, setIsActivating] = useState(false);
+  const [seedOption, setSeedOption] = useState<'yes' | 'no'>(spaceType === 'personal' ? 'yes' : 'no');
+
+  const handleActivate = async () => {
+    if (!user) return;
+    setIsActivating(true);
+    try {
+      // 1. Semear categorias se solicitado
+      if (seedOption === 'yes') {
+        await seedCategories(spaceType);
+      }
+
+      // 2. Marcar espaço como inicializado no metadata do usuário
+      const currentInitialized = user.user_metadata?.initialized_spaces || [];
+      if (!currentInitialized.includes(spaceType)) {
+        const { error } = await supabase.auth.updateUser({
+          data: {
+            ...user.user_metadata,
+            initialized_spaces: [...currentInitialized, spaceType],
+            last_activation: new Date().toISOString()
+          }
+        });
+        if (error) throw error;
+      }
+      onConfirm();
+    } catch (err) {
+      console.error('Erro ao ativar espaço:', err);
+    } finally {
+      setIsActivating(false);
+      onClose();
+    }
+  };
+
+  if (!isOpen) return null;
+
+  const isBusiness = spaceType === 'business';
+
+  return (
+    <AnimatePresence>
+      <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
+        <motion.div 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          onClick={onClose}
+          className="absolute inset-0 bg-black/80 backdrop-blur-md"
+        />
+        
+        <motion.div 
+          initial={{ scale: 0.9, opacity: 0, y: 20 }}
+          animate={{ scale: 1, opacity: 1, y: 0 }}
+          exit={{ scale: 0.9, opacity: 0, y: 20 }}
+          className="relative w-full max-w-sm bg-card border border-border/50 rounded-[2.5rem] shadow-2xl overflow-hidden p-8"
+        >
+          <button 
+            onClick={onClose}
+            className="absolute right-6 top-6 p-2 hover:bg-muted rounded-xl transition-colors text-muted-foreground"
+          >
+            <X size={20} />
+          </button>
+
+          <div className="text-center mb-8">
+            <div className={cn(
+              "w-20 h-20 rounded-[2rem] flex items-center justify-center mx-auto mb-6 border-2 shadow-xl",
+              isBusiness ? "bg-primary/10 border-primary/20 text-primary" : "bg-blue-500/10 border-blue-500/20 text-blue-500"
+            )}>
+              {isBusiness ? <Building2 size={40} /> : <User size={40} />}
+            </div>
+            
+            <h2 className="text-xl font-black uppercase tracking-tighter leading-tight">
+              Ativar Novo Espaço {isBusiness ? 'Empresarial' : 'Pessoal'}
+            </h2>
+            <p className="text-[10px] font-bold text-muted-foreground uppercase opacity-60 tracking-widest mt-2 px-4 leading-relaxed">
+              {isBusiness 
+                ? "Prepare-se para uma gestão profissional. Este espaço virá limpo para você configurar suas próprias categorias."
+                : "Seu espaço pessoal pode vir pré-configurado para facilitar seu início rápido."}
+            </p>
+          </div>
+
+          {!isBusiness && (
+            <div className="mb-8 space-y-3">
+              <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground block text-center">
+                Deseja categorias pré-preenchidas?
+              </label>
+              <div className="flex gap-3 p-1 bg-muted rounded-2xl border border-border/50">
+                <button
+                  type="button"
+                  onClick={() => setSeedOption('yes')}
+                  className={cn(
+                    "flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
+                    seedOption === 'yes' ? "bg-primary text-white shadow-lg shadow-primary/20" : "text-muted-foreground hover:bg-card"
+                  )}
+                >
+                  Sim
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSeedOption('no')}
+                  className={cn(
+                    "flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
+                    seedOption === 'no' ? "bg-rose-500 text-white shadow-lg shadow-rose-500/10" : "text-muted-foreground hover:bg-card"
+                  )}
+                >
+                  Não
+                </button>
+              </div>
+            </div>
+          )}
+
+          <div className="space-y-3 mb-8">
+             <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-2xl border border-border/50">
+                <Rocket className="text-primary" size={18} />
+                <span className="text-[10px] font-black uppercase tracking-widest text-foreground/80">
+                   Configuração Instantânea
+                </span>
+             </div>
+             {isBusiness && (
+                <div className="flex items-center gap-3 p-3 bg-emerald-500/5 rounded-2xl border border-emerald-500/20 text-emerald-600">
+                   <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                   <span className="text-[10px] font-black uppercase tracking-widest">
+                      Categorias 100% Manuais
+                   </span>
+                </div>
+             )}
+          </div>
+
+          <button 
+            onClick={handleActivate}
+            disabled={isActivating}
+            className={cn(
+               "w-full py-5 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center justify-center gap-3 transition-all shadow-lg active:scale-95 disabled:opacity-50",
+               isBusiness ? "bg-primary text-white shadow-primary/20" : "bg-blue-500 text-white shadow-blue-500/20"
+            )}
+          >
+            {isActivating ? 'Ativando...' : 'Ativar Agora'}
+            <ArrowRight size={18} />
+          </button>
+
+          <button 
+            onClick={onClose}
+            className="w-full mt-4 py-3 text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Talvez depois
+          </button>
+        </motion.div>
+      </div>
+    </AnimatePresence>
+  );
+};

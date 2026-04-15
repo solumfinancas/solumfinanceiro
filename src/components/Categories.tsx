@@ -1,0 +1,1244 @@
+import React, { useState, useEffect, useMemo } from 'react';
+import {
+  Tag, Plus, Edit, Trash2, ChevronDown, ChevronRight, ArrowUpCircle,
+  ArrowDownCircle, Search, Eye, EyeOff, LayoutDashboard, Clock,
+  CheckCircle2, X, History as HistoryIcon, Layers, Calendar, CreditCard, ThumbsUp, ThumbsDown,
+  TrendingUp, Check, ChevronLeft, Target, RefreshCw
+} from 'lucide-react';
+import { useFinance } from '../FinanceContext';
+import { useModal } from '../contexts/ModalContext';
+import { cn, formatCurrency, formatDate, getAvailableYears } from '../lib/utils';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Category, Transaction } from '../types';
+import { CategoryModal } from './CategoryModal';
+import { TransactionModal } from './TransactionModal';
+import { RefundEditModal } from './RefundEditModal';
+import { CustomSelect } from './ui/CustomSelect';
+import { IconRenderer } from './ui/IconRenderer';
+
+type PaymentFilter = 'all' | 'paid' | 'pending';
+
+const MONTH_NAMES = [
+  "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+  "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
+];
+
+
+
+export const StyledCheckbox = ({ checked, onChange, title }: { checked: boolean, onChange: () => void, title?: string }) => (
+  <button
+    type="button"
+    title={title}
+    onClick={onChange}
+    className={cn(
+      "w-5 h-5 rounded-md border-2 transition-all flex items-center justify-center shrink-0",
+      checked
+        ? "bg-primary border-primary shadow-lg shadow-primary/20 scale-110"
+        : "bg-card border-border hover:border-primary/50"
+    )}
+  >
+    <AnimatePresence>
+      {checked && (
+        <motion.div
+          initial={{ scale: 0, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          exit={{ scale: 0, opacity: 0 }}
+        >
+          <Check size={12} className="text-white" strokeWidth={4} />
+        </motion.div>
+      )}
+    </AnimatePresence>
+  </button>
+);
+
+export const Categories: React.FC = () => {
+  const {
+    categories, updateCategory, transactions,
+    updateTransaction, deleteTransaction, wallets,
+    addCategory, toggleCategoryActive, deleteCategory,
+    includeCategoryLimits, setIncludeCategoryLimits
+  } = useFinance();
+  const { showConfirm, showAlert } = useModal();
+
+  // State
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+  const [parentIdForNew, setParentIdForNew] = useState<string | undefined>(undefined);
+  const [expandedCats, setExpandedCats] = useState<string[]>([]);
+  const [filterMonth, setFilterMonth] = useState<number | 'all'>(new Date().getMonth() + 1);
+  const [filterYear, setFilterYear] = useState<number>(new Date().getFullYear());
+  const [paymentFilter, setPaymentFilter] = useState<PaymentFilter>('all');
+  const [viewingTransactionsId, setViewingTransactionsId] = useState<string | null>(null);
+  const [categoryForAction, setCategoryForAction] = useState<Category | null>(null);
+  const [viewMode, setViewMode] = useState<'balance' | 'budget'>('budget');
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+  const [editingRefund, setEditingRefund] = useState<Transaction | null>(null);
+  const [selectedTxIds, setSelectedTxIds] = useState<string[]>([]);
+
+  // Scroll Lock
+  useEffect(() => {
+    if (viewingTransactionsId || categoryForAction || editingTransaction || editingRefund || isModalOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => { document.body.style.overflow = 'unset'; };
+  }, [viewingTransactionsId, categoryForAction, editingTransaction, editingRefund, isModalOpen]);
+
+  // Local helper functions for calculations
+  const getCategorySpend = (categoryId: string, month: number | 'all' = filterMonth, year: number = filterYear) => {
+    const relevantIds = [categoryId, ...categories.filter(c => c.parentId === categoryId).map(c => c.id)];
+
+    return transactions
+      .filter(t => {
+        const d = new Date(t.date + 'T12:00:00Z');
+        const mMatch = month === 'all' || (d.getUTCMonth() + 1) === month;
+        const yMatch = d.getUTCFullYear() === year;
+
+        const isInvoicePayment = t.description?.toLowerCase().includes('pagamento de fatura');
+        const isRefund = t.description?.toLowerCase().includes('estorno');
+
+        if (isInvoicePayment || isRefund) return false;
+
+        const pMatch = paymentFilter === 'all' || (paymentFilter === 'paid' ? t.isPaid : !t.isPaid);
+        return relevantIds.includes(t.categoryId) && mMatch && yMatch && t.type === 'expense' && pMatch;
+      })
+      .reduce((sum, t) => sum + t.amount, 0);
+  };
+
+  const getCategoryCommitted = (categoryId: string, month: number | 'all' = filterMonth, year: number = filterYear) => {
+    const relevantIds = [categoryId, ...categories.filter(c => c.parentId === categoryId).map(c => c.id)];
+
+    return transactions
+      .filter(t => {
+        const d = new Date(t.date + 'T12:00:00Z');
+        const mMatch = month === 'all' || (d.getUTCMonth() + 1) === month;
+        const yMatch = d.getUTCFullYear() === year;
+
+        // Regra para Comprometido: Estar na categoria e ter groupId (Recorrente)
+        return relevantIds.includes(t.categoryId) && mMatch && yMatch && t.groupId && (t.type === 'expense' || t.type === 'provision');
+      })
+      .reduce((sum, t) => sum + t.amount, 0);
+  };
+
+  const getCategoryBalance = (categoryId: string, month: number | 'all' = filterMonth, year: number = filterYear) => {
+    const relevantIds = [categoryId, ...categories.filter(c => c.parentId === categoryId).map(c => c.id)];
+
+    return transactions
+      .filter(t => {
+        const d = new Date(t.date + 'T12:00:00Z');
+        const mMatch = month === 'all' || (d.getUTCMonth() + 1) === month;
+        const yMatch = d.getUTCFullYear() === year;
+
+        const pMatch = paymentFilter === 'all' || (paymentFilter === 'paid' ? t.isPaid : !t.isPaid);
+        return relevantIds.includes(t.categoryId) && mMatch && yMatch && pMatch;
+      })
+      .reduce((sum, t) => sum + (t.type === 'income' ? t.amount : -t.amount), 0);
+  };
+
+  const availableYears = useMemo(() => getAvailableYears(transactions), [transactions]);
+
+  const toggleExpand = (id: string) => {
+    setExpandedCats(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
+  };
+
+  const handleOpenModal = (parentId?: string, category?: Category) => {
+    setEditingCategory(category || null);
+    setParentIdForNew(parentId);
+    setIsModalOpen(true);
+  };
+
+  const handleSaveCategory = async (data: Partial<Category>) => {
+    if (editingCategory) {
+      const updatedCat = { ...editingCategory, ...data } as Category;
+      await updateCategory(editingCategory.id, updatedCat);
+
+      if (!editingCategory.parentId) {
+        const subcatUpdates = categories
+          .filter(sub => sub.parentId === editingCategory.id)
+          .map(sub => updateCategory(sub.id, {
+            ...sub,
+            color: data.color || sub.color,
+            type: data.type || (data.type as any) || sub.type
+          }));
+
+        await Promise.all(subcatUpdates);
+      }
+    } else {
+      await addCategory({
+        ...data,
+        isActive: true
+      } as Category);
+    }
+  };
+
+  const handleToggleTxStatus = (tx: Transaction) => {
+    updateTransaction(tx.id, { ...tx, isPaid: !tx.isPaid });
+  };
+
+  const handleDeleteTx = async (id: string) => {
+    const confirmed = await showConfirm(
+      'Excluir Lançamento',
+      'Tem certeza que deseja excluir este lançamento? Esta ação não poderá ser desfeita e afetará o saldo desta categoria.',
+      { variant: 'danger', confirmText: 'Excluir Agora' }
+    );
+    
+    if (confirmed) {
+      deleteTransaction(id);
+      setSelectedTxIds(prev => prev.filter(i => i !== id));
+    }
+  };
+
+  const handleDeleteSubcategory = async (sub: Category) => {
+    if (!sub.parentId) return;
+
+    const count = transactions.filter(t => t.categoryId === sub.id).length;
+    const parent = categories.find(c => c.id === sub.parentId);
+
+    const msg = count > 0
+      ? `Esta subcategoria possui ${count} lançamentos. Ao excluí-la, todos os lançamentos serão movidos para a categoria pai "${parent?.name || 'Geral'}". Deseja continuar?`
+      : `Deseja excluir permanentemente a subcategoria "${sub.name}"?`;
+
+    const confirmed = await showConfirm(
+      count > 0 ? 'Mover Lançamentos' : 'Excluir Subcategoria',
+      msg,
+      { variant: count > 0 ? 'warning' : 'danger', confirmText: 'Confirmar' }
+    );
+
+    if (confirmed) {
+      try {
+        // 1. Move transactions to parent
+        if (count > 0) {
+          const txUpdates = transactions
+            .filter(t => t.categoryId === sub.id)
+            .map(t => updateTransaction(t.id, { categoryId: sub.parentId! }));
+
+          await Promise.all(txUpdates);
+        }
+
+        // 2. Delete the subcategory
+        await deleteCategory(sub.id);
+      } catch (error) {
+        console.error('Erro ao excluir subcategoria:', error);
+        await showAlert('Erro', 'Ocorreu um erro ao excluir a subcategoria.', 'danger');
+      }
+    }
+  };
+
+  const handleBulkAction = async (action: 'delete' | 'paid' | 'pending') => {
+    if (selectedTxIds.length === 0) return;
+
+    if (action === 'delete') {
+      const confirmed = await showConfirm(
+        'Excluir Lançamentos',
+        `Deseja excluir permanentemente os ${selectedTxIds.length} lançamentos selecionados?`,
+        { variant: 'danger', confirmText: 'Excluir agora' }
+      );
+      if (confirmed) {
+        selectedTxIds.forEach(id => deleteTransaction(id));
+        setSelectedTxIds([]);
+      }
+    } else {
+      selectedTxIds.forEach(id => {
+        const tx = transactions.find(t => t.id === id);
+        if (tx) {
+          updateTransaction(id, { ...tx, isPaid: action === 'paid' });
+        }
+      });
+      setSelectedTxIds([]);
+    }
+  };
+
+  const handleEditTransaction = (tx: Transaction) => {
+    const isRefund = tx.description?.toLowerCase().includes('estorno');
+    if (isRefund) {
+      setEditingRefund(tx);
+    } else {
+      setEditingTransaction(tx);
+    }
+  };
+
+  const toggleSelectTx = (id: string) => {
+    setSelectedTxIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
+  };
+
+  const filteredCategories = categories.filter(c => {
+    const matchesSearch = c.name.toLowerCase().includes(searchTerm.toLowerCase());
+    if (c.parentId) {
+      const parent = categories.find(p => p.id === c.parentId);
+      return matchesSearch || (parent?.name.toLowerCase().includes(searchTerm.toLowerCase()));
+    }
+    const hasMatchingChild = categories.some(sub => sub.parentId === c.id && sub.name.toLowerCase().includes(searchTerm.toLowerCase()));
+    return matchesSearch || hasMatchingChild;
+  });
+
+  const activeCats = filteredCategories.filter(c => !c.parentId && (c.isActive !== false));
+  const inactiveCats = filteredCategories.filter(c => !c.parentId && (c.isActive === false));
+
+  // Sorting Logic: Sort based on viewMode
+  const sortedActiveCats = useMemo(() => {
+    return [...activeCats].sort((a, b) => {
+      if (viewMode === 'balance') {
+        const balA = Math.abs(getCategoryBalance(a.id, filterMonth, filterYear));
+        const balB = Math.abs(getCategoryBalance(b.id, filterMonth, filterYear));
+        return balB - balA;
+      } else {
+        const spendA = getCategorySpend(a.id, filterMonth, filterYear);
+        const spendB = getCategorySpend(b.id, filterMonth, filterYear);
+        return spendB - spendA;
+      }
+    });
+  }, [activeCats, viewMode, filterMonth, filterYear, transactions, categories]);
+
+  const sortedInactiveCats = useMemo(() => {
+    return [...inactiveCats].sort((a, b) => {
+      if (viewMode === 'balance') {
+        const balA = Math.abs(getCategoryBalance(a.id, filterMonth, filterYear));
+        const balB = Math.abs(getCategoryBalance(b.id, filterMonth, filterYear));
+        return balB - balA;
+      } else {
+        const spendA = getCategorySpend(a.id, filterMonth, filterYear);
+        const spendB = getCategorySpend(b.id, filterMonth, filterYear);
+        return spendB - spendA;
+      }
+    });
+  }, [inactiveCats, viewMode, filterMonth, filterYear, transactions, categories]);
+
+  const categoryMetrics = useMemo(() => {
+    const expenseTxs = transactions.filter(t => {
+      if (t.type !== 'expense') return false;
+      const d = new Date(t.date + 'T12:00:00Z');
+      const mMatch = filterMonth === 'all' || (d.getUTCMonth() + 1) === filterMonth;
+      const yMatch = d.getUTCFullYear() === filterYear;
+
+      const isInvoicePayment = t.description?.toLowerCase().includes('pagamento de fatura');
+      const isRefund = t.description?.toLowerCase().includes('estorno');
+
+      if (isInvoicePayment || isRefund) return false;
+
+      return mMatch && yMatch;
+    });
+
+    const recurrentNecessary = expenseTxs
+      .filter(t => t.groupId && t.necessity === 'necessary')
+      .reduce((acc, t) => acc + t.amount, 0);
+
+    const recurrentUnnecessary = expenseTxs
+      .filter(t => t.groupId && t.necessity === 'unnecessary')
+      .reduce((acc, t) => acc + t.amount, 0);
+
+    const others = expenseTxs
+      .filter(t => !t.groupId)
+      .reduce((acc, t) => acc + t.amount, 0);
+
+    const totalUsed = recurrentNecessary + recurrentUnnecessary + others;
+
+    return {
+      recurrentNecessary,
+      recurrentUnnecessary,
+      others,
+      totalUsed
+    };
+  }, [transactions, wallets, filterMonth, filterYear]);
+
+  const totalLimitGlobal = activeCats
+    .filter(c => c.type === 'expense')
+    .reduce((acc, c) => acc + (c.limit || 0), 0);
+
+  const totalSpendGlobal = activeCats
+    .filter(c => c.type === 'expense')
+    .reduce((acc, c) => acc + getCategorySpend(c.id), 0);
+
+  const globalProgressPercent = totalLimitGlobal > 0 ? (totalSpendGlobal / totalLimitGlobal) * 100 : 0;
+
+  const renderCategoryList = (cats: Category[], label: string, icon: React.ReactNode, colorClass: string, isInactiveSection = false) => (
+    <div className="space-y-4">
+      <div className={cn("flex items-center gap-2", colorClass)}>
+        {icon}
+        <h2 className="font-black uppercase tracking-[0.2em] text-[10px]">{label}</h2>
+      </div>
+      <div className="grid grid-cols-1 gap-3">
+        {cats.map((c) => (
+          <div key={c.id} className="space-y-2">
+            <motion.div
+              whileHover={{ scale: 1.01 }}
+              className={cn(
+                "bg-card p-4 rounded-2xl border border-border shadow-sm group flex items-center justify-between transition-opacity cursor-pointer",
+                isInactiveSection && "opacity-60"
+              )}
+              onClick={() => { setCategoryForAction(c); setSelectedTxIds([]); }}
+            >
+              <div className="flex items-center gap-3 flex-1 overflow-hidden">
+                <button
+                  onClick={(e) => { e.stopPropagation(); toggleExpand(c.id); }}
+                  className="p-1 hover:bg-muted rounded-md transition-colors"
+                >
+                  {expandedCats.includes(c.id) ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
+                </button>
+                <IconRenderer
+                  icon={c.icon}
+                  color={c.color}
+                  size={44}
+                  scale={0.65}
+                  className="shadow-lg border-2 border-background"
+                />
+                <div className="flex flex-col truncate flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-black text-sm block truncate leading-none uppercase tracking-tight">{c.name}</span>
+                    <Search size={12} className="text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
+
+                  {viewMode === 'balance' ? (
+                    <span className={cn(
+                      "text-[11px] font-bold tracking-tight mt-1.5 transition-colors",
+                      c.type === 'income' ? "text-emerald-500" : "text-rose-500"
+                    )}>
+                      {formatCurrency(getCategoryBalance(c.id, filterMonth, filterYear))}
+                    </span>
+                  ) : (
+                    <div className="flex flex-col gap-1.5 mt-2 max-w-[240px]">
+                      <div className="flex items-center justify-between text-[9px] font-black uppercase tracking-widest leading-none">
+                        <span className="opacity-60 italic font-bold">Uso: {formatCurrency(getCategorySpend(c.id))}</span>
+                        {c.limit ? (
+                          <span className={cn(
+                            (getCategorySpend(c.id) / c.limit) >= 1 ? "text-rose-500" :
+                              (getCategorySpend(c.id) / c.limit) >= 0.75 ? "text-amber-500" :
+                                "text-emerald-500"
+                          )}>
+                            {Math.round((getCategorySpend(c.id) / c.limit) * 100)}%
+                          </span>
+                        ) : (
+                          <span className="opacity-40 italic font-medium">Sem Limite</span>
+                        )}
+                      </div>
+                      <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden shadow-inner border border-border/10">
+                        <motion.div
+                          initial={{ width: 0 }}
+                          animate={{ width: c.limit ? `${Math.min((getCategorySpend(c.id) / c.limit) * 100, 100)}%` : '0%' }}
+                          className={cn(
+                            "h-full rounded-full transition-all",
+                            !c.limit ? "bg-slate-400" :
+                              (getCategorySpend(c.id) / c.limit) > 1 ? "bg-red-800" :
+                                (getCategorySpend(c.id) / c.limit) === 1 ? "bg-rose-500" :
+                                  (getCategorySpend(c.id) / c.limit) >= 0.75 ? "bg-amber-500" :
+                                    "bg-emerald-500"
+                          )}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {viewMode === 'budget' && (
+                <div className="hidden sm:flex flex-col items-end mr-6 text-right shrink-0">
+                  <div className="flex flex-col items-end border-b border-border/10 pb-1 mb-1">
+                    <span className="text-[8px] font-black text-muted-foreground uppercase tracking-[0.2em] opacity-40 leading-none">Comprometido (Fixo)</span>
+                    <span className={cn(
+                      "text-[13px] font-bold",
+                      getCategoryCommitted(c.id) > 0 ? "text-amber-500" : "text-muted-foreground"
+                    )}>
+                      {formatCurrency(getCategoryCommitted(c.id))}
+                    </span>
+                  </div>
+
+                  {c.limit ? (
+                    <>
+                      <span className="text-[9px] font-black text-muted-foreground uppercase tracking-[0.2em] mb-1 opacity-60">Limite Real (Variável)</span>
+                      <span className={cn(
+                        "text-base font-black tracking-tighter",
+                        (c.limit - getCategoryCommitted(c.id) - (getCategorySpend(c.id) - getCategoryCommitted(c.id))) < 0 ? "text-rose-500" :
+                          "text-emerald-500"
+                      )}>
+                        {formatCurrency(Math.max(0, c.limit - getCategoryCommitted(c.id)))}
+                      </span>
+                      <span className="text-[8px] font-black text-muted-foreground opacity-40 uppercase tracking-widest mt-0.5">de {formatCurrency(c.limit)}</span>
+                    </>
+                  ) : (
+                    <span className="text-[9px] font-black text-muted-foreground/30 uppercase tracking-[0.2em] mt-2">Sem Meta Definida</span>
+                  )}
+                </div>
+              )}
+
+              <div className="flex items-center gap-1 transition-opacity whitespace-nowrap" onClick={e => e.stopPropagation()}>
+                {!isInactiveSection && (
+                  <button
+                    onClick={() => handleOpenModal(c.id)}
+                    title="Adicionar Subcategoria"
+                    className="p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-all"
+                  >
+                    <Plus size={18} />
+                  </button>
+                )}
+                <button
+                  onClick={() => handleOpenModal(undefined, c)}
+                  className="p-2 text-muted-foreground hover:text-blue-500 hover:bg-blue-500/10 rounded-lg transition-all"
+                >
+                  <Edit size={18} />
+                </button>
+                <button
+                  onClick={() => toggleCategoryActive(c.id)}
+                  title={c.isActive === false ? "Reativar" : "Inativar"}
+                  className={cn(
+                    "p-2 rounded-lg transition-all",
+                    c.isActive === false
+                      ? "text-emerald-500 hover:bg-emerald-500/10"
+                      : "text-muted-foreground hover:text-amber-500 hover:bg-amber-500/10"
+                  )}
+                >
+                  {c.isActive === false ? <Eye size={18} /> : <EyeOff size={18} />}
+                </button>
+              </div>
+            </motion.div>
+
+            <AnimatePresence>
+              {expandedCats.includes(c.id) && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  className="ml-12 overflow-hidden space-y-2 border-l border-dashed border-border/50 pl-3"
+                >
+                  {(() => {
+                    const subcats = categories.filter(sub => sub.parentId === c.id && sub.name.toLowerCase().includes(searchTerm.toLowerCase()));
+                    if (subcats.length === 0) {
+                      return (
+                        <motion.div
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          className="py-4 text-center border-l border-dashed border-border/50 ml-6"
+                        >
+                          <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-40">Nenhuma subcategoria cadastrada</p>
+                        </motion.div>
+                      );
+                    }
+                    return subcats.map(sub => (
+                      <motion.div
+                        key={sub.id}
+                        className={cn(
+                          "bg-card/40 p-3 rounded-xl border border-border/50 flex items-center justify-between group hover:bg-muted/50 transition-all cursor-pointer",
+                          sub.isActive === false && "opacity-60"
+                        )}
+                        onClick={() => { setCategoryForAction(sub); setSelectedTxIds([]); }}
+                      >
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                          <div
+                            className="w-2 h-2 rounded-full shadow-sm"
+                            style={{ backgroundColor: sub.color }}
+                          />
+                          <div className="flex flex-col min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-[13px] text-foreground leading-none uppercase tracking-tight truncate">{sub.name}</span>
+                              <Search size={10} className="text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                            </div>
+                            <span className="text-[10px] font-black text-muted-foreground mt-1 opacity-60">
+                              {formatCurrency(getCategoryBalance(sub.id, filterMonth, filterYear))}
+                            </span>
+                          </div>
+                        </div>
+
+                        {viewMode === 'budget' && (
+                          <div className="flex items-center gap-4 mr-4 text-right">
+                            <div className="flex flex-col items-end">
+                              <span className="text-[7px] font-black text-muted-foreground uppercase tracking-widest opacity-40">Comprometido</span>
+                              <span className={cn(
+                                "text-[10px] font-bold",
+                                getCategoryCommitted(sub.id) > 0 ? "text-amber-500" : "text-muted-foreground"
+                              )}>
+                                {formatCurrency(getCategoryCommitted(sub.id))}
+                              </span>
+                            </div>
+                            {sub.limit && (
+                              <div className="flex flex-col items-end border-l border-border/10 pl-4">
+                                <span className="text-[7px] font-black text-muted-foreground uppercase tracking-widest opacity-40">Limite Real</span>
+                                <span className="text-[10px] font-black text-emerald-500">
+                                  {formatCurrency(Math.max(0, sub.limit - getCategoryCommitted(sub.id)))}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        <div className="flex items-center gap-1 transition-opacity shrink-0" onClick={e => e.stopPropagation()}>
+                          <button
+                            onClick={() => handleOpenModal(undefined, sub)}
+                            className="p-1.5 text-muted-foreground hover:text-blue-500 rounded-md transition-all"
+                            title="Editar"
+                          >
+                            <Edit size={14} />
+                          </button>
+                          <button
+                            onClick={() => toggleCategoryActive(sub.id)}
+                            className="p-1.5 text-muted-foreground hover:text-emerald-500 rounded-md transition-all"
+                            title={sub.isActive === false ? "Reativar" : "Inativar"}
+                          >
+                            {sub.isActive === false ? <Eye size={14} /> : <EyeOff size={14} />}
+                          </button>
+                          {sub.isActive === false && (
+                            <button
+                              onClick={() => handleDeleteSubcategory(sub)}
+                              className="p-1.5 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-all"
+                              title="Excluir permanentemente"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          )}
+                        </div>
+                      </motion.div>
+                    ));
+                  })()}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="space-y-6 pb-20">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-card p-6 rounded-[2rem] border border-border shadow-sm">
+        <div>
+          <h1 className="text-3xl font-black uppercase tracking-tighter text-foreground flex items-center gap-3">
+            Gerenciar Categorias
+          </h1>
+          <p className="text-muted-foreground text-sm font-medium">Controle seus orçamentos e organize seus gastos</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center p-1 bg-muted/50 rounded-2xl border border-border/30 h-14">
+            <button
+              onClick={() => setViewMode('budget')}
+              className={cn(
+                "flex items-center gap-2 px-6 h-full rounded-xl transition-all text-[10px] font-black uppercase tracking-widest",
+                viewMode === 'budget' ? "bg-background text-primary shadow-sm" : "text-muted-foreground hover:bg-muted"
+              )}
+            >
+              <Calendar size={14} /> Limites
+            </button>
+            <button
+              onClick={() => setViewMode('balance')}
+              className={cn(
+                "flex items-center gap-2 px-6 h-full rounded-xl transition-all text-[10px] font-black uppercase tracking-widest",
+                viewMode === 'balance' ? "bg-background text-primary shadow-sm" : "text-muted-foreground hover:bg-muted"
+              )}
+            >
+              <LayoutDashboard size={14} /> Balanço
+            </button>
+          </div>
+          <button
+            onClick={() => handleOpenModal()}
+            className="flex items-center gap-2 px-8 h-14 rounded-2xl bg-primary text-white hover:scale-105 transition-all shadow-lg shadow-primary/25 text-xs font-black uppercase tracking-widest active:scale-95"
+          >
+            <Plus size={16} /> Nova
+          </button>
+        </div>
+      </div>
+
+      <div className="bg-card/30 backdrop-blur-md p-4 rounded-[2rem] border border-border shadow-sm flex flex-wrap items-center gap-6">
+        {/* Date Filters Group */}
+        <div className="flex items-center gap-4 bg-muted/40 p-3 rounded-2xl border border-border/20">
+          <div className="flex items-center gap-2 pl-1">
+            <span className="text-[9px] font-black uppercase text-muted-foreground tracking-widest opacity-50">Ano:</span>
+            <CustomSelect
+              options={availableYears.map(year => ({ id: year.toString(), name: year.toString() }))}
+              value={String(filterYear)}
+              onChange={(val) => setFilterYear(Number(val))}
+              placeholder="Ano"
+              className="h-8 min-h-0 py-1 px-3 text-[10px] bg-background border border-border/10 shadow-sm min-w-[90px] rounded-xl"
+            />
+          </div>
+          <div className="w-px h-6 bg-border/20 mx-1" />
+          <div className="flex items-center gap-2 pr-2">
+            <span className="text-[9px] font-black uppercase text-muted-foreground tracking-widest opacity-50">Mês:</span>
+            <CustomSelect
+              options={[
+                { id: 'all', name: 'TODOS' },
+                ...MONTH_NAMES.map((m, i) => ({ id: (i + 1).toString(), name: m.toUpperCase() }))
+              ]}
+              value={String(filterMonth)}
+              onChange={(val) => setFilterMonth(val === 'all' ? 'all' : Number(val))}
+              placeholder="Mês"
+              className="h-8 min-h-0 py-1 px-3 text-[10px] bg-background border border-border/10 shadow-sm min-w-[110px] rounded-xl"
+            />
+          </div>
+        </div>
+
+        {/* Status Filters Group */}
+        <div className="flex items-center p-2 gap-1 bg-muted/30 rounded-2xl border border-border/20 shadow-inner ml-auto">
+          <button
+            onClick={() => setPaymentFilter('all')}
+            className={cn(
+              "px-4 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-2",
+              paymentFilter === 'all' ? "bg-background text-primary shadow-sm" : "text-muted-foreground opacity-60 hover:opacity-100"
+            )}
+          >
+            <LayoutDashboard size={14} /> Total
+          </button>
+          <button
+            onClick={() => setPaymentFilter('paid')}
+            className={cn(
+              "px-4 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-2",
+              paymentFilter === 'paid' ? "bg-background text-emerald-500 shadow-sm" : "text-muted-foreground opacity-60 hover:opacity-100"
+            )}
+          >
+            <CheckCircle2 size={14} /> Pagos
+          </button>
+          <button
+            onClick={() => setPaymentFilter('pending')}
+            className={cn(
+              "px-4 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-2",
+              paymentFilter === 'pending' ? "bg-background text-amber-500 shadow-sm" : "text-muted-foreground opacity-60 hover:opacity-100"
+            )}
+          >
+            <Clock size={14} /> Pendentes
+          </button>
+        </div>
+      </div>
+
+      {viewMode === 'budget' && (
+        <div className="space-y-6">
+          {/* NOVA SEÇÃO: MÉTRICAS DE CATEGORIA */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="grid grid-cols-2 md:grid-cols-4 gap-4"
+          >
+            {[
+              { label: 'Recorr. Necess.', val: categoryMetrics.recurrentNecessary, color: 'text-primary', icon: <CheckCircle2 size={10} /> },
+              { label: 'Recorr. Desnec.', val: categoryMetrics.recurrentUnnecessary, color: 'text-orange-500', icon: <Clock size={10} /> },
+              { label: 'Variáveis / Outros', val: categoryMetrics.others, color: 'text-rose-500', icon: <Tag size={10} /> },
+              { label: 'Lançamento Consolidado', val: categoryMetrics.totalUsed, color: 'text-foreground font-black', icon: <Layers size={10} />, isTotal: true }
+            ].map((m, idx) => (
+              <div key={idx} className={cn(
+                "bg-card/40 p-5 rounded-[2rem] border border-border/50 flex flex-col gap-1 relative overflow-hidden",
+                m.isTotal && "bg-muted/30 border-primary/20 shadow-lg shadow-primary/5"
+              )}>
+                <span className="text-[8px] font-black uppercase tracking-[0.2em] text-muted-foreground opacity-60 flex items-center gap-1.5">
+                  {m.icon} {m.label}
+                </span>
+                <p className={cn("text-lg font-black tracking-tight", m.color)}>
+                  {formatCurrency(m.val)}
+                </p>
+                {m.isTotal && <div className="absolute -right-2 -bottom-2 opacity-[0.03] rotate-12"><Layers size={64} /></div>}
+              </div>
+            ))}
+          </motion.div>
+
+          {/* RESUMO OU DEFINIÇÃO DE LIMITES */}
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-card/40 p-8 rounded-[2.5rem] border border-border/50 shadow-xl relative group overflow-hidden"
+          >
+            <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-8">
+              {totalLimitGlobal > 0 ? (
+                <>
+                  <div className="space-y-2">
+                    <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground opacity-60">Resumo do Orçamento</h2>
+                    <div className="flex items-baseline gap-3">
+                      <span className="text-4xl font-black tracking-tighter">{formatCurrency(totalSpendGlobal)}</span>
+                      <span className="text-sm font-bold text-muted-foreground opacity-40 uppercase tracking-widest">de {formatCurrency(totalLimitGlobal)}</span>
+
+                      {/* Global Toggle for Greeting Card */}
+                      <button
+                        onClick={() => setIncludeCategoryLimits(!includeCategoryLimits)}
+                        className={cn(
+                          "ml-6 px-4 py-2 rounded-xl border-2 transition-all flex items-center gap-2 group/toggle",
+                          includeCategoryLimits
+                            ? "bg-primary/5 border-primary text-primary shadow-lg shadow-primary/10 scale-105"
+                            : "bg-muted/30 border-border text-muted-foreground grayscale opacity-60 hover:grayscale-0 hover:opacity-100"
+                        )}
+                      >
+                        <Target size={16} className={cn("transition-transform", includeCategoryLimits && "animate-pulse")} />
+                        <span className="text-[9px] font-black uppercase tracking-widest">
+                          {includeCategoryLimits ? "No Orçamento" : "Oculto no Orçamento"}
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex-1 max-w-md w-full space-y-3">
+                    <div className="flex items-center justify-between text-[11px] font-black uppercase tracking-widest">
+                      <span className="text-muted-foreground opacity-60">Uso Consolidado</span>
+                      <span className={cn(
+                        globalProgressPercent >= 100 ? "text-rose-500" :
+                          globalProgressPercent >= 75 ? "text-amber-500" :
+                            "text-emerald-500"
+                      )}>
+                        {Math.round(globalProgressPercent)}%
+                      </span>
+                    </div>
+                    <div className="h-4 w-full bg-muted/50 rounded-full overflow-hidden border border-border/20 p-1">
+                      <motion.div
+                        animate={{ width: `${Math.min(globalProgressPercent, 100)}%` }}
+                        className={cn(
+                          "h-full rounded-full transition-all",
+                          globalProgressPercent > 100 ? "bg-red-800" :
+                            globalProgressPercent >= 75 ? "bg-amber-500" :
+                              "bg-emerald-500"
+                        )}
+                      />
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="flex items-center gap-6 py-2">
+                  <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shrink-0 animate-pulse">
+                    <TrendingUp size={28} />
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="text-lg font-black uppercase tracking-tight">Defina seus Limites</h3>
+                    <p className="text-sm text-muted-foreground font-medium max-w-md leading-tight">
+                      Para uma melhor visualização do seu orçamento mensal, defina limites de gastos nas suas categorias principais abaixo.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      <div className="space-y-12">
+        <section className="space-y-6">
+          <h3 className="text-xs font-black uppercase tracking-[0.3em] text-muted-foreground flex items-center gap-3">
+            <span className="w-12 h-[2px] bg-primary rounded-full" /> Ativas
+          </h3>
+          <div className={cn("grid gap-8", viewMode === 'budget' ? "grid-cols-1" : "grid-cols-1 lg:grid-cols-2")}>
+            {viewMode !== 'budget' && renderCategoryList(sortedActiveCats.filter(c => c.type === 'income'), "Receitas", <ArrowUpCircle size={18} />, "text-emerald-500")}
+            {renderCategoryList(sortedActiveCats.filter(c => c.type === 'expense'), "Despesas", <ArrowDownCircle size={18} />, "text-rose-500")}
+          </div>
+        </section>
+
+        {inactiveCats.length > 0 && (
+          <section className="space-y-6 pt-12 border-t border-dashed border-border/40">
+            <h3 className="text-xs font-black uppercase tracking-[0.3em] text-muted-foreground/40 flex items-center gap-3">
+              <span className="w-12 h-[2px] bg-muted-foreground/20 rounded-full" /> Arquivadas
+            </h3>
+            <div className={cn("grid gap-8", viewMode === 'budget' ? "grid-cols-1" : "grid-cols-1 lg:grid-cols-2")}>
+              {viewMode !== 'budget' && renderCategoryList(sortedInactiveCats.filter(c => c.type === 'income'), "Receitas (Inat.)", <ArrowUpCircle size={18} />, "text-emerald-500/40", true)}
+              {renderCategoryList(sortedInactiveCats.filter(c => c.type === 'expense'), "Despesas (Inat.)", <ArrowDownCircle size={18} />, "text-rose-500/40", true)}
+            </div>
+          </section>
+        )}
+      </div>
+
+      <CategoryModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSave={handleSaveCategory}
+        editingCategory={editingCategory}
+        parentId={parentIdForNew}
+        parentType={parentIdForNew ? categories.find(c => c.id === parentIdForNew)?.type : editingCategory?.parentId ? categories.find(c => c.id === editingCategory.parentId)?.type : undefined}
+        parentColor={parentIdForNew ? categories.find(c => c.id === parentIdForNew)?.color : editingCategory?.parentId ? categories.find(c => c.id === editingCategory.parentId)?.color : undefined}
+      />
+
+      {/* MODAL: Transações da Categoria */}
+      <AnimatePresence>
+        {viewingTransactionsId && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-0 md:p-4">
+            <motion.div
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => setViewingTransactionsId(null)}
+              className="absolute inset-0 bg-black/80 backdrop-blur-md"
+            />
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
+              className="relative bg-card w-full h-full md:max-w-5xl md:max-h-[90vh] md:rounded-[2.5rem] shadow-2xl border border-border flex flex-col overflow-hidden"
+            >
+              <div className="p-8 border-b border-border flex flex-col md:flex-row md:items-center justify-between bg-card shrink-0 gap-4">
+                <div className="flex items-center gap-4">
+                  <button
+                    onClick={() => {
+                      const catId = viewingTransactionsId;
+                      setViewingTransactionsId(null);
+                      if (catId) {
+                        const cat = categories.find(c => c.id === catId);
+                        if (cat) setCategoryForAction(cat);
+                      }
+                    }}
+                    className="p-2 hover:bg-muted rounded-xl transition-all"
+                  >
+                    <ChevronLeft size={24} />
+                  </button>
+                  <div className="flex flex-col">
+                    <h2 className="text-2xl font-black uppercase tracking-tighter">Histórico de Lançamentos</h2>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-60">
+                      {categories.find(c => c.id === viewingTransactionsId)?.name}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <AnimatePresence>
+                    {selectedTxIds.length > 0 && (
+                      <motion.div
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: 20 }}
+                        className="flex items-center gap-2 bg-primary/10 p-1.5 rounded-2xl border border-primary/20"
+                      >
+                        <span className="text-[10px] font-black uppercase px-3 text-primary">{selectedTxIds.length} selecionados</span>
+                        {(() => {
+                          const hasCreditCard = selectedTxIds.some(id => {
+                            const tx = transactions.find(t => t.id === id);
+                            if (!tx) return false;
+                            const wallet = wallets.find(w => w.id === tx.walletId);
+                            return wallet?.type === 'credit_card';
+                          });
+                          if (hasCreditCard) return null;
+                          return (
+                            <>
+                              <button onClick={() => handleBulkAction('paid')} className="p-2 hover:bg-emerald-500 hover:text-white rounded-xl transition-all text-emerald-600" title="Marcar como Pago"><ThumbsUp size={16} /></button>
+                              <button onClick={() => handleBulkAction('pending')} className="p-2 hover:bg-amber-500 hover:text-white rounded-xl transition-all text-amber-600" title="Marcar como Pendente"><ThumbsDown size={16} /></button>
+                            </>
+                          );
+                        })()}
+                        <button onClick={() => handleBulkAction('delete')} className="p-2 hover:bg-rose-500 hover:text-white rounded-xl transition-all text-rose-600" title="Excluir Selecionados"><Trash2 size={16} /></button>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                  <button onClick={() => setViewingTransactionsId(null)} className="p-4 hover:bg-muted rounded-2xl transition-all shadow-sm"><X size={24} /></button>
+                </div>
+              </div>
+              <div className="flex-1 overflow-y-auto p-4 md:p-8">
+                <div className="hidden md:grid grid-cols-[auto_1fr_auto_auto_auto] gap-6 px-6 py-4 border-b border-border text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-60 items-center">
+                  <StyledCheckbox
+                    checked={(() => {
+                      const cat = categories.find(c => c.id === viewingTransactionsId);
+                      const targetIds = [viewingTransactionsId];
+                      if (cat && !cat.parentId) targetIds.push(...categories.filter(s => s.parentId === viewingTransactionsId).map(s => s.id));
+                      const currentTxs = transactions.filter(t => {
+                        const d = new Date(t.date + 'T12:00:00Z');
+                        const mMatch = filterMonth === 'all' || (d.getUTCMonth() + 1) === filterMonth;
+                        const yMatch = d.getUTCFullYear() === filterYear;
+                        const pMatch = paymentFilter === 'all' || (paymentFilter === 'paid' ? t.isPaid : !t.isPaid);
+                        return targetIds.includes(t.categoryId || '') && mMatch && yMatch && pMatch;
+                      });
+                      return currentTxs.length > 0 && currentTxs.every(t => selectedTxIds.includes(t.id));
+                    })()}
+                    onChange={() => {
+                      const cat = categories.find(c => c.id === viewingTransactionsId);
+                      const targetIds = [viewingTransactionsId];
+                      if (cat && !cat.parentId) targetIds.push(...categories.filter(s => s.parentId === viewingTransactionsId).map(s => s.id));
+                      const currentTxs = transactions.filter(t => {
+                        const d = new Date(t.date + 'T12:00:00Z');
+                        const mMatch = filterMonth === 'all' || (d.getUTCMonth() + 1) === filterMonth;
+                        const yMatch = d.getUTCFullYear() === filterYear;
+                        const pMatch = paymentFilter === 'all' || (paymentFilter === 'paid' ? t.isPaid : !t.isPaid);
+                        return targetIds.includes(t.categoryId || '') && mMatch && yMatch && pMatch;
+                      });
+                      if (selectedTxIds.length === currentTxs.length) setSelectedTxIds([]);
+                      else setSelectedTxIds(currentTxs.map(t => t.id));
+                    }}
+                  />
+                  <span>Descrição / Detalhes</span>
+                  <span className="text-center w-24">Data</span>
+                  <span className="text-center w-24">Status</span>
+                  <span className="text-right w-32">Valor</span>
+                </div>
+                <div className="space-y-3 mt-6">
+                  {(() => {
+                    const relevantTransactions = transactions
+                      .filter(t => {
+                        const cat = categories.find(c => c.id === viewingTransactionsId);
+                        const targetIds = [viewingTransactionsId];
+                        if (cat && !cat.parentId) targetIds.push(...categories.filter(s => s.parentId === viewingTransactionsId).map(s => s.id));
+
+                        const d = new Date(t.date + 'T12:00:00Z');
+                        const mMatch = filterMonth === 'all' || (d.getUTCMonth() + 1) === filterMonth;
+                        const yMatch = d.getUTCFullYear() === filterYear;
+                        const pMatch = paymentFilter === 'all' || (paymentFilter === 'paid' ? t.isPaid : !t.isPaid);
+                        return targetIds.includes(t.categoryId || '') && mMatch && yMatch && pMatch;
+                      })
+                      .sort((a, b) => {
+                        const dateA = a.date || "";
+                        const dateB = b.date || "";
+                        const dateDiff = dateB.localeCompare(dateA);
+                        if (dateDiff !== 0) return dateDiff;
+
+                        const aKey = String(a.created_at || a.id || "");
+                        const bKey = String(b.created_at || b.id || "");
+                        return aKey.localeCompare(bKey);
+                      });
+
+                    if (relevantTransactions.length === 0) {
+                      return (
+                        <div className="py-20 text-center space-y-4 bg-muted/5 rounded-[2.5rem] border border-dashed border-border/50">
+                          <Layers className="mx-auto text-muted-foreground opacity-20" size={48} />
+                          <p className="text-xs font-black uppercase tracking-widest text-muted-foreground opacity-60">Nenhum lançamento encontrado neste período</p>
+                        </div>
+                      );
+                    }
+
+                    return relevantTransactions.map(t => (
+                      <div key={t.id} className={cn(
+                        "group p-4 md:p-5 bg-card hover:bg-muted/10 rounded-2xl md:rounded-3xl border border-border flex flex-col md:grid md:grid-cols-[auto_1fr_auto_auto_auto] items-center gap-4 md:gap-6 transition-all",
+                        selectedTxIds.includes(t.id) && "border-primary bg-primary/5"
+                      )}>
+                        <div className="px-6 py-4">
+                          <StyledCheckbox
+                            checked={selectedTxIds.includes(t.id)}
+                            onChange={() => setSelectedTxIds(prev =>
+                              prev.includes(t.id) ? prev.filter(id => id !== t.id) : [...prev, t.id]
+                            )}
+                          />
+                        </div>
+
+                        <div className="flex items-center gap-4 w-full overflow-hidden">
+                          {(() => {
+                            const w = wallets.find(item => item.id === t.walletId);
+                            return (
+                              <div className="w-10 h-10 rounded-full overflow-hidden flex items-center justify-center bg-white border border-border/10 shrink-0 shadow-lg">
+                                {w?.logoUrl ? (
+                                  <img src={w.logoUrl} alt={w?.name} className="w-full h-full object-cover" />
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: w?.color || '#ccc' }}>
+                                    <span className="text-sm font-black text-white">{w?.name.charAt(0).toUpperCase()}</span>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })()}
+                          <div className="flex flex-col truncate">
+                            {(() => {
+                              const cat = categories.find(c => c.id === t.categoryId);
+                              return (
+                                <div className="flex items-center gap-1.5 flex-wrap overflow-hidden">
+                                  <span className="font-bold text-[11px] uppercase tracking-tight truncate max-w-[200px]">{t.description}</span>
+                                  <span className="text-muted-foreground text-[10px]">/</span>
+                                  <span className="text-muted-foreground text-[10px] font-medium uppercase tracking-widest">{cat?.name || 'Geral'}</span>
+                                </div>
+                              );
+                            })()}
+                            <span className="text-[9px] text-muted-foreground font-black uppercase tracking-widest mt-1.5 opacity-60">
+                              {wallets.find(w => w.id === t.walletId)?.name || 'Carteira Padrão'}
+                            </span>
+                            {t.groupId && t.type === 'expense' && (
+                              <div className={cn(
+                                "mt-2 px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-tighter w-fit border",
+                                t.necessity === 'necessary'
+                                  ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
+                                  : "bg-amber-500/10 text-amber-500 border-amber-500/20"
+                              )}>
+                                {t.necessity === 'necessary' ? 'Nec. Recorrente' : 'Desnec. Recorrente'}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="hidden md:flex flex-col items-center justify-center w-24">
+                          <span className="text-[10px] font-black uppercase tracking-tighter mb-1">{formatDate(t.date)}</span>
+                          {t.isPaid && t.paidDate && wallets.find(w => w.id === t.walletId)?.type !== 'credit_card' && (
+                            <span className="text-[8px] font-black uppercase tracking-widest text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full mt-1">
+                              Pago: {new Date(t.paidDate + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+                            </span>
+                          )}
+                          {t.isContinuous && (
+                            <span className="text-[8px] font-black uppercase tracking-widest text-slate-500 bg-slate-500/10 px-2 py-0.5 rounded-full mt-1 flex items-center gap-1">
+                              <RefreshCw size={7} /> Ciclo
+                            </span>
+                          )}
+                          {(() => {
+                            const wallet = wallets.find(w => w.id === t.walletId);
+                            if (wallet?.type === 'credit_card' && t.invoiceMonth && t.invoiceYear) {
+                              return (
+                                <span className={cn(
+                                  "text-[8px] font-black uppercase tracking-widest text-primary bg-primary/10 px-2 py-0.5 rounded-full",
+                                  t.isPaid && t.paidDate && "mt-1"
+                                )}>
+                                  Fatura {MONTH_NAMES[t.invoiceMonth - 1].substring(0, 3)}/{t.invoiceYear.toString().slice(-2)}
+                                </span>
+                              );
+                            }
+                            return null;
+                          })()}
+                        </div>
+
+                        <div className="flex items-center justify-center gap-2">
+                          {(() => {
+                            const wallet = wallets.find(w => w.id === t.walletId);
+                            if (wallet?.type === 'credit_card') return null;
+                            return (
+                              <>
+                                <button
+                                  onClick={() => handleToggleTxStatus(t)}
+                                  className={cn(
+                                    "p-2 rounded-xl transition-all",
+                                    t.isPaid ? "bg-emerald-500/10 text-emerald-500" : "text-muted-foreground hover:bg-muted"
+                                  )}
+                                  title="Marcar como Pago"
+                                >
+                                  <ThumbsUp size={16} />
+                                </button>
+                                <button
+                                  onClick={() => handleToggleTxStatus(t)}
+                                  className={cn(
+                                    "p-2 rounded-xl transition-all",
+                                    !t.isPaid ? "bg-amber-500/10 text-amber-500" : "text-muted-foreground hover:bg-muted"
+                                  )}
+                                  title="Marcar como Pendente"
+                                >
+                                  <ThumbsDown size={16} />
+                                </button>
+                              </>
+                            );
+                          })()}
+                        </div>
+
+                        <div className="flex items-center justify-between md:justify-end gap-6 w-full md:w-40">
+                          <span className={cn("font-black text-base tracking-tighter", t.type === 'income' ? "text-emerald-500" : "text-rose-500")}>
+                            {formatCurrency(t.amount)}
+                          </span>
+                          <div className="flex gap-1">
+                            <button onClick={() => handleEditTransaction(t)} className="p-2 text-muted-foreground hover:text-blue-500 hover:bg-blue-500/5 rounded-lg transition-all"><Edit size={16} /></button>
+                            <button onClick={() => handleDeleteTx(t.id)} className="p-2 text-muted-foreground hover:text-rose-500 hover:bg-rose-500/5 rounded-lg transition-all"><Trash2 size={16} /></button>
+                          </div>
+                        </div>
+                      </div>
+                    ));
+                  })()}
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      <TransactionModal
+        isOpen={!!editingTransaction}
+        onClose={() => setEditingTransaction(null)}
+        editingTransaction={editingTransaction}
+      />
+
+
+      {/* Action Choice Modal */}
+      <AnimatePresence>
+        {categoryForAction && (
+          <div className="fixed inset-0 z-[160] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setCategoryForAction(null)}
+              className="absolute inset-0 bg-black/80 backdrop-blur-md"
+            />
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              className="relative bg-card w-full max-w-md rounded-[2.5rem] shadow-2xl border border-border/50 overflow-hidden"
+            >
+              {/* Header */}
+              <div className="p-8 border-b border-border/40 flex items-center justify-between bg-muted/5">
+                <div className="flex items-center gap-4">
+                  <div
+                    className="w-14 h-14 rounded-full flex items-center justify-center shadow-lg border-2 border-background shrink-0 overflow-hidden"
+                    style={{ backgroundColor: categoryForAction.color }}
+                  >
+                    <IconRenderer 
+                      icon={categoryForAction.icon} 
+                      name={categoryForAction.name} 
+                      size={56} 
+                      simple 
+                      scale={0.65} 
+                      className="text-white" 
+                    />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-black uppercase tracking-tight">{categoryForAction.name}</h2>
+                    <p className="text-[10px] text-muted-foreground font-black uppercase tracking-widest opacity-60">O que deseja fazer?</p>
+                  </div>
+                </div>
+                <button onClick={() => setCategoryForAction(null)} className="p-3 hover:bg-muted rounded-2xl transition-all">
+                  <X size={20} />
+                </button>
+              </div>
+
+              {/* Action List */}
+              <div className="p-4 space-y-2">
+                {[
+                  {
+                    id: 'txs',
+                    label: 'Ver Lançamentos',
+                    description: 'Histórico detalhado de movimentações',
+                    icon: HistoryIcon,
+                    color: 'text-primary',
+                    bg: 'bg-primary/10',
+                    onClick: () => { setViewingTransactionsId(categoryForAction.id); setCategoryForAction(null); }
+                  },
+                  ...(!categoryForAction.parentId ? [{
+                    id: 'subs',
+                    label: 'Ver Subcategorias',
+                    description: 'Gerenciar divisões desta categoria',
+                    icon: Layers,
+                    color: 'text-emerald-500',
+                    bg: 'bg-emerald-500/10',
+                    onClick: () => { toggleExpand(categoryForAction.id); setCategoryForAction(null); }
+                  }] : []),
+                  ...(categoryForAction.type === 'expense' && !categoryForAction.parentId ? [{
+                    id: 'budget',
+                    label: 'Editar Meta Mensal',
+                    description: 'Alterar limite de gastos planejado',
+                    icon: TrendingUp,
+                    color: 'text-blue-500',
+                    bg: 'bg-blue-500/10',
+                    onClick: () => { handleOpenModal(undefined, categoryForAction); setCategoryForAction(null); }
+                  }] : []),
+                  {
+                    id: 'edit',
+                    label: 'Editar Dados',
+                    description: 'Alterar nome, ícone ou cor principal',
+                    icon: Edit,
+                    color: 'text-muted-foreground',
+                    bg: 'bg-muted',
+                    onClick: () => { handleOpenModal(undefined, categoryForAction); setCategoryForAction(null); }
+                  }
+                ].map((action) => (
+                  <button
+                    key={action.id}
+                    onClick={action.onClick}
+                    className="w-full group flex items-center justify-between p-4 rounded-3xl hover:bg-muted/50 transition-all border border-transparent hover:border-border/40 text-left"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center transition-transform group-hover:scale-110", action.bg, action.color)}>
+                        <action.icon size={22} />
+                      </div>
+                      <div>
+                        <span className="block font-black text-sm uppercase tracking-tight">{action.label}</span>
+                        <span className="text-[10px] text-muted-foreground font-medium">{action.description}</span>
+                      </div>
+                    </div>
+                    <ChevronRight size={18} className="text-muted-foreground opacity-20 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
+                  </button>
+                ))}
+              </div>
+
+              <div className="p-6 bg-muted/5 border-t border-border/40">
+                <button
+                  onClick={() => setCategoryForAction(null)}
+                  className="w-full py-4 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground hover:text-foreground transition-all"
+                >
+                  Fechar
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+      {editingRefund && (
+        <RefundEditModal
+          isOpen={!!editingRefund}
+          onClose={() => setEditingRefund(null)}
+          transaction={editingRefund}
+          onSave={updateTransaction}
+          wallets={wallets}
+          categories={categories}
+        />
+      )}
+    </div>
+  );
+};
