@@ -57,3 +57,23 @@ Solum Financeiro é uma plataforma robusta de gestão financeira pessoal e empre
 ---
 
 Este projeto utiliza **Vite**, **React**, **Tailwind CSS** e **Framer Motion** para animações fluidas e design premium.
+
+## 🚀 Deploy na Vercel
+
+Este projeto está configurado para ser hospedado na Vercel com suporte completo a Single Page Application (SPA).
+
+### Variáveis de Ambiente Necessárias
+
+Para que o projeto funcione após o deploy, você deve configurar as seguintes variáveis no painel da Vercel (**Settings > Environment Variables**):
+
+| Variável | Valor Exemplo |
+| :--- | :--- |
+| `VITE_SUPABASE_URL` | `https://sua-url.supabase.co` |
+| `VITE_SUPABASE_ANON_KEY` | `seu-anon-key-aqui` |
+
+### Como fazer o deploy
+
+1.  Crie um repositório no GitHub acompanhando esta pasta.
+2.  Importe o repositório na Vercel.
+3.  Adicione as variáveis de ambiente citadas acima.
+4.  O build será automático usando `npm run build` e o diretório de saída será `dist`.

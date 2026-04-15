@@ -200,3 +200,38 @@ export function getAvailableYears(transactions: Transaction[]) {
   
   return Array.from(years).sort((a, b) => b - a);
 }
+
+export function formatCNPJ(val: string) {
+  const digits = val.replace(/\D/g, '').slice(0, 14);
+  return digits
+    .replace(/^(\d{2})(\d)/, '$1.$2')
+    .replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3')
+    .replace(/\.(\d{3})(\d)/, '.$1/$2')
+    .replace(/(\d{4})(\d)/, '$1-$2');
+}
+
+export function validateCNPJ(cnpj: string): boolean {
+  const stripped = cnpj.replace(/\D/g, '');
+
+  if (stripped.length !== 14) return false;
+
+  // Check for repetitive digits
+  if (/^(\d)\1+$/.test(stripped)) return false;
+
+  // Validation logic
+  const calc = (slice: string) => {
+    let weight = slice.length - 7;
+    let sum = 0;
+    for (let i = 0; i < slice.length; i++) {
+      sum += parseInt(slice[i]) * weight--;
+      if (weight < 2) weight = 9;
+    }
+    const mod = sum % 11;
+    return mod < 2 ? 0 : 11 - mod;
+  };
+
+  const digit1 = calc(stripped.substring(0, 12));
+  const digit2 = calc(stripped.substring(0, 12) + digit1);
+
+  return stripped.endsWith(digit1.toString() + digit2.toString());
+}

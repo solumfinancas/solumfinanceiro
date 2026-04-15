@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { User, Building2, Rocket, ArrowRight, X } from 'lucide-react';
-import { cn } from '../lib/utils';
+import { cn, formatCNPJ, validateCNPJ } from '../lib/utils';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useFinance } from '../FinanceContext';
@@ -22,10 +22,17 @@ export const SpaceActivationModal: React.FC<SpaceActivationModalProps> = ({
   const { user } = useAuth();
   const { seedCategories } = useFinance();
   const [isActivating, setIsActivating] = useState(false);
+  const [cnpj, setCnpj] = useState('');
   const [seedOption, setSeedOption] = useState<'yes' | 'no'>(spaceType === 'personal' ? 'yes' : 'no');
 
   const handleActivate = async () => {
     if (!user) return;
+
+    if (spaceType === 'business' && cnpj && !validateCNPJ(cnpj)) {
+      alert('CNPJ Inválido. Por favor, verifique ou deixe em branco.');
+      return;
+    }
+
     setIsActivating(true);
     try {
       // 1. Semear categorias se solicitado
@@ -40,6 +47,7 @@ export const SpaceActivationModal: React.FC<SpaceActivationModalProps> = ({
           data: {
             ...user.user_metadata,
             initialized_spaces: [...currentInitialized, spaceType],
+            business_cnpj: spaceType === 'business' ? cnpj : user.user_metadata?.business_cnpj,
             last_activation: new Date().toISOString()
           }
         });
@@ -146,6 +154,24 @@ export const SpaceActivationModal: React.FC<SpaceActivationModalProps> = ({
                 </div>
              )}
           </div>
+
+          {isBusiness && (
+            <div className="mb-6 space-y-2">
+              <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground block text-center">
+                CNPJ da Empresa (Opcional)
+              </label>
+              <div className="relative">
+                <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground/50" size={16} />
+                <input 
+                  type="text" 
+                  placeholder="00.000.000/0000-00"
+                  value={cnpj}
+                  onChange={(e) => setCnpj(formatCNPJ(e.target.value))}
+                  className="w-full pl-12 pr-4 py-4 bg-muted border border-border/50 rounded-2xl text-[10px] font-bold outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+                />
+              </div>
+            </div>
+           )}
 
           <button 
             onClick={handleActivate}

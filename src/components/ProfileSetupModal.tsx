@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useModal } from '../contexts/ModalContext';
 import { User, Phone, Building2, Check, ArrowRight } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { cn } from '../lib/utils';
+import { cn, formatCNPJ, validateCNPJ } from '../lib/utils';
 import { useAuth } from '../contexts/AuthContext';
 import { useFinance } from '../FinanceContext';
 
@@ -21,6 +21,7 @@ export const ProfileSetupModal: React.FC<ProfileSetupModalProps> = ({ isOpen, on
   const [phone, setPhone] = useState('');
   const [gender, setGender] = useState<'male' | 'female'>('male');
   const [space, setSpace] = useState<'personal' | 'business'>('personal');
+  const [cnpj, setCnpj] = useState('');
   const [seedOption, setSeedOption] = useState<'yes' | 'no'>('yes');
   const [isSaving, setIsSaving] = useState(false);
 
@@ -30,6 +31,7 @@ export const ProfileSetupModal: React.FC<ProfileSetupModalProps> = ({ isOpen, on
       if (user.user_metadata.full_name) setName(user.user_metadata.full_name);
       if (user.user_metadata.phone) setPhone(user.user_metadata.phone);
       if (user.user_metadata.gender) setGender(user.user_metadata.gender);
+      if (user.user_metadata.business_cnpj) setCnpj(user.user_metadata.business_cnpj);
     }
   }, [user, isOpen]);
 
@@ -55,6 +57,11 @@ export const ProfileSetupModal: React.FC<ProfileSetupModalProps> = ({ isOpen, on
       return;
     }
 
+    if (space === 'business' && cnpj && !validateCNPJ(cnpj)) {
+      showAlert('CNPJ Inválido', 'O CNPJ informado não é válido. Por favor, verifique ou deixe em branco.', 'warning');
+      return;
+    }
+
      setIsSaving(true);
      try {
        // 1. Semear categorias se pessoal e solicitado
@@ -71,6 +78,7 @@ export const ProfileSetupModal: React.FC<ProfileSetupModalProps> = ({ isOpen, on
            phone: phone,
            gender: gender,
            primary_space: space,
+           business_cnpj: space === 'business' ? cnpj : user?.user_metadata?.business_cnpj,
            initialized_spaces: [space],
            setup_completed: true,
            last_update: new Date().toISOString()
@@ -256,6 +264,31 @@ export const ProfileSetupModal: React.FC<ProfileSetupModalProps> = ({ isOpen, on
                         >
                           Não
                         </button>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+
+                {space === 'business' && (
+                  <motion.div 
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="pt-4 space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-4 block text-center">
+                        Identificação da Empresa (Opcional)
+                      </label>
+                      <div className="relative">
+                        <Building2 className="absolute left-6 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
+                        <input 
+                          type="text" 
+                          placeholder="00.000.000/0000-00"
+                          value={cnpj}
+                          onChange={(e) => setCnpj(formatCNPJ(e.target.value))}
+                          className="w-full pl-14 pr-8 py-5 bg-muted/30 border border-border/50 rounded-[2rem] text-sm font-bold focus:ring-4 focus:ring-primary/10 outline-none transition-all"
+                        />
                       </div>
                     </div>
                   </motion.div>

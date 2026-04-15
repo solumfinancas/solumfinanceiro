@@ -14,10 +14,11 @@ import {
   Bell,
   Palette,
   Briefcase,
-  AlertTriangle
+  AlertTriangle,
+  Info
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { cn } from '../lib/utils';
+import { cn, formatCNPJ, validateCNPJ } from '../lib/utils';
 import { useAuth } from '../contexts/AuthContext';
 import { useFinance } from '../FinanceContext';
 import { SpaceActivationModal } from './SpaceActivationModal';
@@ -29,6 +30,7 @@ export const Profile: React.FC = () => {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [gender, setGender] = useState<'male' | 'female'>('male');
+  const [cnpj, setCnpj] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [activationModal, setActivationModal] = useState<{ isOpen: boolean; space: 'personal' | 'business' | null }>({
@@ -42,8 +44,10 @@ export const Profile: React.FC = () => {
       const currentName = user.user_metadata[spaceNameKey] || user.user_metadata.full_name || '';
       setName(currentName);
       
+      
       if (user.user_metadata.phone) setPhone(user.user_metadata.phone);
       if (user.user_metadata.gender) setGender(user.user_metadata.gender);
+      if (user.user_metadata.business_cnpj) setCnpj(user.user_metadata.business_cnpj);
     }
   }, [user, activeSpace]);
 
@@ -73,10 +77,18 @@ export const Profile: React.FC = () => {
       const currentStoredName = user?.user_metadata?.[spaceNameKey] || user?.user_metadata?.full_name || '';
       const currentStoredPhone = user?.user_metadata?.phone || '';
       const currentStoredGender = user?.user_metadata?.gender || 'male';
+      const currentStoredCNPJ = user?.user_metadata?.business_cnpj || '';
+
+      if (activeSpace === 'business' && cnpj && !validateCNPJ(cnpj)) {
+        showAlert('CNPJ Inválido', 'O CNPJ informado não é válido. Por favor, verifique.', 'warning');
+        setIsSaving(false);
+        return;
+      }
 
       const hasChanged = name !== currentStoredName || 
                          phone !== currentStoredPhone || 
-                         gender !== currentStoredGender;
+                         gender !== currentStoredGender ||
+                         cnpj !== currentStoredCNPJ;
 
       if (!hasChanged) {
         showAlert('Informação', 'Nenhuma alteração foi detectada nas suas informações.', 'info');
@@ -91,6 +103,7 @@ export const Profile: React.FC = () => {
           full_name: name, // Fallback e legado
           phone: phone,
           gender: gender,
+          business_cnpj: activeSpace === 'business' ? cnpj : user?.user_metadata?.business_cnpj,
           last_update: new Date().toISOString()
         }
       });
@@ -135,6 +148,11 @@ export const Profile: React.FC = () => {
               <span className="flex items-center gap-2 text-[10px] font-bold text-muted-foreground uppercase bg-muted/50 px-3 py-1.5 rounded-full border border-border/50">
                 <ShieldCheck size={12} className="text-emerald-500" /> Verificado
               </span>
+              {activeSpace === 'business' && cnpj && (
+                <span className="flex items-center gap-2 text-[10px] font-bold text-muted-foreground uppercase bg-muted/50 px-3 py-1.5 rounded-full border border-border/50">
+                  <Building2 size={12} className="text-primary" /> CNPJ: {cnpj}
+                </span>
+              )}
             </div>
           </div>
 
@@ -217,6 +235,28 @@ export const Profile: React.FC = () => {
                   </button>
                 </div>
               </div>
+
+              {activeSpace === 'business' && (
+                <div className="col-span-1 md:col-span-2 space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-4">CNPJ da Empresa (Opcional)</label>
+                  <div className="relative">
+                    <Building2 className="absolute left-6 top-1/2 -translate-y-1/2 text-muted-foreground/40" size={18} />
+                    <input 
+                      type="text" 
+                      value={cnpj}
+                      onChange={(e) => setCnpj(formatCNPJ(e.target.value))}
+                      className="w-full pl-14 pr-8 py-5 bg-muted/20 border border-border/50 rounded-[1.8rem] text-sm font-bold focus:ring-4 focus:ring-primary/10 outline-none transition-all"
+                      placeholder="00.000.000/0000-00"
+                    />
+                  </div>
+                  <div className="flex items-start gap-2 ml-4 mt-2">
+                    <Info size={12} className="text-muted-foreground mt-0.5" />
+                    <p className="text-[9px] text-muted-foreground font-medium uppercase tracking-wider">
+                      O CNPJ ajuda na organização das obrigações fiscais da sua empresa.
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
