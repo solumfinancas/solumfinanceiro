@@ -13,6 +13,7 @@ import { Category, Transaction } from '../types';
 import { CategoryModal } from './CategoryModal';
 import { TransactionModal } from './TransactionModal';
 import { RefundEditModal } from './RefundEditModal';
+import { FloatingSearchFAB } from './Transactions';
 import { CustomSelect } from './ui/CustomSelect';
 import { IconRenderer } from './ui/IconRenderer';
 
@@ -75,6 +76,31 @@ export const Categories: React.FC = () => {
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [editingRefund, setEditingRefund] = useState<Transaction | null>(null);
   const [selectedTxIds, setSelectedTxIds] = useState<string[]>([]);
+  const [showSearchFAB, setShowSearchFAB] = useState(false);
+
+  useEffect(() => {
+    const searchInput = document.getElementById('search-input-categories');
+    if (!searchInput) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setShowSearchFAB(!entry.isIntersecting && entry.boundingClientRect.top < 0);
+      },
+      { threshold: 0 }
+    );
+
+    observer.observe(searchInput);
+    return () => observer.disconnect();
+  }, [searchTerm]);
+
+  const scrollToSearch = () => {
+    const searchInput = document.getElementById('search-input-categories');
+    if (searchInput) {
+      searchInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setTimeout(() => searchInput.focus(), 500);
+    }
+  };
+
 
   // Scroll Lock
   useEffect(() => {
@@ -549,7 +575,7 @@ export const Categories: React.FC = () => {
                                 {formatCurrency(getCategoryCommitted(sub.id))}
                               </span>
                             </div>
-                            {sub.limit && (
+                            {sub.limit > 0 && (
                               <div className="flex flex-col items-end border-l border-border/10 pl-4">
                                 <span className="text-[7px] font-black text-muted-foreground uppercase tracking-widest opacity-40">Limite Real</span>
                                 <span className="text-[10px] font-black text-emerald-500">
@@ -638,6 +664,19 @@ export const Categories: React.FC = () => {
       </div>
 
       <div className="bg-card/30 backdrop-blur-md p-4 rounded-[2rem] border border-border shadow-sm flex flex-wrap items-center gap-6">
+        {/* Search Field */}
+        <div className="relative flex-1 min-w-[200px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground opacity-40" size={18} />
+          <input 
+            id="search-input-categories"
+            type="text" 
+            placeholder="Pesquisar categoria ou subcategoria..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-10 pr-4 py-2.5 bg-muted/20 border border-border/30 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all text-sm font-medium"
+          />
+        </div>
+
         {/* Date Filters Group */}
         <div className="flex items-center gap-4 bg-muted/40 p-3 rounded-2xl border border-border/20">
           <div className="flex items-center gap-2 pl-1">
@@ -1239,6 +1278,8 @@ export const Categories: React.FC = () => {
           categories={categories}
         />
       )}
+
+      <FloatingSearchFAB show={showSearchFAB} onAction={scrollToSearch} />
     </div>
   );
 };

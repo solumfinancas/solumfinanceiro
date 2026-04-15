@@ -8,6 +8,7 @@ import { IconRenderer } from './ui/IconRenderer';
 import { formatCurrency, cn, getInvoicePeriod, getInvoiceAmount, getOpenInvoicePeriod, formatDate, getAvailableYears } from '../lib/utils';
 import { motion, AnimatePresence, Reorder, useDragControls } from 'framer-motion';
 import { Wallet, Transaction, TransactionType } from '../types';
+import { FloatingSearchFAB } from './Transactions';
 import { TransactionModal } from './TransactionModal';
 import { RefundEditModal } from './RefundEditModal';
 import { 
@@ -84,6 +85,31 @@ export const Wallets: React.FC = () => {
   // Reorder State
   const [orderedCards, setOrderedCards] = useState<string[]>([]);
   const [orderedAccounts, setOrderedAccounts] = useState<string[]>([]);
+  const [showSearchFAB, setShowSearchFAB] = useState(false);
+
+  useEffect(() => {
+    const searchInput = document.getElementById('search-input-wallets');
+    if (!searchInput) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setShowSearchFAB(!entry.isIntersecting && entry.boundingClientRect.top < 0);
+      },
+      { threshold: 0 }
+    );
+
+    observer.observe(searchInput);
+    return () => observer.disconnect();
+  }, [searchTerm]);
+
+  const scrollToSearch = () => {
+    const searchInput = document.getElementById('search-input-wallets');
+    if (searchInput) {
+      searchInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setTimeout(() => searchInput.focus(), 500);
+    }
+  };
+
 
   // Load and Sync order
   useEffect(() => {
@@ -316,7 +342,12 @@ export const Wallets: React.FC = () => {
 
       if (activeTxTypeFilter !== 'all') {
         if (activeTxTypeFilter === 'invoice_payment') {
-          if (!t.description.toLowerCase().includes('pagamento de fatura')) return false;
+          const isPayer = (t.description?.toLowerCase() || '').includes('pagamento de fatura');
+          const isRefunder = t.type === 'income' && viewingWallet.type === 'credit_card';
+          if (!isPayer && !isRefunder) return false;
+        } else if (activeTxTypeFilter === 'refund') {
+          const isRefunder = t.type === 'income' && viewingWallet.type === 'credit_card';
+          if (!isRefunder) return false;
         } else if (t.type !== activeTxTypeFilter) {
           return false;
         }
@@ -421,6 +452,7 @@ export const Wallets: React.FC = () => {
           <div className="relative group">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" size={18} />
             <input 
+              id="search-input-wallets"
               type="text" 
               placeholder="Pesquisar carteira..."
               className="pl-12 pr-6 py-3 bg-muted/50 border-none rounded-2xl w-full sm:w-[300px] text-sm font-medium focus:ring-2 focus:ring-primary/20 transition-all"
@@ -824,7 +856,8 @@ export const Wallets: React.FC = () => {
                             { id: 'all', name: 'Todos', icon: 'Layers', color: '#94a3b8' },
                             { id: 'expense', name: 'Despesas', icon: 'TrendingDown', color: '#f43f5e' },
                             { id: 'planned', name: 'Planejados', icon: 'CalendarClock', color: '#8b5cf6' },
-                            { id: 'invoice_payment', name: 'Pagamento de Fatura', icon: 'ArrowUpCircle', color: '#10b981' }
+                            { id: 'invoice_payment', name: 'Pagamento de Fatura', icon: 'ArrowUpCircle', color: '#ec4899' },
+                            { id: 'refund', name: 'Estorno', icon: 'RefreshCw', color: '#10b981' }
                           ] : [
                             { id: 'all', name: 'Todos', icon: 'Layers', color: '#94a3b8' },
                             { id: 'income', name: 'Receitas', icon: 'TrendingUp', color: '#10b981' },
@@ -955,7 +988,11 @@ export const Wallets: React.FC = () => {
                                       >
                                           <div className="flex items-center gap-4">
                                              <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center shrink-0">
-                                                <IconRenderer icon={category?.icon || 'wallet'} color={category?.color} size={20} />
+                                                {(() => {
+                                                  const parentCategory = category?.parentId ? (typeof category.parentId === 'object' ? category.parentId : categories.find(p => p.id === category.parentId)) : null;
+                                                  const icon = parentCategory?.icon || category?.icon || 'wallet';
+                                                  return <IconRenderer icon={icon} color={category?.color} size={20} />;
+                                                })()}
                                              </div>
                                              <div>
                                                 <div className="flex items-center gap-2 mb-0.5">
@@ -963,6 +1000,11 @@ export const Wallets: React.FC = () => {
                                                   {/* Type Badge */}
                                                   {(() => {
                                                     const isPayment = (t.description?.toLowerCase() || '').includes('pagamento de fatura');
+                                                    const isRefund = t.type === 'income' && viewingWallet?.type === 'credit_card';
+
+                                                    if (isRefund) {
+                                                      return <span className="text-[7px] font-black bg-pink-500/10 text-pink-500 px-1.5 py-0.5 rounded tracking-widest border border-pink-500/20 uppercase">FATURA</span>;
+                                                    }
                                                     if (isPayment) return <span className="text-[7px] font-black bg-emerald-500/10 text-emerald-500 px-1.5 py-0.5 rounded tracking-widest border border-emerald-500/20 uppercase">Pagamento</span>;
                                                     if (t.type === 'planned') return <span className="text-[7px] font-black bg-violet-500/10 text-violet-500 px-1.5 py-0.5 rounded tracking-widest border border-violet-500/20 uppercase">Planejado</span>;
                                                     if (t.type === 'expense') return <span className="text-[7px] font-black bg-rose-500/10 text-rose-500 px-1.5 py-0.5 rounded tracking-widest border border-rose-500/20 uppercase">Despesa</span>;
@@ -1247,6 +1289,7 @@ export const Wallets: React.FC = () => {
         />
       )}
 
+      <FloatingSearchFAB show={showSearchFAB} onAction={scrollToSearch} />
     </div>
   );
 };

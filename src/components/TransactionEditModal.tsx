@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, ThumbsUp, ThumbsDown } from 'lucide-react';
+import { X, ThumbsUp, ThumbsDown, Check, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Transaction, Wallet, Category } from '../types';
 import { cn, getInvoicePeriod } from '../lib/utils';
@@ -282,6 +282,49 @@ export const TransactionEditModal: React.FC<TransactionEditModalProps> = ({
                 onChange={val => setEditingTx({...editingTx, categoryId: val})}
                 placeholder="Selecionar Categoria"
               />
+            </div>
+          )}
+
+          {editingTx.type === 'expense' && editingTx.groupId && (
+            <div className="space-y-2 mt-4">
+              <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Classificação</label>
+              <div className="flex gap-4 p-1 bg-muted/30 rounded-2xl border border-border/50">
+                <button
+                  type="button"
+                  onClick={() => setEditingTx({...editingTx, necessity: 'necessary'})}
+                  className={cn(
+                    "flex-1 flex flex-col items-center justify-center gap-1 py-4 rounded-xl transition-all",
+                    editingTx.necessity === 'necessary' ? "bg-primary text-white shadow-lg shadow-primary/20 scale-[1.02]" : "text-muted-foreground hover:bg-muted"
+                  )}
+                >
+                  <div className="flex items-center gap-2">
+                    <Check size={14} />
+                    <span className="text-[10px] font-black uppercase tracking-widest">Necessário</span>
+                  </div>
+                  <span className={cn(
+                    "text-[8px] font-bold uppercase opacity-60 leading-tight px-2 text-center",
+                    editingTx.necessity === 'necessary' ? "text-white" : "text-muted-foreground"
+                  )}>Essencial. Não pode ser guardado para comprar (Ex: Aluguel, Internet).</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setEditingTx({...editingTx, necessity: 'unnecessary'})}
+                  className={cn(
+                    "flex-1 flex flex-col items-center justify-center gap-1 py-4 rounded-xl transition-all",
+                    editingTx.necessity === 'unnecessary' ? "bg-orange-500 text-white shadow-lg shadow-orange-500/20 scale-[1.02]" : "text-muted-foreground hover:bg-muted"
+                  )}
+                >
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle size={14} />
+                    <span className="text-[10px] font-black uppercase tracking-widest">Desnecessário</span>
+                  </div>
+                  <span className={cn(
+                    "text-[8px] font-bold uppercase opacity-60 leading-tight px-2 text-center",
+                    editingTx.necessity === 'unnecessary' ? "text-white" : "text-muted-foreground"
+                  )}>Variável. Poderia ter sido planejado antes de comprar.</span>
+                </button>
+              </div>
             </div>
           )}
 

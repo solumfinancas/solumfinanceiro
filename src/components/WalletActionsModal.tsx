@@ -49,6 +49,9 @@ export const WalletActionsModal: React.FC<WalletActionsModalProps> = ({
   const [refundAmount, setRefundAmount] = React.useState<string>('');
   const [refundDate, setRefundDate] = React.useState<string>(new Date().toISOString().split('T')[0]);
   
+  // State for invoice detail filtering
+  const [historyFilter, setHistoryFilter] = React.useState<'all' | 'expense' | 'payment' | 'income'>('all');
+  
   // Reset view when modal closes/opens
   React.useEffect(() => {
     if (!isOpen) {
@@ -716,6 +719,26 @@ export const WalletActionsModal: React.FC<WalletActionsModalProps> = ({
                     return aKey.localeCompare(bKey);
                   });
 
+                  const incomes = transactions.filter(t => {
+                    if (t.walletId !== wallet.id) return false;
+                    if (t.type !== 'income') return false;
+                    
+                    if (t.invoiceMonth && t.invoiceYear) {
+                      return t.invoiceMonth === month && t.invoiceYear === year;
+                    }
+                    const d = new Date(t.date);
+                    return d >= viewingDetailPeriod.start && d <= viewingDetailPeriod.end;
+                  }).sort((a, b) => {
+                    const dateA = a.date || "";
+                    const dateB = b.date || "";
+                    const dateDiff = dateB.localeCompare(dateA);
+                    if (dateDiff !== 0) return dateDiff;
+                    
+                    const aKey = String(a.created_at || a.id || "");
+                    const bKey = String(b.created_at || b.id || "");
+                    return aKey.localeCompare(bKey);
+                  });
+
                   return (
                     <>
                       <div className="bg-card p-6 rounded-[2rem] border border-border/50 shadow-sm space-y-4">
@@ -777,10 +800,33 @@ export const WalletActionsModal: React.FC<WalletActionsModalProps> = ({
                          </div>
                       </div>
 
+                      {/* Filter Bar */}
+                      <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none px-2">
+                         {[
+                           { id: 'all', label: 'Todos', count: payments.length + expenses.length + incomes.length },
+                           { id: 'expense', label: 'Compras', count: expenses.length },
+                           { id: 'payment', label: 'Pagamentos', count: payments.length },
+                           { id: 'income', label: 'Estornos', count: incomes.length }
+                         ].map(f => (
+                           <button
+                             key={f.id}
+                             onClick={() => setHistoryFilter(f.id as any)}
+                             className={cn(
+                               "px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest whitespace-nowrap transition-all border",
+                               historyFilter === f.id 
+                               ? "bg-primary text-primary-foreground border-primary shadow-sm" 
+                               : "bg-muted/30 text-muted-foreground border-border/40 hover:bg-muted/50"
+                             )}
+                           >
+                             {f.label} ({f.count})
+                           </button>
+                         ))}
+                      </div>
+
                       {/* Transactions List */}
                       <div className="space-y-4">
                          {/* Pagamentos Section */}
-                         {payments.length > 0 && (
+                         {(historyFilter === 'all' || historyFilter === 'payment') && payments.length > 0 && (
                            <div className="space-y-3">
                               <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-500 flex items-center gap-2 px-2">
                                  <ArrowRight size={12} /> Pagamentos Realizados ({payments.length})
@@ -850,76 +896,157 @@ export const WalletActionsModal: React.FC<WalletActionsModalProps> = ({
                            </div>
                          )}
 
-                         {/* Gastos Section */}
-                         <div className="space-y-3">
-                            <div className="flex items-center justify-between px-2">
-                               <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground flex items-center gap-2">
-                                  <ArrowRight size={12} /> Compras no Período ({expenses.length})
-                               </h4>
-                               <button 
-                                 onClick={() => onViewTransactions(month, year)}
-                                 className="text-[9px] font-black uppercase text-primary bg-primary/10 px-3 py-1.5 rounded-xl hover:bg-primary/20 transition-all flex items-center gap-1.5"
-                               >
-                                 Ver Lançamentos <ChevronRight size={10} />
-                               </button>
-                            </div>
-                            <div className="space-y-2">
-                               {expenses.map(exp => (
-                                 <div key={exp.id} className="p-4 bg-muted/20 border border-border/40 rounded-2xl flex items-center justify-between">
-                                    <div className="flex items-center gap-3 overflow-hidden">
-                                       <div className={cn(
-                                         "w-8 h-8 rounded-lg flex items-center justify-center shrink-0",
-                                         exp.type === 'planned' ? "bg-violet-500/10 text-violet-500" : "bg-rose-500/10 text-rose-500"
-                                       )}>
-                                          {exp.type === 'planned' ? <CalendarClock size={16} /> : <ArrowDownCircle size={16} />}
-                                       </div>
-                                       <div className="truncate">
-                                          <div className="flex items-center gap-2 mb-1">
-                                             <span className="block text-[11px] font-black uppercase leading-none truncate">{exp.description}</span>
-                                             <span className={cn(
-                                               "text-[7px] font-black uppercase px-1 py-0.5 rounded",
-                                               exp.type === 'planned' ? "bg-violet-500/10 text-violet-500 border border-violet-500/10" : "bg-rose-500/10 text-rose-500 border border-rose-500/10"
-                                             )}>
-                                               {exp.type === 'planned' ? 'Planejado' : 'Despesa'}
-                                             </span>
-                                          </div>
-                                          <span className="text-[9px] font-bold text-muted-foreground uppercase opacity-60">
-                                            {new Date(exp.date).toLocaleDateString('pt-BR')}
-                                          </span>
-                                       </div>
-                                    </div>
-                                     <div className="flex items-center gap-4">
-                                        <div className="text-right whitespace-nowrap">
-                                          <span className="font-black text-sm tracking-tight">{formatCurrency(exp.amount)}</span>
+                         {/* Estornos Section */}
+                         {(historyFilter === 'all' || historyFilter === 'income') && incomes.length > 0 && (
+                           <div className="space-y-3">
+                              <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-sky-500 flex items-center gap-2 px-2">
+                                 <ArrowRight size={12} /> Estornos e Créditos ({incomes.length})
+                              </h4>
+                              <div className="space-y-2">
+                                 {incomes.map(inc => {
+                                   const category = categories.find(c => c.id === inc.categoryId);
+                                   const parentCategory = category?.parentId ? (typeof category.parentId === 'object' ? category.parentId : categories.find(p => p.id === category.parentId)) : null;
+                                   const icon = parentCategory?.icon || category?.icon || 'ArrowUpCircle';
+                                   
+                                   return (
+                                     <div key={inc.id} className="p-4 bg-sky-500/5 border border-sky-500/10 rounded-2xl flex items-center justify-between group">
+                                        <div className="flex items-center gap-3">
+                                           <div className="w-8 h-8 rounded-lg bg-sky-500/10 text-sky-500 flex items-center justify-center shadow-sm">
+                                              <IconRenderer icon={icon} size={16} color={category?.color || '#0ea5e9'} />
+                                           </div>
+                                           <div>
+                                              <div className="flex items-center gap-2 mb-1">
+                                                <span className="block text-[11px] font-black uppercase leading-none">{inc.description}</span>
+                                                <span className="text-[7px] font-black uppercase px-1.5 py-0.5 rounded bg-pink-500/10 text-pink-500 border border-pink-500/20 shadow-sm tracking-widest">FATURA</span>
+                                              </div>
+                                              <span className="text-[9px] font-bold text-muted-foreground uppercase opacity-60">
+                                                {new Date(inc.date).toLocaleDateString('pt-BR')}
+                                              </span>
+                                           </div>
                                         </div>
-                                        <div className="flex items-center gap-1">
-                                          <button 
-                                            onClick={(e) => { e.stopPropagation(); onEditTransaction(exp); }}
-                                            className="p-2 text-muted-foreground hover:text-primary transition-colors"
-                                            title="Editar Lançamento"
-                                          >
-                                             <Edit3 size={16} />
-                                          </button>
-                                          <button 
-                                            onClick={async () => { 
-                                              const confirmed = await showConfirm(
-                                                'Excluir Lançamento',
-                                                'Tem certeza que deseja excluir este lançamento?',
-                                                { variant: 'danger', confirmText: 'Excluir' }
-                                              );
-                                              if (confirmed) deleteTransaction(exp.id); 
-                                            }}
-                                            className="p-2 text-muted-foreground hover:text-rose-500 transition-colors"
-                                            title="Excluir Lançamento"
-                                          >
-                                             <Trash2 size={16} />
-                                          </button>
+                                        <div className="flex items-center gap-4">
+                                           <div className="text-right">
+                                             <span className="font-black text-sm tracking-tight text-sky-500">
+                                               + {formatCurrency(inc.amount)}
+                                             </span>
+                                           </div>
+                                           <button 
+                                              onClick={(e) => { e.stopPropagation(); onEditTransaction(inc); }}
+                                              className="p-2 text-muted-foreground hover:text-primary transition-colors"
+                                              title="Editar Estorno"
+                                            >
+                                               <Edit3 size={16} />
+                                            </button>
+                                            <button 
+                                               onClick={async () => { 
+                                                 const confirmed = await showConfirm(
+                                                   'Excluir Estorno',
+                                                   'Tem certeza que deseja excluir este estorno?',
+                                                   { variant: 'danger', confirmText: 'Excluir' }
+                                                 );
+                                                 if (confirmed) deleteTransaction(inc.id); 
+                                               }}
+                                               className="p-2 text-muted-foreground hover:text-rose-500 transition-colors"
+                                               title="Excluir Estorno"
+                                             >
+                                                <Trash2 size={16} />
+                                             </button>
                                         </div>
                                      </div>
-                                 </div>
-                               ))}
-                            </div>
-                         </div>
+                                   );
+                                 })}
+                              </div>
+                           </div>
+                         )}
+
+                         {/* Gastos Section */}
+                         {(historyFilter === 'all' || historyFilter === 'expense') && expenses.length > 0 && (
+                           <div className="space-y-3">
+                              <div className="flex items-center justify-between px-2">
+                                 <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground flex items-center gap-2">
+                                    <ArrowRight size={12} /> Compras no Período ({expenses.length})
+                                 </h4>
+                                 <button 
+                                   onClick={() => onViewTransactions(month, year)}
+                                   className="text-[9px] font-black uppercase text-primary bg-primary/10 px-3 py-1.5 rounded-xl hover:bg-primary/20 transition-all flex items-center gap-1.5"
+                                 >
+                                   Ver Extrato <ChevronRight size={10} />
+                                 </button>
+                              </div>
+                              <div className="space-y-2">
+                                 {expenses.map(exp => {
+                                   const category = categories.find(c => c.id === exp.categoryId);
+                                   const parentCategory = category?.parentId ? (typeof category.parentId === 'object' ? category.parentId : categories.find(p => p.id === category.parentId)) : null;
+                                   const icon = parentCategory?.icon || category?.icon || (exp.type === 'planned' ? 'CalendarClock' : 'ArrowDownCircle');
+
+                                   return (
+                                     <div key={exp.id} className="p-4 bg-muted/20 border border-border/40 rounded-2xl flex items-center justify-between">
+                                        <div className="flex items-center gap-3 overflow-hidden">
+                                           <div className={cn(
+                                             "w-8 h-8 rounded-lg flex items-center justify-center shrink-0 shadow-sm",
+                                             exp.type === 'planned' ? "bg-violet-500/10 text-violet-500" : "bg-rose-500/10 text-rose-500"
+                                           )}>
+                                              <IconRenderer icon={icon} size={16} color={category?.color} />
+                                           </div>
+                                           <div className="truncate">
+                                              <div className="flex items-center gap-2 mb-1">
+                                                 <span className="block text-[11px] font-black uppercase leading-none truncate">{exp.description}</span>
+                                                 <span className={cn(
+                                                   "text-[7px] font-black uppercase px-1 py-0.5 rounded",
+                                                   exp.type === 'planned' ? "bg-violet-500/10 text-violet-500 border border-violet-500/10" : "bg-rose-500/10 text-rose-500 border border-rose-500/10"
+                                                 )}>
+                                                   {exp.type === 'planned' ? 'Planejado' : 'Despesa'}
+                                                 </span>
+                                              </div>
+                                              <div className="flex items-center gap-1.5">
+                                                <span className="text-[9px] font-bold text-muted-foreground uppercase opacity-60">
+                                                  {new Date(exp.date).toLocaleDateString('pt-BR')}
+                                                </span>
+                                                {category && (
+                                                  <>
+                                                    <span className="text-[8px] text-muted-foreground opacity-30">•</span>
+                                                    <span className="text-[8px] font-black uppercase text-muted-foreground/50 tracking-tighter">
+                                                      {category.name}
+                                                    </span>
+                                                  </>
+                                                )}
+                                              </div>
+                                           </div>
+                                        </div>
+                                         <div className="flex items-center gap-4">
+                                            <div className="text-right whitespace-nowrap">
+                                              <span className="font-black text-sm tracking-tight">{formatCurrency(exp.amount)}</span>
+                                            </div>
+                                            <div className="flex items-center gap-1">
+                                              <button 
+                                                onClick={(e) => { e.stopPropagation(); onEditTransaction(exp); }}
+                                                className="p-2 text-muted-foreground hover:text-primary transition-colors"
+                                                title="Editar Lançamento"
+                                              >
+                                                 <Edit3 size={16} />
+                                              </button>
+                                              <button 
+                                                onClick={async () => { 
+                                                  const confirmed = await showConfirm(
+                                                    'Excluir Lançamento',
+                                                    'Tem certeza que deseja excluir este lançamento?',
+                                                    { variant: 'danger', confirmText: 'Excluir' }
+                                                  );
+                                                  if (confirmed) deleteTransaction(exp.id); 
+                                                }}
+                                                className="p-2 text-muted-foreground hover:text-rose-500 transition-colors"
+                                                title="Excluir Lançamento"
+                                              >
+                                                 <Trash2 size={16} />
+                                              </button>
+                                            </div>
+                                         </div>
+                                     </div>
+                                   );
+                                 })}
+                              </div>
+                           </div>
+                         )}
                       </div>
                     </>
                   );

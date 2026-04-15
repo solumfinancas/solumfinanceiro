@@ -57,6 +57,32 @@ export const Transactions: React.FC<TransactionsProps> = ({
   const [selectedWalletId, setSelectedWalletId] = useState<string>('all');
   const [isFilteringPastPending, setIsFilteringPastPending] = useState(false);
   const [necessityFilter, setNecessityFilter] = useState<'all' | 'necessary' | 'unnecessary' | 'other' | 'planned' | 'invoice'>('all');
+  const [showSearchFAB, setShowSearchFAB] = useState(false);
+
+  useEffect(() => {
+    const searchInput = document.getElementById('search-input-transactions');
+    if (!searchInput) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        // Mostra o FAB apenas se o campo de busca sumir pelo TOPO da tela
+        setShowSearchFAB(!entry.isIntersecting && entry.boundingClientRect.top < 0);
+      },
+      { threshold: 0 }
+    );
+
+    observer.observe(searchInput);
+    return () => observer.disconnect();
+  }, [searchTerm]); // Re-bind se o input renderizar novamente
+
+  const scrollToSearch = () => {
+    const searchInput = document.getElementById('search-input-transactions');
+    if (searchInput) {
+      searchInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setTimeout(() => searchInput.focus(), 500);
+    }
+  };
+
 
   const pastPendingCount = useMemo(() => {
     const now = new Date();
@@ -142,12 +168,14 @@ export const Transactions: React.FC<TransactionsProps> = ({
 
       const matchesWallet = selectedWalletId === 'all' || t.walletId === selectedWalletId || (t.toWalletId && t.toWalletId === selectedWalletId);
 
+      const isRefund = t.type === 'income' && wallet?.type === 'credit_card';
+
       const matchesNecessity = necessityFilter === 'all' || 
-                               (necessityFilter === 'necessary' && !isInvoicePayment && t.type !== 'planned' && t.necessity === 'necessary' && !!t.groupId) ||
-                               (necessityFilter === 'unnecessary' && !isInvoicePayment && t.type !== 'planned' && t.necessity === 'unnecessary' && !!t.groupId) ||
-                               (necessityFilter === 'other' && !isInvoicePayment && t.type !== 'planned' && !t.groupId) ||
+                               (necessityFilter === 'necessary' && !isInvoicePayment && !isRefund && t.type !== 'planned' && t.necessity === 'necessary' && !!t.groupId) ||
+                               (necessityFilter === 'unnecessary' && !isInvoicePayment && !isRefund && t.type !== 'planned' && t.necessity === 'unnecessary' && !!t.groupId) ||
+                               (necessityFilter === 'other' && !isInvoicePayment && !isRefund && t.type !== 'planned' && !t.groupId) ||
                                (necessityFilter === 'planned' && t.type === 'planned') ||
-                               (necessityFilter === 'invoice' && isInvoicePayment);
+                               (necessityFilter === 'invoice' && (isInvoicePayment || isRefund));
 
       if (viewModeContas === 'contas') {
         return matchesFilter && matchesSearch && matchesYear && matchesMonth && matchesStatus && isBankTx && matchesWallet && matchesNecessity;
@@ -290,7 +318,10 @@ export const Transactions: React.FC<TransactionsProps> = ({
           </thead>
           <tbody className="divide-y">
             {list.map((t) => {
-              const isInvoicePayment = t.description.toLowerCase().includes('pagamento de fatura');
+              const isInvoicePayment = (t.description?.toLowerCase() || '').includes('pagamento de fatura');
+              const wallet = wallets.find(w => w.id === t.walletId);
+              const isRefund = t.type === 'income' && wallet?.type === 'credit_card';
+              
               return (
                 <tr 
                   key={t.id} 
@@ -374,9 +405,9 @@ export const Transactions: React.FC<TransactionsProps> = ({
                           Variável
                         </span>
                       )}
-                      {isInvoicePayment && (
+                      {(isInvoicePayment || isRefund) && (
                         <span className="text-[9px] bg-pink-500/10 text-pink-500 px-1.5 py-0.5 rounded uppercase font-black border border-pink-500/20">
-                          Fatura
+                          FATURA
                         </span>
                       )}
                       {showStatusBadge && t.isPaid === false && <span className="text-[9px] bg-amber-500/20 text-amber-500 px-1.5 py-0.5 rounded uppercase font-black border border-amber-500/20">Aguardando {t.type === 'income' ? 'Recebimento' : 'Pagamento'}</span>}
@@ -384,13 +415,14 @@ export const Transactions: React.FC<TransactionsProps> = ({
                   </div>
                 </td>
                 <td className="px-6 py-4 text-sm">
-                  {!['transfer', 'provision', 'planned'].includes(t.type) && !isInvoicePayment ? (
+                  {!['transfer', 'provision'].includes(t.type) && !isInvoicePayment ? (
                     <div className="flex items-center gap-2">
                       {(() => {
                         const category = categories.find(c => c.id === t.categoryId);
                         if (!category) return <span className="text-muted-foreground italic text-[10px] opacity-40">Sem categoria</span>;
 
-                        const icon = category.parentId ? categories.find(p => p.id === category.parentId)?.icon : category.icon;
+                        const parentCategory = category.parentId ? (typeof category.parentId === 'object' ? category.parentId : categories.find(p => p.id === category.parentId)) : null;
+                        const icon = parentCategory?.icon || category.icon;
 
                         return (
                           <div className="flex items-center gap-2">
@@ -402,8 +434,8 @@ export const Transactions: React.FC<TransactionsProps> = ({
                              />
                              {category.parentId ? (
                                <div className="flex flex-col">
-                                 <span className="text-[8px] font-black uppercase text-muted-foreground -mb-0.5">
-                                   {categories.find(p => p.id === category.parentId)?.name}
+                                 <span className="text-[8px] font-black uppercase text-muted-foreground/60 -mb-0.5 tracking-wider">
+                                   {parentCategory?.name}
                                  </span>
                                  <span className="text-xs font-black uppercase tracking-tighter opacity-80">{category.name}</span>
                                </div>
@@ -415,7 +447,16 @@ export const Transactions: React.FC<TransactionsProps> = ({
                       })()}
                     </div>
                   ) : (
-                    <span className="text-muted-foreground italic text-[10px] opacity-40">N/A</span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-foreground block truncate max-w-[200px]" title={t.description}>
+                          {t.description}
+                        </span>
+                        {isRefund && (
+                          <span className="px-2 py-0.5 bg-pink-500/10 text-pink-500 text-[8px] font-black uppercase tracking-widest rounded-full border border-pink-500/20 shadow-sm whitespace-nowrap">
+                            FATURA
+                          </span>
+                        )}
+                      </div>
                   )}
                 </td>
                 <td className="px-6 py-4 text-sm">
@@ -662,6 +703,7 @@ export const Transactions: React.FC<TransactionsProps> = ({
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground opacity-40" size={18} />
           <input 
+            id="search-input-transactions"
             type="text" 
             placeholder="Buscar lançamentos..."
             value={searchTerm}
@@ -945,6 +987,25 @@ export const Transactions: React.FC<TransactionsProps> = ({
           categories={categories}
         />
       )}
+
+      <FloatingSearchFAB show={showSearchFAB} onAction={scrollToSearch} />
     </div>
   );
 };
+
+export const FloatingSearchFAB = ({ show, onAction }: { show: boolean, onAction: () => void }) => (
+  <AnimatePresence>
+    {show && (
+      <motion.button
+        initial={{ opacity: 0, scale: 0.5, y: -20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.5, y: -20 }}
+        onClick={onAction}
+        className="fixed top-24 right-6 lg:top-8 lg:right-8 z-[110] w-12 h-12 bg-primary text-white rounded-full shadow-lg shadow-primary/40 flex items-center justify-center hover:scale-110 active:scale-95 transition-transform"
+        title="Buscar"
+      >
+        <Search size={20} />
+      </motion.button>
+    )}
+  </AnimatePresence>
+);

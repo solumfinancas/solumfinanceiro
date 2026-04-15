@@ -15,24 +15,36 @@ import {
   Palette,
   Briefcase,
   AlertTriangle,
-  Info
+  Info,
+  Mail,
+  Lock,
+  ArrowRight
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { cn, formatCNPJ, validateCNPJ } from '../lib/utils';
 import { useAuth } from '../contexts/AuthContext';
 import { useFinance } from '../FinanceContext';
 import { SpaceActivationModal } from './SpaceActivationModal';
+import { ChangePasswordModal } from './ChangePasswordModal';
 
 export const Profile: React.FC = () => {
   const { user } = useAuth();
   const { activeSpace } = useFinance();
   const { showAlert } = useModal();
-  const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
+  
+  // Estados separados por espaço
+  const [personalName, setPersonalName] = useState('');
+  const [personalPhone, setPersonalPhone] = useState('');
   const [gender, setGender] = useState<'male' | 'female'>('male');
+  
+  const [businessName, setBusinessName] = useState('');
+  const [businessPhone, setBusinessPhone] = useState('');
   const [cnpj, setCnpj] = useState('');
+  
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+  
   const [activationModal, setActivationModal] = useState<{ isOpen: boolean; space: 'personal' | 'business' | null }>({
     isOpen: false,
     space: null
@@ -40,16 +52,17 @@ export const Profile: React.FC = () => {
 
   useEffect(() => {
     if (user?.user_metadata) {
-      const spaceNameKey = activeSpace === 'personal' ? 'personal_name' : 'business_name';
-      const currentName = user.user_metadata[spaceNameKey] || user.user_metadata.full_name || '';
-      setName(currentName);
+      // Carregar dados pessoais
+      setPersonalName(user.user_metadata.personal_name || user.user_metadata.full_name || '');
+      setPersonalPhone(user.user_metadata.personal_phone || user.user_metadata.phone || '');
+      setGender(user.user_metadata.gender || 'male');
       
-      
-      if (user.user_metadata.phone) setPhone(user.user_metadata.phone);
-      if (user.user_metadata.gender) setGender(user.user_metadata.gender);
-      if (user.user_metadata.business_cnpj) setCnpj(user.user_metadata.business_cnpj);
+      // Carregar dados empresariais
+      setBusinessName(user.user_metadata.business_name || '');
+      setBusinessPhone(user.user_metadata.business_phone || '');
+      setCnpj(user.user_metadata.business_cnpj || '');
     }
-  }, [user, activeSpace]);
+  }, [user]);
 
   const formatPhone = (val: string) => {
     const digits = val.replace(/\D/g, '');
@@ -62,7 +75,24 @@ export const Profile: React.FC = () => {
     return val;
   };
 
+  // Cores dinâmicas baseadas no espaço e gênero
+  const isBusiness = activeSpace === 'business';
+  const accentColor = isBusiness 
+    ? 'bg-black' 
+    : (gender === 'female' ? 'bg-pink-500' : 'bg-blue-500');
+  
+  const accentText = isBusiness 
+    ? 'text-black' 
+    : (gender === 'female' ? 'text-pink-500' : 'text-blue-500');
+
+  const accentShadow = isBusiness 
+    ? 'shadow-black/20' 
+    : (gender === 'female' ? 'shadow-pink-500/20' : 'shadow-blue-500/20');
+
   const handleSave = async () => {
+    const name = isBusiness ? businessName : personalName;
+    const phone = isBusiness ? businessPhone : personalPhone;
+
     if (!name || !phone) {
       showAlert('Campos Obrigatórios', 'Por favor, preencha nome e telefone para continuar.', 'warning');
       return;
@@ -71,24 +101,27 @@ export const Profile: React.FC = () => {
     setIsSaving(true);
     setSaveSuccess(false);
     try {
-      const spaceNameKey = activeSpace === 'personal' ? 'personal_name' : 'business_name';
+      const metadata = { ...user?.user_metadata };
       
-      // Verificar se houve mudança real
-      const currentStoredName = user?.user_metadata?.[spaceNameKey] || user?.user_metadata?.full_name || '';
-      const currentStoredPhone = user?.user_metadata?.phone || '';
-      const currentStoredGender = user?.user_metadata?.gender || 'male';
-      const currentStoredCNPJ = user?.user_metadata?.business_cnpj || '';
-
-      if (activeSpace === 'business' && cnpj && !validateCNPJ(cnpj)) {
-        showAlert('CNPJ Inválido', 'O CNPJ informado não é válido. Por favor, verifique.', 'warning');
-        setIsSaving(false);
-        return;
+      if (isBusiness) {
+        if (cnpj && !validateCNPJ(cnpj)) {
+          showAlert('CNPJ Inválido', 'O CNPJ informado não é válido.', 'warning');
+          setIsSaving(false);
+          return;
+        }
+        metadata.business_name = businessName;
+        metadata.business_phone = businessPhone;
+        metadata.business_cnpj = cnpj;
+      } else {
+        metadata.personal_name = personalName;
+        metadata.personal_phone = personalPhone;
+        metadata.full_name = personalName; // Nome principal da conta
+        metadata.phone = personalPhone; // Legado
+        metadata.gender = gender;
       }
 
-      const hasChanged = name !== currentStoredName || 
-                         phone !== currentStoredPhone || 
-                         gender !== currentStoredGender ||
-                         cnpj !== currentStoredCNPJ;
+      // Verificar se houve mudança real comparando com user_metadata atual
+      const hasChanged = JSON.stringify(metadata) !== JSON.stringify(user?.user_metadata);
 
       if (!hasChanged) {
         showAlert('Informação', 'Nenhuma alteração foi detectada nas suas informações.', 'info');
@@ -98,21 +131,22 @@ export const Profile: React.FC = () => {
       
       const { error } = await supabase.auth.updateUser({
         data: {
-          ...user?.user_metadata,
-          [spaceNameKey]: name,
-          full_name: name, // Fallback e legado
-          phone: phone,
-          gender: gender,
-          business_cnpj: activeSpace === 'business' ? cnpj : user?.user_metadata?.business_cnpj,
+          ...metadata,
           last_update: new Date().toISOString()
         }
       });
 
-      if (error) throw error;
+      if (error) {
+        if (error.message.includes('rate limit')) {
+          throw new Error('Muitas solicitações seguidas. Por favor, aguarde 30 segundos e tente novamente.');
+        }
+        throw error;
+      }
+
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (err: any) {
-      showAlert('Erro ao Salvar', 'Não foi possível salvar as alterações: ' + err.message, 'danger');
+      showAlert('Erro ao Salvar', err.message, 'danger');
     } finally {
       setIsSaving(false);
     }
@@ -123,34 +157,39 @@ export const Profile: React.FC = () => {
       {/* Header Section */}
       <div className="relative bg-card rounded-[3rem] p-8 border border-border shadow-sm overflow-hidden min-h-[220px] flex flex-col justify-end">
         <div className={cn(
-          "absolute -top-24 -right-24 w-80 h-80 rounded-full blur-3xl opacity-20",
-          gender === 'female' ? "bg-pink-500" : "bg-blue-500"
+          "absolute -top-24 -right-24 w-80 h-80 rounded-full blur-3xl opacity-20 transition-colors duration-700",
+          accentColor
         )} />
         
         <div className="relative flex flex-col md:flex-row items-center gap-8">
           <div className={cn(
-            "w-32 h-32 rounded-[2.5rem] flex items-center justify-center border-4 border-background shadow-2xl transition-colors duration-500 relative group",
-            gender === 'female' ? "bg-pink-500 text-white" : "bg-blue-500 text-white"
+            "w-32 h-32 rounded-[2.5rem] flex items-center justify-center border-4 border-background shadow-2xl transition-all duration-500 relative group",
+            accentColor,
+            "text-white"
           )}>
-            <User size={64} className="group-hover:scale-110 transition-transform" />
+            {isBusiness ? <Building2 size={64} className="group-hover:scale-110 transition-transform" /> : <User size={64} className="group-hover:scale-110 transition-transform" />}
             <div className="absolute -bottom-2 -right-2 bg-emerald-500 w-8 h-8 rounded-full border-4 border-card flex items-center justify-center">
               <ShieldCheck size={14} className="text-white" />
             </div>
           </div>
           
           <div className="text-center md:text-left space-y-1">
-            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground opacity-60">Meu Perfil</p>
-            <h1 className="text-4xl font-black tracking-tighter uppercase">{name || 'Seu Nome'}</h1>
+            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground opacity-60">
+              {isBusiness ? 'Perfil Empresarial' : 'Meu Perfil Pessoal'}
+            </p>
+            <h1 className="text-4xl font-black tracking-tighter uppercase">
+              {(isBusiness ? businessName : personalName) || 'Seu Nome'}
+            </h1>
             <div className="flex flex-wrap justify-center md:justify-start gap-4 pt-2">
               <span className="flex items-center gap-2 text-[10px] font-bold text-muted-foreground uppercase bg-muted/50 px-3 py-1.5 rounded-full border border-border/50">
-                <Smartphone size={12} className="text-primary" /> {phone || '(00) 00000-0000'}
+                <Smartphone size={12} className={accentText} /> {(isBusiness ? businessPhone : personalPhone) || '(00) 00000-0000'}
               </span>
               <span className="flex items-center gap-2 text-[10px] font-bold text-muted-foreground uppercase bg-muted/50 px-3 py-1.5 rounded-full border border-border/50">
                 <ShieldCheck size={12} className="text-emerald-500" /> Verificado
               </span>
-              {activeSpace === 'business' && cnpj && (
+              {isBusiness && cnpj && (
                 <span className="flex items-center gap-2 text-[10px] font-bold text-muted-foreground uppercase bg-muted/50 px-3 py-1.5 rounded-full border border-border/50">
-                  <Building2 size={12} className="text-primary" /> CNPJ: {cnpj}
+                  <Building2 size={12} className={accentText} /> CNPJ: {cnpj}
                 </span>
               )}
             </div>
@@ -161,8 +200,8 @@ export const Profile: React.FC = () => {
               onClick={handleSave}
               disabled={isSaving}
               className={cn(
-                "px-8 py-4 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center gap-3 transition-all active:scale-95 disabled:opacity-50",
-                saveSuccess ? "bg-emerald-500 text-white shadow-lg shadow-emerald-500/20" : "bg-primary text-white shadow-lg shadow-primary/20 hover:scale-105"
+                "px-8 py-4 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center gap-3 transition-all active:scale-95 disabled:opacity-50 shadow-lg",
+                saveSuccess ? "bg-emerald-500 text-white shadow-emerald-500/20" : cn(accentColor, "text-white", accentShadow, "hover:scale-105")
               )}
             >
               {isSaving ? 'Salvando...' : saveSuccess ? (
@@ -180,20 +219,39 @@ export const Profile: React.FC = () => {
         <div className="lg:col-span-2 space-y-6">
           <div className="bg-card rounded-[2.5rem] p-8 border border-border shadow-sm space-y-8">
             <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2 border-b border-border/50 pb-4">
-              <Palette size={14} className="text-primary" /> Informações Pessoais
+              <Palette size={14} className={accentText} /> {isBusiness ? 'Identidade Empresarial' : 'Informações Pessoais'}
             </h3>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-4">Como devemos te chamar?</label>
-                <div className="relative">
-                  <User className="absolute left-6 top-1/2 -translate-y-1/2 text-muted-foreground/40" size={18} />
+              {/* Email - Read Only */}
+              <div className="col-span-1 md:col-span-2 space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-4">E-mail da Conta (Não alterável)</label>
+                <div className="relative group/mail">
+                  <Mail className="absolute left-6 top-1/2 -translate-y-1/2 text-muted-foreground/30" size={18} />
                   <input 
                     type="text" 
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
+                    value={user?.email || ''}
+                    readOnly
+                    className="w-full pl-14 pr-8 py-5 bg-muted/10 border border-border/30 rounded-[1.8rem] text-sm font-bold text-muted-foreground/50 cursor-not-allowed outline-none"
+                  />
+                  <div className="absolute right-6 top-1/2 -translate-y-1/2 opacity-0 group-hover/mail:opacity-100 transition-opacity">
+                    <Lock size={14} className="text-muted-foreground/20" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-4">
+                  {isBusiness ? 'Nome da Empresa' : 'Como devemos te chamar?'}
+                </label>
+                <div className="relative">
+                  {isBusiness ? <Building2 className="absolute left-6 top-1/2 -translate-y-1/2 text-muted-foreground/40" size={18} /> : <User className="absolute left-6 top-1/2 -translate-y-1/2 text-muted-foreground/40" size={18} />}
+                  <input 
+                    type="text" 
+                    value={isBusiness ? businessName : personalName}
+                    onChange={(e) => isBusiness ? setBusinessName(e.target.value) : setPersonalName(e.target.value)}
                     className="w-full pl-14 pr-8 py-5 bg-muted/20 border border-border/50 rounded-[1.8rem] text-sm font-bold focus:ring-4 focus:ring-primary/10 outline-none transition-all"
-                    placeholder="Seu nome"
+                    placeholder={isBusiness ? "Nome Empresarial" : "Seu nome"}
                   />
                 </div>
               </div>
@@ -204,39 +262,39 @@ export const Profile: React.FC = () => {
                   <Phone className="absolute left-6 top-1/2 -translate-y-1/2 text-muted-foreground/40" size={18} />
                   <input 
                     type="text" 
-                    value={phone}
-                    onChange={(e) => setPhone(formatPhone(e.target.value))}
+                    value={isBusiness ? businessPhone : personalPhone}
+                    onChange={(e) => isBusiness ? setBusinessPhone(formatPhone(e.target.value)) : setPersonalPhone(formatPhone(e.target.value))}
                     className="w-full pl-14 pr-8 py-5 bg-muted/20 border border-border/50 rounded-[1.8rem] text-sm font-bold focus:ring-4 focus:ring-primary/10 outline-none transition-all"
                     placeholder="(00) 00000-0000"
                   />
                 </div>
               </div>
 
-              <div className="col-span-1 md:col-span-2 space-y-4">
-                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-4">Gênero</label>
-                <div className="flex gap-4 p-1 bg-muted/20 rounded-[2rem] border border-border/50">
-                  <button
-                    onClick={() => setGender('male')}
-                    className={cn(
-                      "flex-1 flex items-center justify-center gap-2 py-4 rounded-[1.6rem] text-[10px] font-black uppercase tracking-widest transition-all",
-                      gender === 'male' ? "bg-blue-500 text-white shadow-lg shadow-blue-500/20" : "text-muted-foreground hover:bg-muted"
-                    )}
-                  >
-                    Masculino
-                  </button>
-                  <button
-                    onClick={() => setGender('female')}
-                    className={cn(
-                      "flex-1 flex items-center justify-center gap-2 py-4 rounded-[1.6rem] text-[10px] font-black uppercase tracking-widest transition-all",
-                      gender === 'female' ? "bg-pink-500 text-white shadow-lg shadow-pink-500/20" : "text-muted-foreground hover:bg-muted"
-                    )}
-                  >
-                    Feminino
-                  </button>
+              {!isBusiness ? (
+                <div className="col-span-1 md:col-span-2 space-y-4">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-4">Gênero</label>
+                  <div className="flex gap-4 p-1 bg-muted/20 rounded-[2rem] border border-border/50">
+                    <button
+                      onClick={() => setGender('male')}
+                      className={cn(
+                        "flex-1 flex items-center justify-center gap-2 py-4 rounded-[1.6rem] text-[10px] font-black uppercase tracking-widest transition-all",
+                        gender === 'male' ? "bg-blue-500 text-white shadow-lg shadow-blue-500/20" : "text-muted-foreground hover:bg-muted"
+                      )}
+                    >
+                      Masculino
+                    </button>
+                    <button
+                      onClick={() => setGender('female')}
+                      className={cn(
+                        "flex-1 flex items-center justify-center gap-2 py-4 rounded-[1.6rem] text-[10px] font-black uppercase tracking-widest transition-all",
+                        gender === 'female' ? "bg-pink-500 text-white shadow-lg shadow-pink-500/20" : "text-muted-foreground hover:bg-muted"
+                      )}
+                    >
+                      Feminino
+                    </button>
+                  </div>
                 </div>
-              </div>
-
-              {activeSpace === 'business' && (
+              ) : (
                 <div className="col-span-1 md:col-span-2 space-y-2">
                   <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-4">CNPJ da Empresa (Opcional)</label>
                   <div className="relative">
@@ -262,7 +320,7 @@ export const Profile: React.FC = () => {
 
           <div className="bg-card rounded-[2.5rem] p-8 border border-border shadow-sm space-y-6">
             <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2 border-b border-border/50 pb-4">
-              <Briefcase size={14} className="text-primary" /> Espaço de Trabalho
+              <Briefcase size={14} className={accentText} /> Espaço de Trabalho
             </h3>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -341,6 +399,17 @@ export const Profile: React.FC = () => {
           </div>
 
           <div className="bg-card rounded-[2.5rem] p-8 border border-border shadow-sm space-y-6">
+            <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground">Segurança & Senha</h3>
+            <p className="text-[10px] font-bold text-muted-foreground/60 uppercase leading-relaxed">Mantenha sua conta protegida alterando sua senha regularmente.</p>
+            <button 
+              onClick={() => setIsPasswordModalOpen(true)}
+              className="w-full py-4 bg-muted/50 hover:bg-muted text-[10px] font-black uppercase tracking-widest rounded-2xl border border-border/50 transition-all flex items-center justify-center gap-2"
+            >
+              <Lock size={14} className="text-amber-500" /> Alterar Senha
+            </button>
+          </div>
+
+          <div className="bg-card rounded-[2.5rem] p-8 border border-border shadow-sm space-y-6">
             <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground">Preferências</h3>
             <div className="space-y-2">
               {[
@@ -373,6 +442,12 @@ export const Profile: React.FC = () => {
           }}
         />
       )}
+
+      <ChangePasswordModal 
+        isOpen={isPasswordModalOpen}
+        onClose={() => setIsPasswordModalOpen(false)}
+        userEmail={user?.email || ''}
+      />
     </div>
   );
 };

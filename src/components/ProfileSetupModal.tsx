@@ -74,8 +74,11 @@ export const ProfileSetupModal: React.FC<ProfileSetupModalProps> = ({ isOpen, on
        const { error } = await supabase.auth.updateUser({
          data: {
            full_name: name,
-           [spaceNameKey]: name,
+           personal_name: name,
+           business_name: name,
            phone: phone,
+           personal_phone: phone,
+           business_phone: phone,
            gender: gender,
            primary_space: space,
            business_cnpj: space === 'business' ? cnpj : user?.user_metadata?.business_cnpj,
