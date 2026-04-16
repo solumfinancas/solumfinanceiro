@@ -63,6 +63,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, setTxFilter,
    const { 
       includeCategoryLimits, 
       transactions, categories, wallets, 
+      orderedAccounts,
       updateTransaction, deleteTransaction 
    } = useFinance();
    const { user } = useAuth();
@@ -257,6 +258,24 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, setTxFilter,
       const total = list.reduce((sum, t) => sum + t.amount, 0);
       return { total, count: list.length, list: list.slice(0, 5) };
    }, [transactions]);
+
+   const groupedAccounts = useMemo(() => {
+      const activeAccounts = wallets.filter(w => w.type !== 'credit_card' && w.isActive !== false);
+      const sorted = [...activeAccounts].sort((a, b) => {
+         const indexA = orderedAccounts.indexOf(a.id);
+         const indexB = orderedAccounts.indexOf(b.id);
+         if (indexA === -1 && indexB === -1) return 0;
+         if (indexA === -1) return 1;
+         if (indexB === -1) return -1;
+         return indexA - indexB;
+      });
+
+      return [
+         { id: 'checking', name: 'Conta Corrente', items: sorted.filter(w => (w.walletCategory || 'checking') === 'checking') },
+         { id: 'savings', name: 'Cofrinhos', items: sorted.filter(w => w.walletCategory === 'savings') },
+         { id: 'wishlist', name: 'Lista de Desejos', items: sorted.filter(w => w.walletCategory === 'wishlist') }
+      ].filter(group => group.items.length > 0);
+   }, [wallets, orderedAccounts]);
 
    // 5. Category Analysis (Current Month or Selected Report Month)
    const { topSpendingData, totalCategorySpending } = useMemo(() => {
@@ -1125,29 +1144,39 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, setTxFilter,
                      initial={{ opacity: 0, y: 20 }}
                      animate={{ opacity: 1, y: 0 }}
                      exit={{ opacity: 0, y: -20 }}
-                     className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 py-10"
+                     className="space-y-12 py-10"
                   >
-                     {wallets
-                        .filter(w => w.type !== 'credit_card' && w.isActive !== false)
-                        .map(wallet => (
-                           <button
-                              key={wallet.id}
-                              onClick={() => setReportWalletId(wallet.id)}
-                              className="p-6 bg-muted/20 border border-border/50 rounded-[2.5rem] flex flex-col items-center gap-4 hover:bg-primary/5 hover:border-primary/30 hover:scale-[1.02] transition-all group"
-                           >
-                              <IconRenderer
-                                 icon={wallet.logoUrl || wallet.icon || 'wallet'}
-                                 color={wallet.color}
-                                 size={64}
-                                 className="group-hover:scale-110 transition-transform shadow-sm"
-                              />
-                              <div className="text-center">
-                                 <h4 className="text-base font-black tracking-tight text-foreground">{wallet.name}</h4>
-                                 <p className="text-[10px] font-bold text-muted-foreground uppercase opacity-60">Analisar Movimentação</p>
-                              </div>
-                           </button>
-                        ))
-                     }
+                     {groupedAccounts.map(group => (
+                        <div key={group.id} className="space-y-4">
+                           <div className="flex items-center gap-4">
+                              <div className="h-px flex-1 bg-border/40" />
+                              <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground bg-muted/30 px-4 py-1.5 rounded-full border border-border/40">
+                                 {group.name}
+                              </h3>
+                              <div className="h-px flex-1 bg-border/40" />
+                           </div>
+                           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                              {group.items.map(wallet => (
+                                 <button
+                                    key={wallet.id}
+                                    onClick={() => setReportWalletId(wallet.id)}
+                                    className="p-6 bg-muted/20 border border-border/50 rounded-[2.5rem] flex flex-col items-center gap-4 hover:bg-primary/5 hover:border-primary/30 hover:scale-[1.02] transition-all group"
+                                 >
+                                    <IconRenderer
+                                       icon={wallet.logoUrl || wallet.icon || 'wallet'}
+                                       color={wallet.color}
+                                       size={48}
+                                       className="group-hover:scale-110 transition-transform shadow-sm"
+                                    />
+                                    <div className="text-center">
+                                       <h4 className="text-sm font-black tracking-tight text-foreground line-clamp-1">{wallet.name}</h4>
+                                       <p className="text-[9px] font-bold text-muted-foreground uppercase opacity-60">Analisar Movimentação</p>
+                                    </div>
+                                 </button>
+                              ))}
+                           </div>
+                        </div>
+                     ))}
                   </motion.div>
                ) : (
                   <motion.div

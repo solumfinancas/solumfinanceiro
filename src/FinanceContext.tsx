@@ -29,6 +29,9 @@ interface FinanceContextType {
   includeCategoryLimits: boolean;
   setIncludeCategoryLimits: (v: boolean) => void;
   seedCategories: (space: 'personal' | 'business') => Promise<void>;
+  orderedCards: string[];
+  orderedAccounts: string[];
+  saveWalletOrder: (type: 'cards' | 'accounts', newOrder: string[]) => Promise<void>;
 }
 
 const FinanceContext = createContext<FinanceContextType | undefined>(undefined);
@@ -73,6 +76,8 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [isSpaceInitialized, setIsSpaceInitialized] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [loading, setLoading] = useState(true);
+  const [orderedCards, setOrderedCards] = useState<string[]>([]);
+  const [orderedAccounts, setOrderedAccounts] = useState<string[]>([]);
   const [includeCategoryLimits, setIncludeCategoryLimits] = useState<boolean>(() => {
     const saved = localStorage.getItem('includeCategoryLimits');
     return saved !== null ? JSON.parse(saved) : true;
@@ -108,9 +113,43 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         .eq('space', activeSpace)
         .order('created_at');
       if (walErr) throw walErr;
-      setWallets(wals || []);
+      const fetchedWallets = wals || [];
+      setWallets(fetchedWallets);
 
-      // 3. Transações
+      // 3. Carregar Ordenação do user_metadata
+      if (user.user_metadata) {
+        const metadata = user.user_metadata;
+        const cardOrderKey = `wallet_order_${activeSpace}_cards`;
+        const accountOrderKey = `wallet_order_${activeSpace}_accounts`;
+        
+        // Sincronizar Cartões
+        const cards = fetchedWallets.filter(w => w.type === 'credit_card' && w.isActive !== false).map(w => w.id);
+        let finalCardOrder: string[] = [];
+        if (metadata[cardOrderKey]) {
+          const parsed = metadata[cardOrderKey];
+          const valid = parsed.filter((id: string) => cards.includes(id));
+          const missing = cards.filter(id => !parsed.includes(id));
+          finalCardOrder = [...valid, ...missing];
+        } else {
+          finalCardOrder = cards;
+        }
+        setOrderedCards(finalCardOrder);
+
+        // Sincronizar Contas
+        const accounts = fetchedWallets.filter(w => w.type !== 'credit_card' && w.isActive !== false).map(w => w.id);
+        let finalAccountOrder: string[] = [];
+        if (metadata[accountOrderKey]) {
+          const parsed = metadata[accountOrderKey];
+          const valid = parsed.filter((id: string) => accounts.includes(id));
+          const missing = accounts.filter(id => !parsed.includes(id));
+          finalAccountOrder = [...valid, ...missing];
+        } else {
+          finalAccountOrder = accounts;
+        }
+        setOrderedAccounts(finalAccountOrder);
+      }
+
+      // 4. Transações
       const { data: txs, error: txErr } = await supabase
         .from('transactions')
         .select('*')
@@ -503,7 +542,30 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       transactions, categories, wallets, activeSpace, theme, loading,
       setActiveSpace, toggleTheme, addTransaction, addTransactions, addCategory, addWallet, deleteTransaction, updateTransaction,
       toggleCategoryActive, updateCategory, deleteCategory, updateWallet, toggleWalletActive, updateActivity,
-      includeCategoryLimits, setIncludeCategoryLimits, seedCategories
+      includeCategoryLimits, setIncludeCategoryLimits, seedCategories,
+      orderedCards, orderedAccounts,
+      saveWalletOrder: async (cards: string[], accounts: string[]) => {
+        if (!user) return;
+        
+        // Atualizar estado local imediatamente para UX suave
+        setOrderedCards(cards);
+        setOrderedAccounts(accounts);
+
+        const cardsKey = `wallet_order_${activeSpace}_cards`;
+        const accountsKey = `wallet_order_${activeSpace}_accounts`;
+        
+        try {
+          const { error } = await supabase.auth.updateUser({
+            data: { 
+              [cardsKey]: cards,
+              [accountsKey]: accounts
+            }
+          });
+          if (error) throw error;
+        } catch (err) {
+          console.error('Erro ao salvar ordenação:', err);
+        }
+      }
     }}>
       {children}
     </FinanceContext.Provider>

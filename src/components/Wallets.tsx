@@ -52,8 +52,44 @@ import {
   GripVertical
 } from 'lucide-react';
 
+const OrganizeItem: React.FC<{
+  id: string;
+  wallet: Wallet;
+}> = ({ id, wallet }) => {
+  const controls = useDragControls();
+  
+  return (
+    <Reorder.Item 
+      key={id} 
+      value={id}
+      dragListener={false}
+      dragControls={controls}
+      className="bg-card border rounded-2xl p-4 flex items-center gap-4 cursor-grab active:cursor-grabbing shadow-sm hover:shadow-md transition-shadow select-none group"
+      whileDrag={{ scale: 1.02, zIndex: 50, boxShadow: "0 20px 40px rgba(0,0,0,0.1)" }}
+    >
+      <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center overflow-hidden shrink-0">
+        <IconRenderer icon={wallet.logoUrl || wallet.icon || 'wallet'} color={wallet.color} size={wallet.logoUrl ? 48 : 24} className="object-cover w-full h-full" />
+      </div>
+      <div className="flex-1 flex flex-col truncate">
+        <span className="font-black uppercase tracking-tight leading-none truncate mb-1 text-sm">{wallet.name}</span>
+        <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest opacity-60">
+          {wallet.type === 'credit_card' ? 'Cartão' : 
+           (wallet.walletCategory || 'checking') === 'checking' ? 'Corrente' : 
+           (wallet.walletCategory || 'checking') === 'savings' ? 'Cofrinho' : 'Lista de Desejos'}
+        </span>
+      </div>
+      <div 
+        onPointerDown={(e) => controls.start(e)}
+        className="p-3 text-muted-foreground/40 group-hover:text-primary transition-colors cursor-grab active:cursor-grabbing bg-muted/30 rounded-lg touch-none"
+      >
+        <GripVertical size={20} />
+      </div>
+    </Reorder.Item>
+  );
+};
+
 export const Wallets: React.FC = () => {
-  const { wallets, transactions, categories, updateTransaction, deleteTransaction, toggleWalletActive } = useFinance();
+  const { wallets, transactions, categories, updateTransaction, deleteTransaction, toggleWalletActive, orderedCards, orderedAccounts, saveWalletOrder } = useFinance();
   const { showConfirm, showAlert } = useModal();
   const [searchTerm, setSearchTerm] = React.useState('');
   const [viewingTransactionsId, setViewingTransactionsId] = useState<string | null>(null);
@@ -82,9 +118,6 @@ export const Wallets: React.FC = () => {
   const [organizeTab, setOrganizeTab] = useState<'credit_card' | 'checking' | 'savings' | 'wishlist'>('credit_card');
   const [tempOrderedCards, setTempOrderedCards] = useState<string[]>([]);
   const [tempOrderedAccounts, setTempOrderedAccounts] = useState<string[]>([]);
-  // Reorder State
-  const [orderedCards, setOrderedCards] = useState<string[]>([]);
-  const [orderedAccounts, setOrderedAccounts] = useState<string[]>([]);
   const [showSearchFAB, setShowSearchFAB] = useState(false);
 
   useEffect(() => {
@@ -102,6 +135,13 @@ export const Wallets: React.FC = () => {
     return () => observer.disconnect();
   }, [searchTerm]);
 
+  useEffect(() => {
+    if (isOrganizeModalOpen) {
+      setTempOrderedCards(orderedCards);
+      setTempOrderedAccounts(orderedAccounts);
+    }
+  }, [isOrganizeModalOpen, orderedCards, orderedAccounts]);
+
   const scrollToSearch = () => {
     const searchInput = document.getElementById('search-input-wallets');
     if (searchInput) {
@@ -111,62 +151,16 @@ export const Wallets: React.FC = () => {
   };
 
 
-  // Load and Sync order
+  // Initialize temp order when modal opens
   useEffect(() => {
-    if (wallets.length > 0) {
-      const savedCardOrder = localStorage.getItem('wallet-order-cards');
-      const savedAccountOrder = localStorage.getItem('wallet-order-accounts');
-      
-      const cards = wallets.filter(w => w.type === 'credit_card' && w.isActive !== false).map(w => w.id);
-      const accounts = wallets.filter(w => w.type !== 'credit_card' && w.isActive !== false).map(w => w.id);
-
-      // Sincronizar Cartões
-      let newCardOrder: string[] = [];
-      if (orderedCards.length > 0) {
-        // Manter ordem atual e adicionar o que estiver faltando
-        const missing = cards.filter(id => !orderedCards.includes(id));
-        newCardOrder = [...orderedCards.filter(id => cards.includes(id)), ...missing];
-      } else if (savedCardOrder) {
-        const parsed = JSON.parse(savedCardOrder);
-        const valid = parsed.filter((id: string) => cards.includes(id));
-        const missing = cards.filter(id => !parsed.includes(id));
-        newCardOrder = [...valid, ...missing];
-      } else {
-        newCardOrder = cards;
-      }
-
-      if (JSON.stringify(newCardOrder) !== JSON.stringify(orderedCards)) {
-        setOrderedCards(newCardOrder);
-      }
-
-      // Sincronizar Contas
-      let newAccountOrder: string[] = [];
-      if (orderedAccounts.length > 0) {
-        const missing = accounts.filter(id => !orderedAccounts.includes(id));
-        newAccountOrder = [...orderedAccounts.filter(id => accounts.includes(id)), ...missing];
-      } else if (savedAccountOrder) {
-        const parsed = JSON.parse(savedAccountOrder);
-        const valid = parsed.filter((id: string) => accounts.includes(id));
-        const missing = accounts.filter(id => !parsed.includes(id));
-        newAccountOrder = [...valid, ...missing];
-      } else {
-        newAccountOrder = accounts;
-      }
-
-      if (JSON.stringify(newAccountOrder) !== JSON.stringify(orderedAccounts)) {
-        setOrderedAccounts(newAccountOrder);
-      }
+    if (isOrganizeModalOpen) {
+      setTempOrderedCards([...orderedCards]);
+      setTempOrderedAccounts([...orderedAccounts]);
     }
-  }, [wallets, orderedCards, orderedAccounts]);
+  }, [isOrganizeModalOpen, orderedCards, orderedAccounts]);
 
-  // Save order
-  useEffect(() => {
-    if (orderedCards.length > 0) localStorage.setItem('wallet-order-cards', JSON.stringify(orderedCards));
-  }, [orderedCards]);
 
-  useEffect(() => {
-    if (orderedAccounts.length > 0) localStorage.setItem('wallet-order-accounts', JSON.stringify(orderedAccounts));
-  }, [orderedAccounts]);
+
 
   // --- SUMMARIES ---
   const totalCreditInvoices = useMemo(() => {
@@ -1211,27 +1205,7 @@ export const Wallets: React.FC = () => {
                           const w = wallets.find(ww => ww.id === id);
                           if (!w) return null;
                           return (
-                            <Reorder.Item 
-                              key={w.id} 
-                              value={w.id}
-                              className="bg-card border rounded-2xl p-4 flex items-center gap-4 cursor-grab active:cursor-grabbing shadow-sm hover:shadow-md transition-shadow select-none group"
-                              whileDrag={{ scale: 1.02, zIndex: 50, boxShadow: "0 20px 40px rgba(0,0,0,0.1)" }}
-                            >
-                              <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center overflow-hidden shrink-0">
-                                <IconRenderer icon={w.logoUrl || w.icon || 'wallet'} color={w.color} size={w.logoUrl ? 48 : 24} className="object-cover w-full h-full" />
-                              </div>
-                              <div className="flex-1 flex flex-col truncate">
-                                <span className="font-black uppercase tracking-tight leading-none truncate mb-1">{w.name}</span>
-                                <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest opacity-60">
-                                  {w.type === 'credit_card' ? 'Cartão' : 
-                                   (w.walletCategory || 'checking') === 'checking' ? 'Corrente' : 
-                                   (w.walletCategory || 'checking') === 'savings' ? 'Cofrinho' : 'Lista de Desejos'}
-                                </span>
-                              </div>
-                              <div className="p-2 text-muted-foreground/40 group-hover:text-primary transition-colors cursor-grab active:cursor-grabbing bg-muted/30 rounded-lg">
-                                <GripVertical size={18} />
-                              </div>
-                            </Reorder.Item>
+                            <OrganizeItem key={w.id} id={w.id} wallet={w} />
                           );
                         })}
                      </Reorder.Group>
@@ -1241,8 +1215,8 @@ export const Wallets: React.FC = () => {
                
                <div className="p-6 border-t bg-card shrink-0">
                   <button onClick={() => {
-                     setOrderedCards(tempOrderedCards);
-                     setOrderedAccounts(tempOrderedAccounts);
+                     saveWalletOrder(tempOrderedCards, tempOrderedAccounts);
+                     
                      setIsOrganizeModalOpen(false);
                   }} className="w-full py-4 bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg shadow-emerald-500/20 rounded-2xl font-black uppercase text-xs tracking-widest transition-all">
                     Finalizar Organização <Check size={16} className="inline ml-2 mb-0.5" />
@@ -1597,3 +1571,4 @@ const ReorderableBankItem: React.FC<{
     </Reorder.Item>
   );
 };
+
