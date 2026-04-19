@@ -1281,8 +1281,8 @@ const BankWalletItem: React.FC<{
         wallet.isActive === false && "bg-rose-500/[0.03] border-rose-500/20 opacity-80"
       )}
     >
-      <div className="flex items-start justify-between relative z-10">
-        <div className="space-y-4 flex-1">
+      <div className="flex flex-col gap-6 relative z-10 h-full justify-between">
+        <div className="space-y-4">
           <div className="flex items-center gap-4">
              <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center group-hover:bg-primary/10 transition-colors shadow-inner border border-border/40 overflow-hidden shrink-0">
                 <IconRenderer icon={wallet.logoUrl || wallet.icon || 'wallet'} color={wallet.color} size={48} className="w-full h-full object-cover" />
@@ -1300,23 +1300,62 @@ const BankWalletItem: React.FC<{
              </div>
           </div>
           
-          <div className="space-y-0.5" style={{ textShadow: '0 1px 2px rgba(0,0,0,0.1)' }}>
-             <span className="text-[9px] font-black uppercase text-muted-foreground/40 tracking-[0.2em]">Saldo Disponível</span>
-             <p className={cn("text-2xl font-black tracking-tighter truncate", wallet.balance < -0.01 && "text-rose-500")}>{formatCurrency(wallet.balance)}</p>
+          <div className="flex items-end justify-between gap-4">
+            <div className="space-y-0.5" style={{ textShadow: '0 1px 2px rgba(0,0,0,0.1)' }}>
+              <span className="text-[9px] font-black uppercase text-muted-foreground/40 tracking-[0.2em]">Saldo Disponível</span>
+              <p className={cn("text-2xl font-black tracking-tighter truncate", wallet.balance < -0.01 && "text-rose-500")}>{formatCurrency(wallet.balance)}</p>
+            </div>
+            
+            <div className="flex flex-col items-end gap-1 font-black opacity-0 group-hover:opacity-40 transition-opacity shrink-0">
+               <ChevronRight size={18} />
+            </div>
           </div>
+        </div>
 
-            {wallet.observation && (
-              <div className="pt-2">
-                <span className="inline-block px-2 py-0.5 bg-muted/50 text-[7px] font-black uppercase text-muted-foreground rounded tracking-wider whitespace-nowrap" title={wallet.observation}>
-                  {wallet.observation}
-                </span>
+        {/* Target Progress Section */}
+        {wallet.targetValue && wallet.targetValue > 0 && (
+          <div className="space-y-3 pt-2">
+            <div className="flex items-end justify-between">
+              <div className="flex flex-col">
+                <span className="text-[8px] font-black uppercase text-muted-foreground/40 tracking-widest">Faltam</span>
+                <span className="text-[11px] font-black text-rose-500/80">{formatCurrency(Math.max(0, wallet.targetValue - (wallet.balance || 0)))}</span>
               </div>
-            )}
-        </div>
-        
-        <div className="flex flex-col items-end gap-1 font-black opacity-0 group-hover:opacity-40 transition-opacity">
-           <ChevronRight size={18} />
-        </div>
+              <div className="text-right">
+                <span className="text-[10px] font-black text-primary">{Math.min(100, Math.round(((wallet.balance || 0) / wallet.targetValue) * 100))}%</span>
+              </div>
+            </div>
+            
+            <div className="relative h-2 bg-muted rounded-full overflow-hidden border border-border/20">
+              <motion.div 
+                initial={{ width: 0 }}
+                animate={{ width: `${Math.min(100, ((wallet.balance || 0) / wallet.targetValue) * 100)}%` }}
+                className={cn(
+                  "absolute inset-y-0 left-0 transition-all duration-1000 rounded-full",
+                  ((wallet.balance || 0) / wallet.targetValue) >= 1 
+                    ? "bg-gradient-to-r from-emerald-400 to-emerald-600 shadow-[0_0_10px_rgba(16,185,129,0.3)]" 
+                    : "bg-gradient-to-r from-primary to-primary/60 shadow-[0_0_10px_rgba(217,119,6,0.2)]"
+                )}
+              />
+            </div>
+            
+            <div className="flex justify-between items-center">
+              <span className="text-[8px] font-black uppercase text-muted-foreground/40 tracking-widest">Meta: {formatCurrency(wallet.targetValue)}</span>
+              {wallet.balance >= wallet.targetValue && (
+                <div className="flex items-center gap-1 text-[8px] font-black text-emerald-500 uppercase tracking-widest">
+                  <Check size={10} strokeWidth={4} /> Concluído
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {wallet.observation && !wallet.targetValue && (
+          <div className="pt-2">
+            <span className="inline-block px-2 py-0.5 bg-muted/50 text-[7px] font-black uppercase text-muted-foreground rounded tracking-wider whitespace-nowrap" title={wallet.observation}>
+              {wallet.observation}
+            </span>
+          </div>
+        )}
       </div>
     </div>
   );

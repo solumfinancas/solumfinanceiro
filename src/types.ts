@@ -33,6 +33,8 @@ export interface Wallet {
   walletCategory?: 'checking' | 'savings' | 'wishlist';
   observation?: string;
   space?: 'personal' | 'business';
+  targetValue?: number;
+  targetMonths?: number;
 }
 
 export interface Transaction {

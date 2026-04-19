@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { X, Check, Wallet as WalletIcon, Building2, PiggyBank, Search } from 'lucide-react';
+import { X, Check, Wallet as WalletIcon, Building2, PiggyBank, Search, TrendingUp } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useModal } from '../contexts/ModalContext';
 import { useFinance } from '../FinanceContext';
 import { Wallet } from '../types';
-import { cn } from '../lib/utils';
+import { cn, formatCurrency } from '../lib/utils';
 import { CustomSelect } from './ui/CustomSelect';
 import { IconRenderer } from './ui/IconRenderer';
 
@@ -93,8 +93,12 @@ export const WalletModal: React.FC<WalletModalProps> = ({ isOpen, onClose, type,
     dueDay: '',
     defaultPaymentWalletId: '',
     walletCategory: 'checking' as 'checking' | 'savings' | 'wishlist',
-    observation: ''
+    observation: '',
+    targetValue: ''
   });
+  const [calcMonths, setCalcMonths] = React.useState('');
+  const [monthlySavings, setMonthlySavings] = React.useState<number | null>(null);
+
   const [cardStyleType, setCardStyleType] = React.useState<'black' | 'platinum' | 'custom'>('custom');
   const [customCardLevel, setCustomCardLevel] = React.useState('');
 
@@ -109,8 +113,18 @@ export const WalletModal: React.FC<WalletModalProps> = ({ isOpen, onClose, type,
         dueDay: editingWallet.dueDay?.toString() || '',
         defaultPaymentWalletId: editingWallet.defaultPaymentWalletId || '',
         walletCategory: editingWallet.walletCategory || 'checking',
-        observation: editingWallet.observation || ''
+        observation: editingWallet.observation || '',
+        targetValue: editingWallet.targetValue ? formatBalance((editingWallet.targetValue * 100).toFixed(0)) : ''
       });
+      setCalcMonths(editingWallet.targetMonths?.toString() || '');
+      
+      // Calcular economia mensal se já houver meta e meses salvos
+      if (editingWallet.targetValue && editingWallet.targetMonths) {
+        setMonthlySavings(editingWallet.targetValue / editingWallet.targetMonths);
+      } else {
+        setMonthlySavings(null);
+      }
+
       setSelectedIconColor(editingWallet.color);
       setSelectedCardColor(editingWallet.cardColor || editingWallet.color);
       
@@ -151,8 +165,12 @@ export const WalletModal: React.FC<WalletModalProps> = ({ isOpen, onClose, type,
       dueDay: '',
       defaultPaymentWalletId: '',
       walletCategory: 'checking',
-      observation: ''
+      observation: '',
+      targetValue: ''
     });
+    setCalcMonths('');
+    setMonthlySavings(null);
+
     setCardStyleType('custom');
     setCustomCardLevel('');
   };
@@ -220,7 +238,15 @@ export const WalletModal: React.FC<WalletModalProps> = ({ isOpen, onClose, type,
           : undefined,
         defaultPaymentWalletId: type === 'credit_card' ? formData.defaultPaymentWalletId : undefined,
         walletCategory: type === 'bank' ? formData.walletCategory : undefined,
+        targetValue: (type === 'bank' && (formData.walletCategory === 'savings' || formData.walletCategory === 'wishlist')) 
+          ? (parseFloat(formData.targetValue.replace(/\./g, '').replace(',', '.')) || null)
+          : null,
+        targetMonths: (type === 'bank' && (formData.walletCategory === 'savings' || formData.walletCategory === 'wishlist'))
+          ? (parseInt(calcMonths) || null)
+          : null,
         observation: formData.observation || '',
+
+
         isActive: editingWallet ? editingWallet.isActive : true
       };
 
@@ -508,7 +534,115 @@ export const WalletModal: React.FC<WalletModalProps> = ({ isOpen, onClose, type,
                     </div>
                   </div>
                 )}
+
+                {type === 'bank' && (formData.walletCategory === 'savings' || formData.walletCategory === 'wishlist') && (
+                  <motion.div 
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    className="md:col-span-2 space-y-6 pt-4 border-t border-border/20"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                          <PiggyBank size={16} className="text-primary" />
+                        </div>
+                        <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">Configurar Meta de Valor</h4>
+                      </div>
+
+                      {(formData.targetValue || calcMonths) && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setFormData(prev => ({ ...prev, targetValue: '' }));
+                            setCalcMonths('');
+                            setMonthlySavings(null);
+                          }}
+                          className="text-[9px] font-black uppercase tracking-widest text-rose-500 hover:text-rose-600 transition-colors px-3 py-1 bg-rose-500/5 hover:bg-rose-500/10 rounded-lg border border-rose-500/10"
+                        >
+                          Remover Meta
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                      <div className="space-y-3">
+                        <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-4">Valor Final da Meta (Opcional)</label>
+                        <div className="relative">
+                          <span className="absolute left-8 top-1/2 -translate-y-1/2 font-black text-muted-foreground opacity-40">R$</span>
+                          <input 
+                            type="text" 
+                            placeholder="0,00"
+                            value={formData.targetValue}
+                            onChange={(e) => {
+                              const newVal = formatBalance(e.target.value);
+                              setFormData(prev => ({ ...prev, targetValue: newVal }));
+                              
+                              // Recalcular economia mensal se houver meses
+                              if (calcMonths) {
+                                const targetNum = parseFloat(newVal.replace(/\./g, '').replace(',', '.')) || 0;
+                                const monthsNum = parseInt(calcMonths) || 0;
+                                if (monthsNum > 0) setMonthlySavings(targetNum / monthsNum);
+                                else setMonthlySavings(null);
+                              }
+                            }}
+                            className="w-full pl-16 pr-8 py-5 bg-primary/5 border border-primary/20 rounded-[2rem] text-sm font-bold focus:ring-4 focus:ring-primary/10 outline-none transition-all placeholder:opacity-20"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-3">
+                        <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-4">Em quantos meses?</label>
+                        <input 
+                          type="number" 
+                          placeholder="EX: 12"
+                          value={calcMonths}
+                          onChange={(e) => {
+                            const months = e.target.value;
+                            setCalcMonths(months);
+                            
+                            const targetNum = parseFloat((formData.targetValue || '').replace(/\./g, '').replace(',', '.')) || 0;
+                            const monthsNum = parseInt(months) || 0;
+                            
+                            if (monthsNum > 0 && targetNum > 0) {
+                              setMonthlySavings(targetNum / monthsNum);
+                            } else {
+                              setMonthlySavings(null);
+                            }
+                          }}
+                          className="w-full px-8 py-5 bg-muted/10 border border-border/40 rounded-[2rem] text-sm font-bold focus:ring-4 focus:ring-primary/10 outline-none transition-all text-center"
+                        />
+                      </div>
+                    </div>
+
+                    <AnimatePresence>
+                      {monthlySavings !== null && (
+                        <motion.div 
+                          initial={{ opacity: 0, y: -10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -10 }}
+                          className="bg-emerald-500/10 border border-emerald-500/20 rounded-[2rem] p-6 flex items-center justify-between group overflow-hidden relative"
+                        >
+                          <div className="absolute right-0 top-0 bottom-0 w-32 bg-gradient-to-l from-emerald-500/10 to-transparent pointer-events-none" />
+                          <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 flex items-center justify-center text-emerald-600">
+                              <TrendingUp size={24} />
+                            </div>
+                            <div>
+                              <span className="text-[8px] font-black uppercase tracking-widest text-emerald-600/60 block leading-tight">Sugestão de Economia</span>
+                              <span className="text-xl font-black text-emerald-600 leading-tight">Guardar {formatCurrency(monthlySavings)} / mês</span>
+                            </div>
+                          </div>
+                          <div className="text-right shrink-0">
+                             <div className="text-[7px] font-black uppercase tracking-widest text-emerald-600/40 bg-emerald-500/5 px-2 py-1 rounded-lg border border-emerald-500/10">Baseado em {calcMonths} meses</div>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </motion.div>
+
+                )}
               </div>
+
 
               {type === 'credit_card' && (
                 <div className="space-y-8 pt-4">
