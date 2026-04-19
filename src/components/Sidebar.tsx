@@ -13,8 +13,10 @@ import {
   Building2,
   User,
   Menu,
-  X
+  X,
+  Shield
 } from 'lucide-react';
+
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SpaceActivationModal } from './SpaceActivationModal';
@@ -26,7 +28,8 @@ interface SidebarProps {
 
 export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
   const { theme, toggleTheme, activeSpace, setActiveSpace } = useFinance();
-  const { user, signOut } = useAuth();
+  const { user, profile, viewingProfile, signOut } = useAuth();
+
   const [isOpen, setIsOpen] = React.useState(false);
   const [activationModal, setActivationModal] = React.useState<{ isOpen: boolean; space: 'personal' | 'business' }>({
     isOpen: false,
@@ -36,8 +39,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => 
   const handleSpaceSwitch = (space: 'personal' | 'business') => {
     if (space === activeSpace) return;
 
-    const initializedSpaces = user?.user_metadata?.initialized_spaces || [];
-    // Espaço é considerado inicializado se estiver na lista explícita de initialized_spaces em seu metadata
+    const currentMetadata = viewingProfile ? viewingProfile.user_metadata : user?.user_metadata;
+    const initializedSpaces = currentMetadata?.initialized_spaces || [];
     const isInitialized = initializedSpaces.includes(space);
 
     if (!isInitialized) {
@@ -54,7 +57,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => 
     { id: 'categories', label: 'Categorias', icon: Tags },
     { id: 'transactions', label: 'Lançamentos', icon: ArrowLeftRight },
     { id: 'import', label: 'Importação', icon: FileUp },
+    ...(profile && profile.role !== 'user' ? [{ id: 'management', label: 'Portal de Gestão', icon: Shield }] : []),
   ];
+
 
   const toggleSidebar = () => setIsOpen(!isOpen);
 
@@ -177,7 +182,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => 
           >
             <div className={cn(
               "w-10 h-10 rounded-xl flex items-center justify-center border flex-shrink-0 transition-colors",
-              user?.user_metadata?.gender === 'female' 
+              (viewingProfile?.gender || user?.user_metadata?.gender) === 'female' 
                 ? "bg-pink-500/10 border-pink-500/20 text-pink-500" 
                 : "bg-blue-500/10 border-blue-500/20 text-blue-500"
             )}>
@@ -189,12 +194,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => 
                 activeTab === 'profile' ? "text-primary" : "text-foreground"
               )}>
                 {(() => {
+                  if (viewingProfile) {
+                    return viewingProfile.full_name?.split(' ')[0] || 'Usuário';
+                  }
                   const spaceNameKey = activeSpace === 'personal' ? 'personal_name' : 'business_name';
                   const name = user?.user_metadata?.[spaceNameKey] || user?.user_metadata?.full_name || 'Visitante';
                   return name.split(' ')[0];
                 })()}
               </p>
-              <p className="text-[9px] font-bold text-muted-foreground truncate">{user?.user_metadata?.phone || '(00) 00000-0000'}</p>
+              <p className="text-[9px] font-bold text-muted-foreground truncate">
+                {viewingProfile?.user_metadata?.personal_phone || viewingProfile?.user_metadata?.phone || viewingProfile?.phone || user?.user_metadata?.phone || '(00) 00000-0000'}
+              </p>
             </div>
             {activeTab === 'profile' && (
               <motion.div 
@@ -204,6 +214,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => 
             )}
           </button>
         </div>
+
 
         <div className="p-4 border-t space-y-2">
           <button 

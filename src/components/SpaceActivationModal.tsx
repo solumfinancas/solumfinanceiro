@@ -11,13 +11,17 @@ interface SpaceActivationModalProps {
   onClose: () => void;
   spaceType: 'personal' | 'business';
   onConfirm: () => void;
+  targetUserId?: string;
+  targetUserMetadata?: any;
 }
 
 export const SpaceActivationModal: React.FC<SpaceActivationModalProps> = ({ 
   isOpen, 
   onClose, 
   spaceType,
-  onConfirm 
+  onConfirm,
+  targetUserId,
+  targetUserMetadata
 }) => {
   const { user } = useAuth();
   const { seedCategories } = useFinance();
@@ -41,17 +45,36 @@ export const SpaceActivationModal: React.FC<SpaceActivationModalProps> = ({
       }
 
       // 2. Marcar espaço como inicializado no metadata do usuário
-      const currentInitialized = user.user_metadata?.initialized_spaces || [];
+      const metadata = targetUserId ? targetUserMetadata : user.user_metadata;
+      const currentInitialized = metadata?.initialized_spaces || [];
+      
       if (!currentInitialized.includes(spaceType)) {
-        const { error } = await supabase.auth.updateUser({
-          data: {
-            ...user.user_metadata,
-            initialized_spaces: [...currentInitialized, spaceType],
-            business_cnpj: spaceType === 'business' ? cnpj : user.user_metadata?.business_cnpj,
-            last_activation: new Date().toISOString()
-          }
-        });
-        if (error) throw error;
+        if (targetUserId) {
+          // MODO GESTÃO: Usar Edge Function para atualizar metadados de outro usuário
+          const { data, error } = await supabase.functions.invoke('admin-create-user', {
+            body: {
+              action: 'update',
+              userId: targetUserId,
+              userData: {
+                initialized_spaces: [...currentInitialized, spaceType],
+                business_cnpj: spaceType === 'business' ? cnpj : metadata?.business_cnpj,
+                last_activation: new Date().toISOString()
+              }
+            }
+          });
+          if (error || data?.error) throw new Error(error?.message || data?.error || 'Erro ao ativar espaço do cliente');
+        } else {
+          // MODO NORMAL: Usar Auth API padrão (próprio usuário)
+          const { error } = await supabase.auth.updateUser({
+            data: {
+              ...metadata,
+              initialized_spaces: [...currentInitialized, spaceType],
+              business_cnpj: spaceType === 'business' ? cnpj : metadata?.business_cnpj,
+              last_activation: new Date().toISOString()
+            }
+          });
+          if (error) throw error;
+        }
       }
       onConfirm();
     } catch (err) {

@@ -28,7 +28,7 @@ import { SpaceActivationModal } from './SpaceActivationModal';
 import { ChangePasswordModal } from './ChangePasswordModal';
 
 export const Profile: React.FC = () => {
-  const { user } = useAuth();
+  const { user, viewingUserId, viewingProfile, refreshProfile } = useAuth();
   const { activeSpace } = useFinance();
   const { showAlert } = useModal();
   
@@ -51,18 +51,21 @@ export const Profile: React.FC = () => {
   });
 
   useEffect(() => {
-    if (user?.user_metadata) {
-      // Carregar dados pessoais
-      setPersonalName(user.user_metadata.personal_name || user.user_metadata.full_name || '');
-      setPersonalPhone(user.user_metadata.personal_phone || user.user_metadata.phone || '');
-      setGender(user.user_metadata.gender || 'male');
+    // Definir a fonte de metadados: perfil visualizado ou usuário atual
+    const metadata = viewingUserId ? viewingProfile?.user_metadata : user?.user_metadata;
+
+    if (metadata) {
+      // Priorizar campos específicos do espaço se existirem
+      setPersonalName(metadata.personal_name || metadata.full_name || '');
+      setPersonalPhone(metadata.personal_phone || metadata.phone || '');
+      setGender(metadata.gender || 'male');
       
       // Carregar dados empresariais
-      setBusinessName(user.user_metadata.business_name || '');
-      setBusinessPhone(user.user_metadata.business_phone || '');
-      setCnpj(user.user_metadata.business_cnpj || '');
+      setBusinessName(metadata.business_name || '');
+      setBusinessPhone(metadata.business_phone || '');
+      setCnpj(metadata.business_cnpj || '');
     }
-  }, [user]);
+  }, [user, viewingUserId, viewingProfile]);
 
   const formatPhone = (val: string) => {
     const digits = val.replace(/\D/g, '');
@@ -129,18 +132,40 @@ export const Profile: React.FC = () => {
         return;
       }
       
-      const { error } = await supabase.auth.updateUser({
-        data: {
-          ...metadata,
-          last_update: new Date().toISOString()
-        }
-      });
+      if (viewingUserId) {
+        // MODO GESTÃO: Salvar via Edge Function
+        const { data, error: functionError } = await supabase.functions.invoke('admin-create-user', {
+          body: {
+            action: 'update',
+            userId: viewingUserId,
+            userData: {
+              ...metadata,
+              last_update: new Date().toISOString()
+            }
+          }
+        });
 
-      if (error) {
-        if (error.message.includes('rate limit')) {
-          throw new Error('Muitas solicitações seguidas. Por favor, aguarde 30 segundos e tente novamente.');
+        if (functionError || data?.error) {
+          throw new Error(functionError?.message || data?.error || 'Erro ao atualizar perfil do cliente');
         }
-        throw error;
+
+        // Atualizar o contexto local para refletir a mudança no Sidebar/Banner
+        await refreshProfile();
+      } else {
+        // MODO NORMAL: Salvar próprio perfil
+        const { error } = await supabase.auth.updateUser({
+          data: {
+            ...metadata,
+            last_update: new Date().toISOString()
+          }
+        });
+
+        if (error) {
+          if (error.message.includes('rate limit')) {
+            throw new Error('Muitas solicitações seguidas. Por favor, aguarde 30 segundos e tente novamente.');
+          }
+          throw error;
+        }
       }
 
       setSaveSuccess(true);
@@ -230,7 +255,7 @@ export const Profile: React.FC = () => {
                   <Mail className="absolute left-6 top-1/2 -translate-y-1/2 text-muted-foreground/30" size={18} />
                   <input 
                     type="text" 
-                    value={user?.email || ''}
+                    value={viewingUserId ? (viewingProfile?.email || '') : (user?.email || '')}
                     readOnly
                     className="w-full pl-14 pr-8 py-5 bg-muted/10 border border-border/30 rounded-[1.8rem] text-sm font-bold text-muted-foreground/50 cursor-not-allowed outline-none"
                   />
@@ -328,7 +353,8 @@ export const Profile: React.FC = () => {
                 { id: 'personal', name: 'Espaço Pessoal', desc: 'Suas finanças individuais', icon: User },
                 { id: 'business', name: 'Espaço Empresarial', desc: 'Sua gestão profissional', icon: Building2 }
               ].map((sp) => {
-                const initializedSpaces = user?.user_metadata?.initialized_spaces || [];
+                const currentMetadata = viewingUserId ? viewingProfile?.user_metadata : user?.user_metadata;
+                const initializedSpaces = currentMetadata?.initialized_spaces || [];
                 const isInitialized = initializedSpaces.includes(sp.id);
 
                 return (

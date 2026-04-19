@@ -68,7 +68,8 @@ const INITIAL_CATEGORIES_TEMPLATE: Omit<Category, 'id' | 'userId' | 'space'>[] =
 ];
 
 export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user } = useAuth();
+  const { user, viewingUserId, viewingProfile } = useAuth();
+
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [wallets, setWallets] = useState<Wallet[]>([]);
@@ -83,20 +84,27 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return saved !== null ? JSON.parse(saved) : true;
   });
   const isFetchingData = React.useRef(false);
-
+  const lastActivityUpdate = React.useRef<number>(0);
+ 
+  const effectiveUserId = viewingUserId || user?.id;
   const storageId = user?.id;
 
   const fetchData = useCallback(async () => {
-    if (!user || !storageId || isFetchingData.current) return;
+    if (!user || !effectiveUserId || !isSpaceInitialized || isFetchingData.current) {
+      // Se não há requisitos ou já está buscando, não bloqueia a tela infinitamente
+      if (!isFetchingData.current) setLoading(false);
+      return;
+    }
     
     isFetchingData.current = true;
     setLoading(true);
     try {
       // 1. Categorias
+
       const { data: cats, error: catErr } = await supabase
         .from('categories')
         .select('*')
-        .eq('userId', user.id)
+        .eq('userId', effectiveUserId)
         .eq('space', activeSpace)
         .order('name');
       
@@ -109,7 +117,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       const { data: wals, error: walErr } = await supabase
         .from('wallets')
         .select('*')
-        .eq('userId', user.id)
+        .eq('userId', effectiveUserId)
         .eq('space', activeSpace)
         .order('created_at');
       if (walErr) throw walErr;
@@ -153,7 +161,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       const { data: txs, error: txErr } = await supabase
         .from('transactions')
         .select('*')
-        .eq('userId', user.id)
+        .eq('userId', effectiveUserId)
         .eq('space', activeSpace)
         .order('date', { ascending: false })
         .order('created_at', { ascending: false });
@@ -166,7 +174,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setLoading(false);
       isFetchingData.current = false;
     }
-  }, [user, storageId, activeSpace, isSpaceInitialized]);
+  }, [user, effectiveUserId, activeSpace, isSpaceInitialized]);
 
   // Sync activeSpace with user's primary_space on load
   useEffect(() => {
@@ -182,10 +190,8 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     if (isSpaceInitialized) {
       fetchData();
     }
-    if (user) {
-      updateActivity('access');
-    }
-  }, [fetchData, user, isSpaceInitialized]);
+    // Removido updateActivity automático para evitar loop infinito com AuthContext
+  }, [fetchData, isSpaceInitialized]);
 
   useEffect(() => {
     if (theme === 'dark') {
@@ -268,7 +274,8 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
 
     const tempId = 'temp-' + Date.now();
-    const optimisticTx = { ...txToInsert, id: tempId, userId: user.id, space: activeSpace } as Transaction;
+    const optimisticTx = { ...txToInsert, id: tempId, userId: effectiveUserId, space: activeSpace } as Transaction;
+
     
     // Optimistic Update
     setTransactions(prev => [optimisticTx, ...prev]);
@@ -279,8 +286,9 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     try {
       const { data, error } = await supabase
         .from('transactions')
-        .insert([{ ...txToInsert, userId: user.id, space: activeSpace }])
+        .insert([{ ...txToInsert, userId: effectiveUserId, space: activeSpace }])
         .select()
+
         .single();
       
       if (error) throw error;
@@ -297,7 +305,8 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     if (!user) return;
     
     const txsToInsert = txs.map(t => {
-      const tx = { ...t, userId: user.id, space: activeSpace } as any;
+      const tx = { ...t, userId: effectiveUserId, space: activeSpace } as any;
+
       const wallet = wallets.find(w => w.id === tx.walletId);
       
       if (wallet?.type === 'credit_card') {
@@ -411,12 +420,13 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   const addCategory = async (c: Omit<Category, 'id'>) => {
-    if (!user) return;
+    if (!effectiveUserId) return;
     updateActivity('update');
     const { data, error } = await supabase
       .from('categories')
-      .insert([{ ...c, userId: user.id, space: activeSpace, isActive: true }])
+      .insert([{ ...c, userId: effectiveUserId, space: activeSpace, isActive: true }])
       .select()
+
       .single();
     
     if (error) throw error;
@@ -463,12 +473,13 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   const addWallet = async (w: Omit<Wallet, 'id'>) => {
-    if (!user) return;
+    if (!effectiveUserId) return;
     updateActivity('update');
     const { data, error } = await supabase
       .from('wallets')
-      .insert([{ ...w, userId: user.id, space: activeSpace }])
+      .insert([{ ...w, userId: effectiveUserId, space: activeSpace }])
       .select()
+
       .single();
     
     if (error) throw error;
@@ -505,20 +516,34 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const updateActivity = async (type: 'access' | 'update') => {
     if (!user) return;
+    
+    const now = Date.now();
+    // Throttle: no máximo uma atualização a cada 5 minutos para 'access'
+    if (type === 'access' && now - lastActivityUpdate.current < 5 * 60 * 1000) {
+      return;
+    }
+
+    lastActivityUpdate.current = now;
     const key = type === 'access' ? 'last_access' : 'last_update';
-    await supabase.auth.updateUser({
-      data: { [key]: new Date().toISOString() }
-    });
+    
+    try {
+      await supabase.auth.updateUser({
+        data: { [key]: new Date().toISOString() }
+      });
+    } catch (err) {
+      console.warn('Erro ao atualizar atividade:', err);
+    }
   };
 
   const seedCategories = async (space: 'personal' | 'business') => {
-    if (!user) return;
+    if (!effectiveUserId) return;
     try {
       const seedData = INITIAL_CATEGORIES_TEMPLATE.map(c => ({ 
         ...c, 
-        userId: user.id, 
+        userId: effectiveUserId, 
         space: space 
       }));
+
       
       const { data, error } = await supabase
         .from('categories')
