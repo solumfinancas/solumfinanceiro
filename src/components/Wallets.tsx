@@ -463,7 +463,7 @@ export const Wallets: React.FC = () => {
             <div className="flex items-center gap-2 text-muted-foreground group">
               <CardIcon size={18} />
               <h2 className="font-black text-xs uppercase tracking-[0.2em] opacity-70">Meus Cartões</h2>
-              <span className="text-[10px] font-black text-primary bg-primary/10 px-2 py-0.5 rounded-full border border-primary/20">
+              <span className="text-[10px] font-black text-red-500 bg-red-500/10 px-2 py-0.5 rounded-full border border-red-500/20">
                 Total Faturas: {formatCurrency(totalCreditInvoices)}
               </span>
             </div>
@@ -494,9 +494,9 @@ export const Wallets: React.FC = () => {
               
               <button 
                 onClick={() => { setWalletModalType('credit_card'); setIsWalletModalOpen(true); }}
-                className="text-[10px] font-black uppercase tracking-widest text-primary hover:text-primary/60 transition-all bg-primary/10 px-3 py-1.5 rounded-lg border border-primary/20"
+                className="text-[10px] font-black uppercase tracking-widest text-blue-500 hover:text-blue-500/60 transition-all bg-blue-500/10 px-3 py-1.5 rounded-lg border border-blue-500/20 flex items-center gap-2"
               >
-                Novo Cartão
+                <Plus size={14} /> Novo Cartão
               </button>
             </div>
           </div>
@@ -595,9 +595,9 @@ export const Wallets: React.FC = () => {
               
               <button 
                 onClick={() => { setWalletModalType('bank'); setIsWalletModalOpen(true); }}
-                className="text-[10px] font-black uppercase tracking-widest text-primary hover:text-primary/60 transition-all bg-primary/10 px-3 py-1.5 rounded-lg border border-primary/20"
+                className="text-[10px] font-black uppercase tracking-widest text-blue-500 hover:text-blue-500/60 transition-all bg-blue-500/10 px-3 py-1.5 rounded-lg border border-blue-500/20 flex items-center gap-2"
               >
-                Nova Carteira
+                <Plus size={14} /> Nova Carteira
               </button>
             </div>
           </div>
@@ -688,7 +688,12 @@ export const Wallets: React.FC = () => {
                 return (
                   <div key={catId} className="space-y-4 pt-4">
                     <div className="flex items-center gap-3 px-1 mb-4">
-                      <span className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground/40">{catNames[catId]}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground/40">{catNames[catId]}</span>
+                        <span className="text-[10px] font-black text-muted-foreground/60 bg-muted/50 px-2 py-0.5 rounded-full border border-border/10">
+                          {formatCurrency(accountTypeTotals.find(t => t.id === catId)?.total || 0)}
+                        </span>
+                      </div>
                       <div className="h-px bg-border/20 flex-1" />
                     </div>
                     <div className="flex flex-wrap gap-6">
