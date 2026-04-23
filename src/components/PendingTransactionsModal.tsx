@@ -18,6 +18,7 @@ import { formatCurrency, cn } from '../lib/utils';
 import { Transaction } from '../types';
 import { motion, AnimatePresence } from 'framer-motion';
 import { TransactionModal } from './TransactionModal';
+import { IconRenderer } from './ui/IconRenderer';
 
 interface PendingTransactionsModalProps {
   isOpen: boolean;
@@ -147,16 +148,15 @@ export const PendingTransactionsModal: React.FC<PendingTransactionsModalProps> =
                                <span className="text-sm font-bold text-foreground line-clamp-1">{t.description}</span>
                              </td>
                              <td className="px-6 py-4">
-                                {t.type !== 'provision' && category ? (
-                                   <div className="flex items-center gap-2">
-                                      <div className="w-6 h-6 rounded-lg flex items-center justify-center border border-border/30" style={{ backgroundColor: category.color + '20' }}>
-                                         <img 
-                                           src={category.parentId ? categories.find(c => c.id === category.parentId)?.icon : category.icon} 
-                                           alt="" 
-                                           className="w-4 h-4 opacity-70" 
-                                         />
-                                      </div>
-                                      <div className="flex flex-col">
+                                 {t.type !== 'provision' && category ? (
+                                    <div className="flex items-center gap-2">
+                                       <IconRenderer 
+                                          icon={category.parentId ? (categories.find(c => c.id === category.parentId)?.icon || category.icon) : category.icon} 
+                                          color={category.color}
+                                          size={24}
+                                          className="rounded-lg shadow-sm border border-border/30"
+                                       />
+                                       <div className="flex flex-col">
                                          {category.parentId && (
                                            <span className="text-[8px] font-black uppercase text-muted-foreground -mb-0.5">
                                              {categories.find(c => c.id === category.parentId)?.name}

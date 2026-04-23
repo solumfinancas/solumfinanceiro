@@ -69,6 +69,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } catch (mErr) {
           console.warn('Não foi possível carregar metadados administrativos:', mErr);
         }
+
+        // SONDAGEM DE SEGURANÇA: Se o metadado veio vazio ou falhou (ex: Educador), tenta sondar dados reais
+        // Isso permite que educadores e administradores vejam se um espaço está ativo verificando
+        // se já existem categorias ou carteiras criadas no nome do cliente.
+        if (!profileResult.user_metadata || !profileResult.user_metadata.initialized_spaces) {
+           try {
+             // Políticas de RLS 'can_access_finances' permitem que o gestor veja estas tabelas
+             const [{ data: cats }, { data: wals }] = await Promise.all([
+               supabase.from('categories').select('space').eq('userId', uid),
+               supabase.from('wallets').select('space').eq('userId', uid)
+             ]);
+             
+             const initializedSpaces = Array.from(new Set([
+               ...(cats?.map(c => c.space) || []),
+               ...(wals?.map(w => w.space) || [])
+             ]));
+
+             // Se não houver nada, assume ao menos o 'personal' se for um usuário antigo ou padrão
+              profileResult.user_metadata = {
+                ...profileResult.user_metadata || {},
+                initialized_spaces: initializedSpaces
+              };
+           } catch (probErr) {
+             console.warn('Sondagem automática de espaços falhou:', probErr);
+           }
+        }
       }
 
       return profileResult;
@@ -79,13 +105,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const refreshProfile = useCallback(async () => {
+    // 1. Atualizar o objeto de usuário do Supabase Auth (onde ficam os metadados como initialized_spaces)
+    const { data: { user: updatedUser }, error: userError } = await supabase.auth.getUser();
+    if (!userError && updatedUser) {
+      setUser(updatedUser);
+    }
+
+    // 2. Atualizar o perfil da tabela 'profiles'
     if (user?.id) {
        const p = await fetchProfile(user.id);
        setProfile(p);
     }
     
+    // 3. Se estiver gerenciando alguém, recarrega o viewingProfile
     if (viewingUserId) {
-       // Se estiver gerenciando alguém, recarrega com metadados para garantir sync do espaço
        const vp = await fetchProfile(viewingUserId, true);
        setViewingProfile(vp);
     }

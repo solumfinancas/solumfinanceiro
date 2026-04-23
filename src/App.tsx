@@ -12,17 +12,21 @@ import { Auth } from './components/Auth';
 import { ProfileSetupModal } from './components/ProfileSetupModal';
 import { Profile as ProfilePage } from './components/Profile';
 import { ManagementPortal } from './components/management/ManagementPortal';
+import { SpaceSelectorOverlay } from './components/SpaceSelectorOverlay';
 import { Loader2, AlertCircle, X } from 'lucide-react';
 
 
 const AppContent = () => {
   const { user, profile, viewingUserId, viewingProfile, impersonateUser, loading: authLoading } = useAuth();
-  const { loading: financeLoading, wallets, activeSpace } = useFinance();
+  const { loading: financeLoading, wallets, activeSpace, initializedSpaces, setActiveSpace } = useFinance();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [txInitialFilter, setTxInitialFilter] = useState<'all' | 'pending' | 'paid'>('all');
   const [txTypeFilter, setTxTypeFilter] = useState<'all' | 'income' | 'expense'>('all');
   const [showSetup, setShowSetup] = useState(false);
   const [viewingManagement, setViewingManagement] = useState(false);
+  const [activeSessionView, setActiveSessionView] = useState<'finance' | 'management' | null>(() => {
+    return sessionStorage.getItem('solum_session_view') as 'finance' | 'management' | null;
+  });
 
 
   // Check setup status and set initial view
@@ -38,11 +42,23 @@ const AppContent = () => {
     }
 
     if (profile && profile.role !== 'user' && !viewingUserId) {
-      setViewingManagement(true);
+      if (activeSessionView === 'management') {
+        setViewingManagement(true);
+      } else if (activeSessionView === 'finance') {
+        setViewingManagement(false);
+      } else {
+        // First login/No session yet: wait for selector
+        setViewingManagement(false);
+      }
     } else {
       setViewingManagement(false);
     }
-  }, [user, profile, viewingUserId]);
+
+    if (!user) {
+       sessionStorage.removeItem('solum_session_view');
+       setActiveSessionView(null);
+    }
+  }, [user, profile, viewingUserId, activeSessionView]);
 
 
 
@@ -93,16 +109,25 @@ const AppContent = () => {
     <div className="flex flex-col lg:flex-row h-screen overflow-hidden bg-background text-foreground transition-colors duration-300">
       <Sidebar 
         activeTab={viewingManagement ? 'management' : activeTab} 
+        isManagementOnly={viewingManagement && !viewingUserId}
+        onExitManagement={() => {
+          setActiveSessionView(null);
+          sessionStorage.removeItem('solum_session_view');
+          setViewingManagement(false);
+        }}
         setActiveTab={(tab) => {
           if (tab === 'management') {
             impersonateUser(null);
             setViewingManagement(true);
+            setActiveSessionView('management');
+            sessionStorage.setItem('solum_session_view', 'management');
           } else {
             setViewingManagement(false);
             setActiveTab(tab);
+            setActiveSessionView('finance');
+            sessionStorage.setItem('solum_session_view', 'finance');
           }
         }} 
-        onOpenProfile={() => setShowSetup(true)}
       />
 
       <main className="flex-1 h-full overflow-y-auto p-4 lg:p-8 relative">
@@ -140,6 +165,8 @@ const AppContent = () => {
                    onClick={() => {
                      impersonateUser(null);
                      setViewingManagement(true);
+                     setActiveSessionView('management');
+                     sessionStorage.setItem('solum_session_view', 'management');
                    }}
                    className="flex items-center gap-3 px-8 py-4 bg-primary text-white rounded-2xl transition-all hover:scale-[1.03] active:scale-95 shadow-xl shadow-primary/20 group/exit"
                  >
@@ -159,9 +186,40 @@ const AppContent = () => {
                <Loader2 className="text-primary animate-spin" size={32} />
             </div>
           )}
-          {viewingManagement ? <ManagementPortal /> : renderContent()}
+          
+          {/* Só renderiza o conteúdo se o espaço estiver selecionado (ou se for gestão) */}
+          {((viewingManagement || viewingUserId || activeSessionView) && initializedSpaces.length > 0) || (profile && profile.role !== 'user' && activeSessionView === 'management') ? (
+            viewingManagement ? <ManagementPortal /> : renderContent()
+          ) : (
+            <div className="flex items-center justify-center h-[60vh]">
+               <div className="text-center space-y-4">
+                  <div className="w-12 h-12 border-2 border-primary/20 rounded-full animate-spin border-t-primary mx-auto" />
+                  <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground animate-pulse">Aguardando Seleção de Espaço...</p>
+               </div>
+            </div>
+          )}
         </div>
       </main>
+
+      <SpaceSelectorOverlay 
+        isOpen={
+          !!user && 
+          !viewingManagement && 
+          !viewingUserId && (
+            !activeSessionView || initializedSpaces.length === 0
+          )
+        }
+        onSelect={(space) => {
+          setActiveSpace(space);
+          sessionStorage.setItem('solum_session_view', 'finance');
+          setActiveSessionView('finance');
+        }}
+        onSelectManagement={() => {
+          setViewingManagement(true);
+          sessionStorage.setItem('solum_session_view', 'management');
+          setActiveSessionView('management');
+        }}
+      />
 
       <ProfileSetupModal isOpen={showSetup} onComplete={() => setShowSetup(false)} />
     </div>
@@ -179,4 +237,3 @@ export default function App() {
     </AuthProvider>
   );
 }
-

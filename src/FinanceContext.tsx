@@ -31,7 +31,8 @@ interface FinanceContextType {
   seedCategories: (space: 'personal' | 'business') => Promise<void>;
   orderedCards: string[];
   orderedAccounts: string[];
-  saveWalletOrder: (type: 'cards' | 'accounts', newOrder: string[]) => Promise<void>;
+  saveWalletOrder: (cards: string[], accounts: string[]) => Promise<void>;
+  initializedSpaces: ('personal' | 'business')[];
 }
 
 const FinanceContext = createContext<FinanceContextType | undefined>(undefined);
@@ -176,15 +177,19 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   }, [user, effectiveUserId, activeSpace, isSpaceInitialized]);
 
-  // Sync activeSpace with user's primary_space on load
+  const currentMetadata = viewingProfile ? viewingProfile.user_metadata : user?.user_metadata;
+  const initializedSpaces = (currentMetadata?.initialized_spaces || []) as ('personal' | 'business')[];
+
+  // Sync activeSpace with user's primary_space or auto-select if only 1 exists
   useEffect(() => {
     if (user && !isSpaceInitialized) {
-      if (user.user_metadata?.primary_space) {
-        setActiveSpace(user.user_metadata.primary_space);
-      }
+      if (initializedSpaces.length === 1) {
+        setActiveSpace(initializedSpaces[0]);
+      } 
+      // Removido auto-seleção de primary_space se houver > 1 para forçar o seletor
       setIsSpaceInitialized(true);
     }
-  }, [user, isSpaceInitialized]);
+  }, [user, isSpaceInitialized, initializedSpaces]);
 
   useEffect(() => {
     if (isSpaceInitialized) {
@@ -247,7 +252,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       });
       return changed ? newWallets : prevWallets;
     });
-  }, [transactions]);
+  }, [transactions, wallets]);
 
   const toggleTheme = () => setTheme(prev => prev === 'light' ? 'dark' : 'light');
 
@@ -569,6 +574,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       toggleCategoryActive, updateCategory, deleteCategory, updateWallet, toggleWalletActive, updateActivity,
       includeCategoryLimits, setIncludeCategoryLimits, seedCategories,
       orderedCards, orderedAccounts,
+      initializedSpaces,
       saveWalletOrder: async (cards: string[], accounts: string[]) => {
         if (!user) return;
         

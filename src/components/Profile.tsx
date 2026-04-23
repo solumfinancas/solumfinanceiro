@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useModal } from '../contexts/ModalContext';
 import { 
   User, 
@@ -18,7 +18,9 @@ import {
   Info,
   Mail,
   Lock,
-  ArrowRight
+  ArrowRight,
+  Trash2,
+  X
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { cn, formatCNPJ, validateCNPJ } from '../lib/utils';
@@ -28,8 +30,8 @@ import { SpaceActivationModal } from './SpaceActivationModal';
 import { ChangePasswordModal } from './ChangePasswordModal';
 
 export const Profile: React.FC = () => {
-  const { user, viewingUserId, viewingProfile, refreshProfile } = useAuth();
-  const { activeSpace } = useFinance();
+  const { user, profile, viewingUserId, viewingProfile, refreshProfile } = useAuth();
+  const { activeSpace, setActiveSpace, initializedSpaces } = useFinance();
   const { showAlert } = useModal();
   
   // Estados separados por espaço
@@ -50,22 +52,29 @@ export const Profile: React.FC = () => {
     space: null
   });
 
-  useEffect(() => {
-    // Definir a fonte de metadados: perfil visualizado ou usuário atual
-    const metadata = viewingUserId ? viewingProfile?.user_metadata : user?.user_metadata;
+  // Estados para Reset de Dados
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [resetting, setResetting] = useState(false);
+  const [resetSpaceType, setResetSpaceType] = useState<'personal' | 'business' | null>(null);
+  const [resetConfirmText, setResetConfirmText] = useState('');
 
-    if (metadata) {
-      // Priorizar campos específicos do espaço se existirem
-      setPersonalName(metadata.personal_name || metadata.full_name || '');
-      setPersonalPhone(metadata.personal_phone || metadata.phone || '');
-      setGender(metadata.gender || 'male');
+  useEffect(() => {
+    // Definir a fonte de metadados e perfil: perfil visualizado ou usuário atual
+    const metadata = viewingUserId ? viewingProfile?.user_metadata : user?.user_metadata;
+    const p = viewingUserId ? viewingProfile : profile;
+
+    if (metadata || p) {
+      // Priorizar campos específicos do espaço se existirem, depois o nome no profiles, depois o email
+      setPersonalName(metadata?.personal_name || metadata?.full_name || p?.full_name || p?.email?.split('@')[0] || '');
+      setPersonalPhone(metadata?.personal_phone || metadata?.phone || '');
+      setGender(metadata?.gender || 'male');
       
       // Carregar dados empresariais
-      setBusinessName(metadata.business_name || '');
-      setBusinessPhone(metadata.business_phone || '');
-      setCnpj(metadata.business_cnpj || '');
+      setBusinessName(metadata?.business_name || '');
+      setBusinessPhone(metadata?.business_phone || '');
+      setCnpj(metadata?.business_cnpj || '');
     }
-  }, [user, viewingUserId, viewingProfile]);
+  }, [user, profile, viewingUserId, viewingProfile]);
 
   const formatPhone = (val: string) => {
     const digits = val.replace(/\D/g, '');
@@ -170,10 +179,57 @@ export const Profile: React.FC = () => {
 
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
-    } catch (err: any) {
-      showAlert('Erro ao Salvar', err.message, 'danger');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleResetData = async () => {
+    if (!resetSpaceType || resetConfirmText !== 'APAGAR') return;
+    
+    setResetting(true);
+    try {
+      const targetId = viewingUserId || user?.id;
+      if (!targetId) throw new Error('Usuário não identificado.');
+
+      const { data, error } = await supabase.functions.invoke('admin-create-user', {
+        body: { 
+          action: 'reset_space', 
+          userId: targetId, 
+          space: resetSpaceType 
+        }
+      });
+
+      if (error || data?.error) throw new Error(error?.message || data?.error);
+
+      showAlert('Sucesso', `Os dados do espaço ${resetSpaceType === 'personal' ? 'Pessoal' : 'Empresarial'} foram removidos com sucesso.`, 'success');
+      
+      const spaceToReset = resetSpaceType;
+      setShowResetModal(false);
+      setResetSpaceType(null);
+      setResetConfirmText('');
+      
+      // Atualizar metadados locais
+      await refreshProfile();
+
+      // Se resetou o espaço atual ou se não sobrou nenhum, limpa seleção
+      const remaining = initializedSpaces.filter(s => s !== spaceToReset);
+      if (activeSpace === spaceToReset || remaining.length === 0) {
+        if (remaining.length > 0) {
+          setActiveSpace(remaining[0] as 'personal' | 'business');
+        } else {
+          sessionStorage.removeItem('solum_session_view');
+        }
+      }
+
+      // Forçar recarregamento se for o próprio perfil para limpar contextos (Obrigatório para limpar Carteiras/Transações)
+      if (!viewingUserId) {
+        setTimeout(() => window.location.reload(), 1500);
+      }
+    } catch (err: any) {
+      showAlert('Erro', 'Não foi possível resetar os dados: ' + err.message, 'danger');
+    } finally {
+      setResetting(false);
     }
   };
 
@@ -435,25 +491,16 @@ export const Profile: React.FC = () => {
             </button>
           </div>
 
-          <div className="bg-card rounded-[2.5rem] p-8 border border-border shadow-sm space-y-6">
-            <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground">Preferências</h3>
-            <div className="space-y-2">
-              {[
-                { icon: MapPin, label: 'Moeda Local', value: 'BRL (R$)' },
-                { icon: Bell, label: 'Notificações', value: 'Ativado' },
-                { icon: CreditCard, label: 'Vencimentos', value: 'Alertar D-3' },
-              ].map((pref, i) => (
-                <div key={i} className="flex items-center justify-between p-4 hover:bg-muted/30 rounded-[1.5rem] transition-all cursor-pointer border border-transparent hover:border-border/50">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
-                      <pref.icon size={14} />
-                    </div>
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{pref.label}</span>
-                  </div>
-                  <span className="text-[10px] font-black uppercase text-primary">{pref.value}</span>
-                </div>
-              ))}
-            </div>
+          <div className="space-y-4">
+            <button 
+              onClick={() => setShowResetModal(true)}
+              className="w-full py-5 bg-rose-500/10 hover:bg-rose-500 text-[10px] font-black uppercase tracking-widest rounded-[2rem] border border-rose-500/20 text-rose-500 hover:text-white transition-all flex items-center justify-center gap-3 group shadow-xl shadow-rose-500/5"
+            >
+              <Trash2 size={16} className="group-hover:rotate-12 transition-transform" /> Resetar Dados Financeiros do Perfil
+            </button>
+            <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest text-center opacity-50 px-6">
+              Atenção: Esta ação é irreversível e apagará todos os lançamentos do espaço selecionado.
+            </p>
           </div>
         </div>
       </div>
@@ -463,8 +510,11 @@ export const Profile: React.FC = () => {
           isOpen={activationModal.isOpen}
           onClose={() => setActivationModal({ ...activationModal, isOpen: false })}
           spaceType={activationModal.space}
-          onConfirm={() => {
-            // Recarregar os dados ou apenas fechar
+          targetUserId={viewingUserId || undefined}
+          targetUserMetadata={viewingUserId ? viewingProfile?.user_metadata : undefined}
+          onConfirm={async () => {
+            await refreshProfile();
+            setActivationModal({ isOpen: false, space: null });
           }}
         />
       )}
@@ -474,6 +524,103 @@ export const Profile: React.FC = () => {
         onClose={() => setIsPasswordModalOpen(false)}
         userEmail={user?.email || ''}
       />
+
+      {/* Modal Reset de Dados */}
+      <AnimatePresence>
+        {showResetModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => !resetting && setShowResetModal(false)} className="absolute inset-0 bg-slate-950/90 backdrop-blur-md" />
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="relative w-full max-w-md bg-card border border-rose-500/20 rounded-[3rem] p-8 shadow-2xl overflow-hidden"
+            >
+              <div className="absolute -top-24 -right-24 w-48 h-48 bg-rose-500/20 blur-3xl rounded-full" />
+              
+              <div className="relative z-10">
+                <div className="flex items-center justify-between mb-8">
+                  <div className="w-14 h-14 rounded-2xl bg-rose-500/20 flex items-center justify-center text-rose-500">
+                    <Trash2 size={28} />
+                  </div>
+                  <button onClick={() => setShowResetModal(false)} className="text-muted-foreground hover:text-white transition-colors">
+                    <X size={24} />
+                  </button>
+                </div>
+
+                <h2 className="text-2xl font-black uppercase tracking-tighter mb-2">Recomeçar Perfil</h2>
+                <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-8 leading-relaxed">
+                  Esta ação excluirá permanentemente todos os lançamentos, carteiras e categorias do espaço selecionado.
+                </p>
+
+                <div className="space-y-3 mb-8">
+                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground ml-4">Selecione o Espaço para Limpar</label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button 
+                      disabled={!initializedSpaces.includes('personal') || resetting}
+                      onClick={() => setResetSpaceType('personal')}
+                      className={cn(
+                        "p-4 rounded-2xl border flex flex-col items-center gap-2 transition-all",
+                        resetSpaceType === 'personal' ? "bg-rose-500/10 border-rose-500 text-rose-500" : "bg-muted/20 border-border/50 text-muted-foreground hover:bg-muted/40",
+                        !initializedSpaces.includes('personal') && "opacity-30 cursor-not-allowed border-dashed grayscale"
+                      )}
+                    >
+                      <User size={20} />
+                      <span className="text-[9px] font-black uppercase tracking-widest">Pessoal</span>
+                      {!initializedSpaces.includes('personal') && <span className="text-[7px] font-black opacity-60">(INATIVO)</span>}
+                    </button>
+                    <button 
+                      disabled={!initializedSpaces.includes('business') || resetting}
+                      onClick={() => setResetSpaceType('business')}
+                      className={cn(
+                        "p-4 rounded-2xl border flex flex-col items-center gap-2 transition-all",
+                        resetSpaceType === 'business' ? "bg-rose-500/10 border-rose-500 text-rose-500" : "bg-muted/20 border-border/50 text-muted-foreground hover:bg-muted/40",
+                        !initializedSpaces.includes('business') && "opacity-30 cursor-not-allowed border-dashed grayscale"
+                      )}
+                    >
+                      <Building2 size={20} />
+                      <span className="text-[9px] font-black uppercase tracking-widest">Empresarial</span>
+                      {!initializedSpaces.includes('business') && <span className="text-[7px] font-black opacity-60">(INATIVO)</span>}
+                    </button>
+                  </div>
+                </div>
+
+                {resetSpaceType && (
+                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="space-y-4 mb-8">
+                    <div className="p-4 bg-rose-500/5 border border-rose-500/20 rounded-2xl">
+                      <p className="text-[10px] font-bold text-rose-500 uppercase leading-relaxed text-center">
+                        Para confirmar a exclusão do espaço <span className="underline">{resetSpaceType === 'personal' ? 'PESSOAL' : 'EMPRESARIAL'}</span>, digite <span className="font-black">APAGAR</span> abaixo:
+                      </p>
+                    </div>
+                    <input 
+                      type="text" 
+                      value={resetConfirmText}
+                      onChange={e => setResetConfirmText(e.target.value.toUpperCase())}
+                      placeholder="Digite APAGAR"
+                      className="w-full px-6 py-4 bg-muted/20 border border-rose-500/30 rounded-2xl text-center font-black text-rose-500 placeholder:text-rose-500/30 outline-none focus:ring-4 focus:ring-rose-500/10 transition-all"
+                    />
+                  </motion.div>
+                )}
+
+                <div className="grid grid-cols-2 gap-4">
+                  <button 
+                    disabled={resetting}
+                    onClick={() => setShowResetModal(false)}
+                    className="py-4 bg-muted text-muted-foreground rounded-2xl text-[10px] font-black uppercase tracking-widest"
+                  >
+                    Desistir
+                  </button>
+                  <button 
+                    disabled={resetting || resetConfirmText !== 'APAGAR'}
+                    onClick={handleResetData}
+                    className="py-4 bg-rose-600 hover:bg-rose-500 disabled:opacity-30 disabled:grayscale text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-rose-500/20 transition-all"
+                  >
+                    {resetting ? 'Limpando...' : 'Confirmar Reset'}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

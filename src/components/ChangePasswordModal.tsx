@@ -11,8 +11,12 @@ interface ChangePasswordModalProps {
   userEmail: string;
 }
 
+import { useAuth } from '../contexts/AuthContext';
+
 export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ isOpen, onClose, userEmail }) => {
   const { showAlert } = useModal();
+  const { viewingUserId } = useAuth();
+  const isImpersonating = !!viewingUserId;
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -24,7 +28,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ isOpen
   const handleUpdatePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!currentPassword || !newPassword || !confirmPassword) {
+    if ((!isImpersonating && !currentPassword) || !newPassword || !confirmPassword) {
       showAlert('Campos Vazios', 'Por favor, preencha todos os campos.', 'warning');
       return;
     }
@@ -41,24 +45,42 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ isOpen
 
     setIsLoading(true);
     try {
-      // 1. Validar senha atual tentando fazer login novamente
-      const { error: authError } = await supabase.auth.signInWithPassword({
-        email: userEmail,
-        password: currentPassword,
-      });
+      if (!isImpersonating) {
+        // 1. Validar senha atual tentando fazer login novamente (Apenas se não estiver gerenciando alguém)
+        const { error: authError } = await supabase.auth.signInWithPassword({
+          email: userEmail,
+          password: currentPassword,
+        });
 
-      if (authError) {
-        throw new Error('A senha atual está incorreta.');
+        if (authError) {
+          throw new Error('A senha atual está incorreta.');
+        }
+
+        // 2. Atualizar para a nova senha
+        const { error: updateError } = await supabase.auth.updateUser({
+          password: newPassword
+        });
+
+        if (updateError) throw updateError;
+      } else {
+        // MODO GESTÃO: Usar Edge Function para redefinir senha sem confirmar a atual
+        const { data, error: functionError } = await supabase.functions.invoke('admin-create-user', {
+          body: {
+            action: 'update',
+            userId: viewingUserId,
+            password: newPassword,
+            userData: {
+              last_password_reset: new Date().toISOString()
+            }
+          }
+        });
+
+        if (functionError || data?.error) {
+          throw new Error(functionError?.message || data?.error || 'Erro ao redefinir senha do cliente');
+        }
       }
 
-      // 2. Atualizar para a nova senha
-      const { error: updateError } = await supabase.auth.updateUser({
-        password: newPassword
-      });
-
-      if (updateError) throw updateError;
-
-      showAlert('Sucesso', 'Sua senha foi atualizada com sucesso!', 'success');
+      showAlert('Sucesso', isImpersonating ? 'Senha do cliente redefinida com sucesso!' : 'Sua senha foi atualizada com sucesso!', 'success');
       onClose();
       // Resetar campos
       setCurrentPassword('');
@@ -107,28 +129,32 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ isOpen
 
           <form onSubmit={handleUpdatePassword} className="space-y-4">
             {/* Senha Atual */}
-            <div className="space-y-2">
-              <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-4">Senha Atual</label>
-              <div className="relative">
-                <Lock className="absolute left-6 top-1/2 -translate-y-1/2 text-muted-foreground/40" size={16} />
-                <input 
-                  type={showCurrent ? "text" : "password"}
-                  value={currentPassword}
-                  onChange={(e) => setCurrentPassword(e.target.value)}
-                  className="w-full pl-14 pr-12 py-4 bg-muted/30 border border-border/50 rounded-[1.5rem] text-sm font-bold outline-none focus:ring-4 focus:ring-primary/10 transition-all font-mono"
-                  placeholder="••••••••"
-                />
-                <button 
-                  type="button"
-                  onClick={() => setShowCurrent(!showCurrent)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground/60 hover:text-primary transition-colors"
-                >
-                  {showCurrent ? <EyeOff size={16} /> : <Eye size={16} />}
-                </button>
-              </div>
-            </div>
+            {!isImpersonating && (
+              <>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-4">Senha Atual</label>
+                  <div className="relative">
+                    <Lock className="absolute left-6 top-1/2 -translate-y-1/2 text-muted-foreground/40" size={16} />
+                    <input 
+                      type={showCurrent ? "text" : "password"}
+                      value={currentPassword}
+                      onChange={(e) => setCurrentPassword(e.target.value)}
+                      className="w-full pl-14 pr-12 py-4 bg-muted/30 border border-border/50 rounded-[1.5rem] text-sm font-bold outline-none focus:ring-4 focus:ring-primary/10 transition-all font-mono"
+                      placeholder="••••••••"
+                    />
+                    <button 
+                      type="button"
+                      onClick={() => setShowCurrent(!showCurrent)}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground/60 hover:text-primary transition-colors"
+                    >
+                      {showCurrent ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                </div>
 
-            <div className="h-px bg-border/50 my-2" />
+                <div className="h-px bg-border/50 my-2" />
+              </>
+            )}
 
             {/* Nova Senha */}
             <div className="space-y-2">

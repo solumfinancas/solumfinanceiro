@@ -79,9 +79,13 @@ export const Auth: React.FC = () => {
           <motion.div 
             initial={{ scale: 0.8 }}
             animate={{ scale: 1 }}
-            className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary shadow-2xl shadow-primary/30 mb-8"
+            className="inline-flex items-center justify-center w-24 h-24 mb-8 rounded-full shadow-[0_0_50px_-12px_rgba(217,119,6,0.5)]"
           >
-            <ArrowRight className="text-white transform group-hover:translate-x-1 transition-transform" size={32} strokeWidth={3} />
+            <img 
+              src="/images/logo.png" 
+              alt="Solum Financeiro" 
+              className="w-full h-full object-contain drop-shadow-[0_0_8px_rgba(217,119,6,0.3)]" 
+            />
           </motion.div>
           <h1 className="text-4xl font-black text-white uppercase tracking-tighter mb-3">Solum Financeiro</h1>
           <p className="text-slate-400 text-sm font-medium tracking-wide">Excelência em gestão para suas finanças</p>

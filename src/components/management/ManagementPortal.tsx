@@ -13,7 +13,8 @@ import {
   Loader2,
   ChevronRight,
   LayoutDashboard,
-  Check
+  Check,
+  MoreVertical
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../../lib/utils';
@@ -78,9 +79,13 @@ export const ManagementPortal: React.FC = () => {
   const [educatorToLink, setEducatorToLink] = useState<Profile | null>(null);
   const [selectedClients, setSelectedClients] = useState<string[]>([]);
   const [availableUsers, setAvailableUsers] = useState<Profile[]>([]);
+  const [relationships, setRelationships] = useState<{educator_id: string, client_id: string}[]>([]);
+  const [allProfiles, setAllProfiles] = useState<Profile[]>([]);
+  const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
   
   const [creatingUser, setCreatingUser] = useState(false);
   const [linkingUsers, setLinkingUsers] = useState(false);
+  const [linkMode, setLinkMode] = useState<'educator_to_clients' | 'client_to_educator'>('educator_to_clients');
   
   // Form state for new user
   const [newUser, setNewUser] = useState({
@@ -109,9 +114,17 @@ export const ManagementPortal: React.FC = () => {
       if (pError) throw pError;
       setProfiles(profilesData || []);
       
-      // Fetch users for educator linking
-      const { data: userData } = await supabase.from('profiles').select('*').eq('role', 'user');
-      setAvailableUsers(userData || []);
+      // Fetch all profiles for reference (names in tags)
+      const { data: allP } = await supabase.from('profiles').select('*');
+      setAllProfiles(allP || []);
+
+      // Fetch all relationships
+      const { data: relData } = await supabase.from('educator_clients').select('*');
+      setRelationships(relData || []);
+      
+      // Fetch users for educator linking (now includes admins and educators)
+      const { data: selectableData } = await supabase.from('profiles').select('*');
+      setAvailableUsers(selectableData || []);
     } catch (err: any) {
       console.error('Erro ao buscar dados de gestão:', err);
       showAlert('Erro', 'Não foi possível carregar os perfis: ' + err.message, 'danger');
@@ -135,6 +148,12 @@ export const ManagementPortal: React.FC = () => {
   useEffect(() => {
     if (profile) fetchData();
   }, [profile]);
+
+  useEffect(() => {
+    const handleClose = () => setActiveMenuId(null);
+    window.addEventListener('click', handleClose);
+    return () => window.removeEventListener('click', handleClose);
+  }, []);
 
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -181,7 +200,7 @@ export const ManagementPortal: React.FC = () => {
     setLinkingUsers(true);
     try {
       const inserts = clientIds.map(cid => ({ educator_id: educatorId, client_id: cid }));
-      const { error } = await supabase.from('educator_clients').upsert(inserts, { onConflict: 'educator_id,client_id' });
+      const { error } = await supabase.from('educator_clients').upsert(inserts, { onConflict: 'client_id' });
       if (error) throw error;
       showAlert('Sucesso', 'Usuários vinculados com sucesso!', 'success');
       setEducatorToLink(null);
@@ -232,7 +251,32 @@ export const ManagementPortal: React.FC = () => {
       return;
     }
     setLoading(true);
-    const fullUser = await fetchFullProfile(target.id);
+    let fullUser = await fetchFullProfile(target.id);
+    
+    // SONDAGEM: Se não conseguiu metadados (ex: Educador acessando cliente), verifica se há dados reais
+    // Isso evita o erro de "Ativar Espaço" para quem já possui categorias/carteiras
+    if (!fullUser || !fullUser.user_metadata || !fullUser.user_metadata.initialized_spaces) {
+      try {
+        const { data: cats } = await supabase.from('categories').select('space').eq('userId', target.id);
+        const { data: wals } = await supabase.from('wallets').select('space').eq('userId', target.id);
+        
+        const initializedSpaces = Array.from(new Set([
+          ...(cats?.map(c => c.space) || []),
+          ...(wals?.map(w => w.space) || [])
+        ]));
+
+        fullUser = { 
+          ...fullUser, 
+          user_metadata: { 
+            ...fullUser?.user_metadata || {}, 
+            initialized_spaces: initializedSpaces
+          } 
+        };
+      } catch (err) {
+        console.warn('Erro na sondagem de espaços:', err);
+      }
+    }
+
     setLoading(false);
     if (fullUser) {
       setTargetUserForSpace({ ...target, user_metadata: fullUser.user_metadata });
@@ -255,14 +299,36 @@ export const ManagementPortal: React.FC = () => {
     showAlert('Modo Gestão', `Visualizando espaço ${space === 'personal' ? 'Pessoal' : 'Empresarial'} de ${targetUserForSpace.full_name}`, 'success');
   };
 
+  const profileMap = React.useMemo(() => {
+    const map = new Map<string, Profile>();
+    allProfiles.forEach(p => map.set(p.id, p));
+    return map;
+  }, [allProfiles]);
+
   const filteredProfiles = profiles
     .filter(p => {
       const matchesSearch = p.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) || 
                            p.email?.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesFilter = activeFilter === 'all' || p.role === activeFilter;
       return matchesSearch && matchesFilter;
-    })
-    .sort((a, b) => roleRank(b.role) - roleRank(a.role));
+    });
+
+  const roleGroups = [
+    { title: 'Administradores', roles: ['master_admin', 'admin'] as UserRole[], icon: Shield },
+    { title: 'Secretários', roles: ['secretary'] as UserRole[], icon: BookOpen },
+    { title: 'Educadores Financeiros', roles: ['educator'] as UserRole[], icon: GraduationCap },
+    { title: 'Usuários', roles: ['user'] as UserRole[], icon: Users },
+  ].filter(group => {
+    // Educadores veem apenas a seção de Usuários (Clientes)
+    if (profile?.role === 'educator') return group.roles.includes('user');
+    // Secretários veem apenas Educadores e Usuários
+    if (profile?.role === 'secretary') {
+      return !group.roles.includes('admin') && 
+             !group.roles.includes('master_admin') && 
+             !group.roles.includes('secretary');
+    }
+    return true;
+  });
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
@@ -284,7 +350,7 @@ export const ManagementPortal: React.FC = () => {
         )}
       </div>
 
-      <div className="bg-slate-900/40 backdrop-blur-xl border border-white/5 rounded-[2.5rem] p-6 flex flex-col xl:flex-row gap-6">
+      <div className="bg-slate-100 dark:bg-slate-900/40 backdrop-blur-xl border border-slate-200 dark:border-white/5 rounded-[2.5rem] p-6 flex flex-col xl:flex-row gap-6">
         <div className="relative flex-1 group">
           <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
           <input 
@@ -318,106 +384,223 @@ export const ManagementPortal: React.FC = () => {
           <Loader2 className="text-primary animate-spin" size={32} />
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <AnimatePresence>
-            {filteredProfiles.map((p) => (
-              <motion.div key={p.id} layout initial={{ opacity: 0 }} animate={{ opacity: 1 }} className={cn(
-                "bg-slate-900/40 border border-white/5 rounded-[2.5rem] p-8 hover:border-primary/30 transition-all group relative overflow-hidden",
-                p.user_metadata?.is_suspended && "opacity-60 grayscale-[0.5] border-rose-500/20"
-              )}>
-                <div className="flex items-start justify-between mb-8">
-                  <div className="flex items-center gap-4">
-                    <div className="w-16 h-16 rounded-2xl bg-slate-950 border border-white/5 flex items-center justify-center relative">
-                       <span className="text-xl font-black text-slate-400">{getInitials(p.full_name)}</span>
-                       <div className="absolute -bottom-2 -right-2 w-8 h-8 rounded-xl bg-slate-900 border border-white/10 flex items-center justify-center">
-                         {getRoleIcon(p.role)}
-                       </div>
+        <div className="space-y-12">
+          {roleGroups.map((group) => {
+            const groupUsers = filteredProfiles.filter(p => group.roles.includes(p.role));
+            
+            return (
+              <div key={group.title} className="space-y-6">
+                <div className="flex items-center justify-between border-b border-slate-200 dark:border-white/5 pb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-900 flex items-center justify-center text-slate-500">
+                      <group.icon size={20} />
                     </div>
                     <div>
-                      <h3 className="text-xl font-black text-white tracking-tight leading-none mb-2">{p.full_name}</h3>
-                      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{p.email}</p>
+                      <h2 className="text-xl font-black text-slate-800 dark:text-white uppercase tracking-tighter">{group.title}</h2>
+                      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{groupUsers.length} {groupUsers.length === 1 ? 'perfil localizado' : 'perfis localizados'}</p>
                     </div>
-                  </div>
-
-                  <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-all">
-                    {p.role === 'educator' && ['admin', 'master_admin', 'secretary'].includes(profile?.role || '') && (
-                      <button 
-                        onClick={() => setEducatorToLink(p)}
-                        className="w-10 h-10 flex items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 hover:bg-emerald-500 hover:text-white transition-all"
-                        title="Vincular Usuários"
-                      >
-                         <UserPlus size={18} />
-                      </button>
-                    )}
-
-                    {p.id !== profile?.id && roleRank(profile?.role as UserRole) > roleRank(p.role) && (
-                      <button 
-                        onClick={() => setUserToEditRole(p)}
-                        className="w-10 h-10 flex items-center justify-center rounded-xl bg-blue-500/10 text-blue-500 border border-blue-500/20 hover:bg-blue-500 hover:text-white transition-all"
-                        title="Alterar Nível de Acesso"
-                      >
-                         <Shield size={18} />
-                      </button>
-                    )}
-
-                    {p.id !== profile?.id && p.role !== 'master_admin' && roleRank(profile?.role as UserRole) > roleRank(p.role) && (
-                      <button 
-                        onClick={() => setUserToManage({ profile: p, action: 'suspend' })}
-                        className={cn(
-                          "w-10 h-10 flex items-center justify-center rounded-xl transition-all border",
-                          p.user_metadata?.is_suspended 
-                            ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20 hover:bg-emerald-500 hover:text-white"
-                            : "bg-amber-500/10 text-amber-500 border-amber-500/20 hover:bg-amber-500 hover:text-white"
-                        )}
-                        title={p.user_metadata?.is_suspended ? 'Reativar' : 'Suspender'}
-                      >
-                         <Plus className={cn("rotate-45 transition-transform", p.user_metadata?.is_suspended && "rotate-0")} size={18} />
-                      </button>
-                    )}
-
-                    {p.id !== profile?.id && roleRank(profile?.role as UserRole) > roleRank(p.role) && (
-                      <button 
-                        onClick={() => setUserToManage({ profile: p, action: 'delete' })}
-                        className="w-10 h-10 flex items-center justify-center rounded-xl bg-rose-500/10 text-rose-500 border border-rose-500/20 hover:bg-rose-500 hover:text-white transition-all"
-                        title="Excluir Permanentemente"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    )}
                   </div>
                 </div>
 
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between p-4 bg-slate-800/80 rounded-2xl border border-white/10 shadow-inner">
-                    <div className="space-y-0.5">
-                      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-primary/80">Nível de Acesso</p>
-                      <p className="text-xs font-black text-white uppercase tracking-tight">{getRoleLabel(p.role)}</p>
+                {groupUsers.length === 0 ? (
+                  <div className="py-12 flex flex-col items-center justify-center border-2 border-dashed border-slate-100 dark:border-white/5 rounded-[2.5rem] bg-slate-50/50 dark:bg-white/[0.02]">
+                    <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-white/5 flex items-center justify-center mb-4">
+                       <Search className="text-slate-300 dark:text-slate-700" size={20} />
                     </div>
-                    {p.user_metadata?.is_suspended && (
-                      <div className="bg-rose-500/20 text-rose-500 text-[8px] font-black uppercase px-2 py-1 rounded-md border border-rose-500/30 animate-pulse">
-                        Suspenso
-                      </div>
-                    )}
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Nenhum perfil nesta categoria</p>
                   </div>
-                  {p.id !== profile?.id && (
-                    <button 
-                      onClick={() => handleStartImpersonation(p)}
-                      disabled={p.user_metadata?.is_suspended}
-                      className={cn(
-                         "w-full h-14 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-3",
-                         p.user_metadata?.is_suspended 
-                           ? "bg-slate-800 text-slate-600 cursor-not-allowed" 
-                           : "bg-primary text-white hover:scale-[1.02] shadow-[0_10px_20px_-5px_rgba(249,115,22,0.3)]"
-                      )}
-                    >
-                      <LayoutDashboard size={18} />
-                      Gerenciar Finanças
-                    </button>
-                  )}
-                </div>
-              </motion.div>
-            ))}
-          </AnimatePresence>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <AnimatePresence mode="popLayout">
+                      {groupUsers.map((p) => (
+                        <motion.div 
+                          key={p.id} 
+                          layout 
+                          initial={{ opacity: 0, y: 20 }} 
+                          animate={{ opacity: 1, y: 0 }} 
+                          exit={{ opacity: 0, scale: 0.95 }}
+                          className={cn(
+                            "bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-white/5 rounded-[2.5rem] p-8 hover:border-primary/30 transition-all group relative overflow-hidden shadow-sm dark:shadow-none",
+                            p.user_metadata?.is_suspended && "opacity-60 grayscale-[0.5] border-rose-500/20"
+                          )}
+                        >
+                          <div className="flex items-start justify-between mb-8">
+                            <div className="flex items-center gap-4">
+                              <div className="w-16 h-16 rounded-2xl bg-white dark:bg-slate-950 border border-slate-200 dark:border-white/5 flex items-center justify-center relative shadow-sm">
+                                <span className="text-xl font-black text-slate-400 dark:text-slate-400">{getInitials(p.full_name)}</span>
+                                <div className="absolute -bottom-2 -right-2 w-8 h-8 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 flex items-center justify-center shadow-md">
+                                  {getRoleIcon(p.role)}
+                                </div>
+                              </div>
+                              <div>
+                                <div className="flex flex-col gap-1">
+                                  <h3 className="text-xl font-black text-slate-900 dark:text-white tracking-tight leading-none group-hover:text-primary transition-colors">{p.full_name}</h3>
+                                  
+                                  {/* Educator/Admin relationships tags */}
+                                  <div className="flex flex-wrap gap-1 mt-1">
+                                    {relationships
+                                      .filter(r => r.client_id === p.id)
+                                      .map(rel => {
+                                        const educator = profileMap.get(rel.educator_id);
+                                        if (!educator) return null;
+                                        return (
+                                          <div key={rel.educator_id} className="flex items-center gap-1.5 py-1 px-2.5 bg-emerald-500/10 border border-emerald-500/20 rounded-lg w-fit group/tag">
+                                            <GraduationCap size={10} className="text-emerald-500" />
+                                            <span className="text-[9px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400">
+                                              {educator.full_name}
+                                            </span>
+                                          </div>
+                                        );
+                                      })}
+                                  </div>
+                                </div>
+                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mt-1">{p.email}</p>
+                              </div>
+                            </div>
+
+                               <div className="relative">
+                              <button 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setActiveMenuId(activeMenuId === p.id ? null : p.id);
+                                }}
+                                className={cn(
+                                  "w-10 h-10 flex items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-white/10 text-slate-500 hover:text-primary transition-all shadow-sm",
+                                  activeMenuId === p.id && "bg-primary text-white border-primary"
+                                )}
+                              >
+                                <MoreVertical size={18} />
+                              </button>
+
+                              <AnimatePresence>
+                                {activeMenuId === p.id && (
+                                  <motion.div 
+                                    initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                                    exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                                    className="absolute right-0 top-12 w-56 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-2xl shadow-2xl z-50 overflow-hidden"
+                                    onClick={e => e.stopPropagation()}
+                                  >
+                                    <div className="p-2 space-y-1">
+                                      {/* Gerenciar Clientes (para educativos/admins) */}
+                                      {(p.role === 'educator' || p.role === 'admin' || p.role === 'master_admin') && ['admin', 'master_admin', 'secretary'].includes(profile?.role || '') && (
+                                        <button 
+                                          onClick={() => {
+                                            setEducatorToLink(p);
+                                            setLinkMode('educator_to_clients');
+                                            setAvailableUsers(allProfiles.filter(ap => ap.role === 'user'));
+                                            setSelectedClients(relationships.filter(r => r.educator_id === p.id).map(r => r.client_id));
+                                            setActiveMenuId(null);
+                                          }}
+                                          className="w-full flex items-center gap-3 px-4 py-3 text-[10px] font-black uppercase tracking-widest text-emerald-500 hover:bg-emerald-500/10 rounded-xl transition-all"
+                                        >
+                                          <UserPlus size={16} /> Gerenciar Clientes
+                                        </button>
+                                      )}
+
+                                      {/* Vincular Educador (para usuários) */}
+                                      {p.role === 'user' && ['admin', 'master_admin', 'secretary'].includes(profile?.role || '') && (
+                                        <button 
+                                          onClick={() => {
+                                            setEducatorToLink(p);
+                                            setLinkMode('client_to_educator');
+                                            setAvailableUsers(allProfiles.filter(ap => ap.role === 'educator' || ap.role === 'admin' || ap.role === 'master_admin'));
+                                            setSelectedClients(relationships.filter(r => r.client_id === p.id).map(r => r.educator_id));
+                                            setActiveMenuId(null);
+                                          }}
+                                          className="w-full flex items-center gap-3 px-4 py-3 text-[10px] font-black uppercase tracking-widest text-primary hover:bg-primary/10 rounded-xl transition-all"
+                                        >
+                                          <GraduationCap size={16} /> Vincular Gestor
+                                        </button>
+                                      )}
+
+                                      {/* Alterar Nível */}
+                                      {p.id !== profile?.id && roleRank(profile?.role as UserRole) > roleRank(p.role) && profile?.role !== 'educator' && (
+                                        <button 
+                                          onClick={() => {
+                                            setUserToEditRole(p);
+                                            setActiveMenuId(null);
+                                          }}
+                                          className="w-full flex items-center gap-3 px-4 py-3 text-[10px] font-black uppercase tracking-widest text-blue-500 hover:bg-blue-500/10 rounded-xl transition-all"
+                                        >
+                                          <Shield size={16} /> Alterar Cargo
+                                        </button>
+                                      )}
+
+                                      {/* Suspender / Inativar */}
+                                      {p.id !== profile?.id && p.role !== 'master_admin' && roleRank(profile?.role as UserRole) > roleRank(p.role) && profile?.role !== 'educator' && (
+                                        <button 
+                                          onClick={() => {
+                                            setUserToManage({ profile: p, action: 'suspend' });
+                                            setActiveMenuId(null);
+                                          }}
+                                          className={cn(
+                                            "w-full flex items-center gap-3 px-4 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all",
+                                            p.user_metadata?.is_suspended 
+                                              ? "text-emerald-500 hover:bg-emerald-500/10"
+                                              : "text-amber-500 hover:bg-amber-500/10"
+                                          )}
+                                        >
+                                          <Plus className={cn("rotate-45 transition-transform", p.user_metadata?.is_suspended && "rotate-0")} size={16} />
+                                          {p.user_metadata?.is_suspended ? 'Reativar Perfil' : 'Suspender Perfil'}
+                                        </button>
+                                      )}
+
+                                      {/* Excluir */}
+                                      {p.id !== profile?.id && roleRank(profile?.role as UserRole) > roleRank(p.role) && profile?.role !== 'educator' && (
+                                        <button 
+                                          onClick={() => {
+                                            setUserToManage({ profile: p, action: 'delete' });
+                                            setActiveMenuId(null);
+                                          }}
+                                          className="w-full flex items-center gap-3 px-4 py-3 text-[10px] font-black uppercase tracking-widest text-rose-500 hover:bg-rose-500/10 rounded-xl transition-all"
+                                        >
+                                          <Trash2 size={16} /> Excluir Perfil
+                                        </button>
+                                      )}
+                                    </div>
+                                  </motion.div>
+                                )}
+                              </AnimatePresence>
+                            </div>
+                          </div>
+
+                          <div className="space-y-4">
+                            <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800/80 rounded-2xl border border-slate-200 dark:border-white/10 shadow-inner">
+                              <div className="space-y-0.5">
+                                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-primary/80">Nível de Acesso</p>
+                                <p className="text-xs font-black text-slate-800 dark:text-white uppercase tracking-tight">{getRoleLabel(p.role)}</p>
+                              </div>
+                              {p.user_metadata?.is_suspended && (
+                                <div className="bg-rose-500/20 text-rose-500 text-[8px] font-black uppercase px-2 py-1 rounded-md border border-rose-500/30 animate-pulse">
+                                  Suspenso
+                                </div>
+                              )}
+                            </div>
+                            {p.id !== profile?.id && (
+                              <button 
+                                onClick={() => handleStartImpersonation(p)}
+                                disabled={p.user_metadata?.is_suspended}
+                                className={cn(
+                                  "w-full h-14 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-3",
+                                  p.user_metadata?.is_suspended 
+                                    ? "bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-600 cursor-not-allowed" 
+                                    : "bg-primary text-white hover:scale-[1.02] active:scale-95 shadow-lg shadow-primary/30"
+                                )}
+                              >
+                                <LayoutDashboard size={18} />
+                                Gerenciar Finanças
+                              </button>
+                            )}
+                          </div>
+                        </motion.div>
+                      ))}
+                    </AnimatePresence>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -581,30 +764,76 @@ export const ManagementPortal: React.FC = () => {
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setEducatorToLink(null)} className="absolute inset-0 bg-slate-950/90 backdrop-blur-md" />
             <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="relative w-full max-w-xl bg-slate-900 border border-white/10 rounded-[2.5rem] p-8 shadow-2xl flex flex-col max-h-[85vh]">
                <div className="flex items-center gap-4 mb-8">
-                 <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 flex items-center justify-center text-emerald-500"><UserPlus size={24} /></div>
+                 <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center", linkMode === 'educator_to_clients' ? "bg-emerald-500/20 text-emerald-500" : "bg-primary/20 text-primary")}><UserPlus size={24} /></div>
                  <div>
-                   <h2 className="text-2xl font-black text-white uppercase tracking-tighter">Vincular Clientes</h2>
-                   <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">Educador: {educatorToLink.full_name}</p>
+                   <h2 className="text-2xl font-black text-white uppercase tracking-tighter">
+                     {linkMode === 'educator_to_clients' ? 'Vincular Clientes' : 'Vincular Educador'}
+                   </h2>
+                   <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest mt-1">
+                     {linkMode === 'educator_to_clients' ? `Educador: ${educatorToLink?.full_name}` : `Cliente: ${educatorToLink?.full_name}`}
+                   </p>
                  </div>
                </div>
-               <div className="flex-1 overflow-y-auto pr-2 space-y-2 mb-8 custom-scrollbar">
-                 {availableUsers.map((u) => (
-                   <button key={u.id} onClick={() => {
-                     const exists = selectedClients.includes(u.id);
-                     if (exists) setSelectedClients(prev => prev.filter(id => id !== u.id));
-                     else setSelectedClients(prev => [...prev, u.id]);
-                   }} className={cn("w-full p-4 rounded-2xl border transition-all flex items-center justify-between group", selectedClients.includes(u.id) ? "bg-primary/10 border-primary text-white" : "bg-slate-950/50 border-white/5 text-slate-400")}>
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-slate-900 flex items-center justify-center text-[10px] font-black">{getInitials(u.full_name)}</div>
-                        <div className="text-left"><p className="text-xs font-black uppercase tracking-tight">{u.full_name}</p><p className="text-[9px] font-bold text-slate-600">{u.email}</p></div>
+               <div className="flex-1 overflow-y-auto pr-2 space-y-3 mb-8 custom-scrollbar">
+                  {availableUsers
+                    .filter(u => u.id !== educatorToLink?.id) // Prevent linking to self
+                    .map((u) => (
+                    <button key={u.id} onClick={() => {
+                      if (linkMode === 'client_to_educator') {
+                        // Radio button behavior: only one selection allowed
+                        setSelectedClients([u.id]);
+                      } else {
+                        // Multiple selection for clients
+                        const exists = selectedClients.includes(u.id);
+                        if (exists) setSelectedClients(prev => prev.filter(id => id !== u.id));
+                        else setSelectedClients(prev => [...prev, u.id]);
+                      }
+                    }} className={cn("w-full p-4 rounded-[1.5rem] border transition-all flex items-center justify-between group", selectedClients.includes(u.id) ? "bg-primary/10 border-primary text-slate-900 dark:text-white" : "bg-white dark:bg-slate-950/50 border-slate-200 dark:border-white/5 text-slate-500 dark:text-slate-400")}>
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-900 flex items-center justify-center text-[11px] font-black">{getInitials(u.full_name)}</div>
+                        <div className="text-left">
+                          <p className="text-sm font-black uppercase tracking-tight leading-none mb-1">{u.full_name}</p>
+                          <div className="flex items-center gap-2">
+                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{u.email}</p>
+                             <div className="w-1 h-1 rounded-full bg-slate-500" />
+                             <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">{getRoleLabel(u.role)}</span>
+                          </div>
+                        </div>
                       </div>
-                      <div className={cn("w-5 h-5 rounded-md border flex items-center justify-center", selectedClients.includes(u.id) ? "bg-primary border-primary text-white" : "border-white/10 text-transparent")}><Check size={12} strokeWidth={4} /></div>
-                   </button>
-                 ))}
+                      <div className={cn("w-6 h-6 rounded-lg border flex items-center justify-center transition-all", selectedClients.includes(u.id) ? "bg-primary border-primary text-white" : "border-slate-200 dark:border-white/10 text-transparent")}><Check size={14} strokeWidth={3} /></div>
+                    </button>
+                  ))}
                </div>
-               <div className="grid grid-cols-2 gap-4 mt-auto pt-4 border-t border-white/5">
-                 <button onClick={() => setEducatorToLink(null)} className="h-14 bg-slate-800 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest">Sair</button>
-                 <button disabled={linkingUsers || selectedClients.length === 0} onClick={() => handleLinkUsers(educatorToLink.id, selectedClients)} className="h-14 bg-primary text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-primary/20 disabled:opacity-50">{linkingUsers ? 'Vinculando...' : `Vincular (${selectedClients.length})`}</button>
+               <div className="grid grid-cols-2 gap-4 mt-auto pt-4 border-t border-slate-100 dark:border-white/5">
+                 <button onClick={() => setEducatorToLink(null)} className="h-14 bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white rounded-2xl text-[10px] font-black uppercase tracking-widest">Sair</button>
+                 <button 
+                   disabled={linkingUsers || (educatorToLink === null)} 
+                   onClick={async () => {
+                     if (!educatorToLink) return;
+                     setLinkingUsers(true);
+                     try {
+                       if (linkMode === 'educator_to_clients') {
+                         await handleLinkUsers(educatorToLink.id, selectedClients);
+                       } else {
+                         await supabase.from('educator_clients').delete().eq('client_id', educatorToLink.id);
+                         if (selectedClients.length > 0) {
+                           const inserts = selectedClients.map(eid => ({ educator_id: eid, client_id: educatorToLink.id }));
+                           await supabase.from('educator_clients').insert(inserts);
+                         }
+                         showAlert('Sucesso', 'Vínculos atualizados!', 'success');
+                         setEducatorToLink(null);
+                       }
+                       fetchData();
+                     } catch (err: any) {
+                       showAlert('Erro', err.message, 'danger');
+                     } finally {
+                       setLinkingUsers(false);
+                     }
+                   }} 
+                   className="h-14 bg-primary text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-primary/20 disabled:opacity-50"
+                 >
+                   {linkingUsers ? 'Gravando...' : `Salvar (${selectedClients.length})`}
+                 </button>
                </div>
             </motion.div>
           </div>
