@@ -209,22 +209,30 @@ export const Profile: React.FC = () => {
       setResetSpaceType(null);
       setResetConfirmText('');
       
-      // Atualizar metadados locais
+      // 1. Forçar atualização imediata do perfil e metadados da sessão
       await refreshProfile();
 
-      // Se resetou o espaço atual ou se não sobrou nenhum, limpa seleção
-      const remaining = initializedSpaces.filter(s => s !== spaceToReset);
-      if (activeSpace === spaceToReset || remaining.length === 0) {
-        if (remaining.length > 0) {
-          setActiveSpace(remaining[0] as 'personal' | 'business');
-        } else {
-          sessionStorage.removeItem('solum_session_view');
-        }
-      }
-
-      // Forçar recarregamento se for o próprio perfil para limpar contextos (Obrigatório para limpar Carteiras/Transações)
+      // 2. Se for o próprio perfil sendo resetado
       if (!viewingUserId) {
+        // Removemos a visualização ativa para forçar a volta ao seletor de espaços
+        sessionStorage.removeItem('solum_session_view');
+        
+        // Se o espaço resetado era o atual, limpamos a seleção no contexto
+        if (activeSpace === resetSpaceType) {
+          // O reload vai cuidar de re-inicializar o estado limpo
+        }
+
+        // Forçar recarregamento para limpar todos os estados dos contextos (Carteiras, Transações, etc)
+        // O delay de 1.5s é para dar tempo do usuário ver o alerta de sucesso
         setTimeout(() => window.location.reload(), 1500);
+      } else {
+        // Se estiver gerenciando outro usuário, apenas atualiza a navegação local se necessário
+        const remaining = initializedSpaces.filter(s => s !== spaceToReset);
+        if (activeSpace === spaceToReset) {
+          if (remaining.length > 0) {
+            setActiveSpace(remaining[0] as 'personal' | 'business');
+          }
+        }
       }
     } catch (err: any) {
       showAlert('Erro', 'Não foi possível resetar os dados: ' + err.message, 'danger');

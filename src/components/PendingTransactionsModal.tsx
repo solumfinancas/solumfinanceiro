@@ -144,8 +144,8 @@ export const PendingTransactionsModal: React.FC<PendingTransactionsModalProps> =
                                  <span className="text-[9px] font-bold text-muted-foreground uppercase">{new Date(t.date).getUTCFullYear()}</span>
                                </div>
                              </td>
-                             <td className="px-6 py-4">
-                               <span className="text-sm font-bold text-foreground line-clamp-1">{t.description}</span>
+                             <td className="px-6 py-4 min-w-[200px]">
+                               <span className="text-sm font-bold text-foreground leading-tight block">{t.description}</span>
                              </td>
                              <td className="px-6 py-4">
                                  {t.type !== 'provision' && category ? (

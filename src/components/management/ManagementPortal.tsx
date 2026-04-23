@@ -14,7 +14,10 @@ import {
   ChevronRight,
   LayoutDashboard,
   Check,
-  MoreVertical
+  MoreVertical,
+  X,
+  User,
+  Building2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../../lib/utils';
@@ -319,15 +322,22 @@ export const ManagementPortal: React.FC = () => {
     { title: 'Educadores Financeiros', roles: ['educator'] as UserRole[], icon: GraduationCap },
     { title: 'Usuários', roles: ['user'] as UserRole[], icon: Users },
   ].filter(group => {
-    // Educadores veem apenas a seção de Usuários (Clientes)
-    if (profile?.role === 'educator') return group.roles.includes('user');
-    // Secretários veem apenas Educadores e Usuários
-    if (profile?.role === 'secretary') {
-      return !group.roles.includes('admin') && 
-             !group.roles.includes('master_admin') && 
-             !group.roles.includes('secretary');
-    }
-    return true;
+    // 1. Permission based filtering
+    const hasPermission = (() => {
+      if (profile?.role === 'educator') return group.roles.includes('user');
+      if (profile?.role === 'secretary') {
+        return !group.roles.includes('admin') && 
+               !group.roles.includes('master_admin') && 
+               !group.roles.includes('secretary');
+      }
+      return true;
+    })();
+
+    if (!hasPermission) return false;
+
+    // 2. Active Filter based filtering
+    if (activeFilter === 'all') return true;
+    return group.roles.includes(activeFilter as UserRole);
   });
 
   return (
@@ -363,7 +373,14 @@ export const ManagementPortal: React.FC = () => {
         </div>
         {profile?.role !== 'educator' && (
           <div className="flex gap-2 overflow-x-auto no-scrollbar items-center">
-            {['all', 'admin', 'secretary', 'educator', 'user'].map((filter) => (
+            {['all', 'admin', 'secretary', 'educator', 'user']
+              .filter(f => {
+                if (profile?.role === 'secretary') {
+                  return !['admin'].includes(f) && f !== 'secretary';
+                }
+                return true;
+              })
+              .map((filter) => (
               <button
                 key={filter}
                 onClick={() => setActiveFilter(filter as any)}
@@ -435,23 +452,42 @@ export const ManagementPortal: React.FC = () => {
                               <div>
                                 <div className="flex flex-col gap-1">
                                   <h3 className="text-xl font-black text-slate-900 dark:text-white tracking-tight leading-none group-hover:text-primary transition-colors">{p.full_name}</h3>
-                                  
-                                  {/* Educator/Admin relationships tags */}
-                                  <div className="flex flex-wrap gap-1 mt-1">
+                                  {/* Tags de Relacionamento e Espaços Ativos */}
+                                  <div className="flex flex-wrap gap-1.5 mt-1">
+                                    {/* Educadores Vinculados */}
                                     {relationships
                                       .filter(r => r.client_id === p.id)
                                       .map(rel => {
                                         const educator = profileMap.get(rel.educator_id);
                                         if (!educator) return null;
                                         return (
-                                          <div key={rel.educator_id} className="flex items-center gap-1.5 py-1 px-2.5 bg-emerald-500/10 border border-emerald-500/20 rounded-lg w-fit group/tag">
+                                          <div key={rel.educator_id} className="flex items-center gap-1.5 py-1 px-2 bg-emerald-500/10 border border-emerald-500/20 rounded-lg w-fit shadow-sm">
                                             <GraduationCap size={10} className="text-emerald-500" />
-                                            <span className="text-[9px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400">
+                                            <span className="text-[8px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400">
                                               {educator.full_name}
                                             </span>
                                           </div>
                                         );
                                       })}
+
+                                    {/* Espaços Ativos */}
+                                    {p.user_metadata?.initialized_spaces?.includes('personal') && (
+                                      <div className={cn(
+                                        "flex items-center gap-1.5 py-1 px-2 rounded-lg w-fit border shadow-sm",
+                                        p.user_metadata?.gender === 'female' 
+                                          ? "bg-pink-500/10 border-pink-500/20 text-pink-600 dark:text-pink-400" 
+                                          : "bg-blue-500/10 border-blue-500/20 text-blue-600 dark:text-blue-400"
+                                      )}>
+                                        <User size={10} />
+                                        <span className="text-[8px] font-black uppercase tracking-widest">Pessoal</span>
+                                      </div>
+                                    )}
+                                    {p.user_metadata?.initialized_spaces?.includes('business') && (
+                                      <div className="flex items-center gap-1.5 py-1 px-2 bg-slate-900 border border-slate-800 rounded-lg w-fit text-slate-100 shadow-sm">
+                                        <Building2 size={10} />
+                                        <span className="text-[8px] font-black uppercase tracking-widest">Empresarial</span>
+                                      </div>
+                                    )}
                                   </div>
                                 </div>
                                 <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mt-1">{p.email}</p>
@@ -692,6 +728,13 @@ export const ManagementPortal: React.FC = () => {
           <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowCreateModal(false)} className="absolute inset-0 bg-slate-950/80 backdrop-blur-md" />
             <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="relative w-full max-w-lg bg-slate-900 border border-white/10 rounded-[2.5rem] p-8 shadow-2xl">
+               <button 
+                 onClick={() => setShowCreateModal(false)}
+                 className="absolute top-8 right-8 w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/10 transition-all z-10"
+               >
+                 <X size={20} />
+               </button>
+               
                <h2 className="text-2xl font-black text-white uppercase tracking-tighter mb-8">Novo Perfil</h2>
                <form onSubmit={handleCreateUser} className="space-y-6">
                  <input required type="text" value={newUser.full_name} onChange={e => setNewUser(prev => ({ ...prev, full_name: e.target.value }))} placeholder="Nome Completo" className="w-full bg-slate-950 border border-white/5 rounded-2xl h-14 px-6 text-sm text-white" />
@@ -705,7 +748,12 @@ export const ManagementPortal: React.FC = () => {
                        { id: 'educator', name: 'Educador', icon: GraduationCap, desc: 'Mentor', color: 'emerald' },
                        { id: 'secretary', name: 'Secretário', icon: BookOpen, desc: 'Adm ajuda', color: 'purple' },
                        ...(profile?.role === 'master_admin' ? [{ id: 'admin', name: 'Admin', icon: Shield, desc: 'Completo', color: 'blue' }] : [])
-                     ].map((role) => (
+                     ].filter(role => {
+                        if (profile?.role === 'secretary') {
+                          return role.id !== 'secretary' && role.id !== 'admin';
+                        }
+                        return true;
+                      }).map((role) => (
                        <button key={role.id} type="button" onClick={() => setNewUser(prev => ({ ...prev, role: role.id as UserRole }))} className={cn("p-4 rounded-2xl border-2 transition-all flex flex-col gap-2 group relative overflow-hidden", newUser.role === role.id ? "bg-primary/10 border-primary shadow-lg shadow-primary/10" : "bg-slate-950/50 border-white/5")}>
                          <div className={cn("w-8 h-8 rounded-xl flex items-center justify-center transition-colors", newUser.role === role.id ? "bg-primary text-white" : "bg-slate-900 text-slate-500")}>
                            <role.icon size={16} />

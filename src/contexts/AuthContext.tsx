@@ -105,15 +105,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const refreshProfile = useCallback(async () => {
-    // 1. Atualizar o objeto de usuário do Supabase Auth (onde ficam os metadados como initialized_spaces)
+    // Forçar atualização da sessão para garantir que os metadados mais recentes sejam baixados
+    // Isso é crucial após mudanças feitas via Edge Functions (como reset de espaço) que modificam o Auth
+    await supabase.auth.refreshSession();
+
+    // 1. Atualizar o objeto de usuário do Supabase Auth
     const { data: { user: updatedUser }, error: userError } = await supabase.auth.getUser();
     if (!userError && updatedUser) {
       setUser(updatedUser);
     }
 
     // 2. Atualizar o perfil da tabela 'profiles'
-    if (user?.id) {
-       const p = await fetchProfile(user.id);
+    const targetId = updatedUser?.id || user?.id;
+    if (targetId) {
+       const p = await fetchProfile(targetId);
        setProfile(p);
     }
     

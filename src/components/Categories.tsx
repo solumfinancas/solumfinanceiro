@@ -77,6 +77,7 @@ export const Categories: React.FC = () => {
   const [editingRefund, setEditingRefund] = useState<Transaction | null>(null);
   const [selectedTxIds, setSelectedTxIds] = useState<string[]>([]);
   const [showSearchFAB, setShowSearchFAB] = useState(false);
+  const [modalMode, setModalMode] = useState<'full' | 'budget'>('full');
 
   useEffect(() => {
     const searchInput = document.getElementById('search-input-categories');
@@ -169,9 +170,10 @@ export const Categories: React.FC = () => {
     setExpandedCats(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
   };
 
-  const handleOpenModal = (parentId?: string, category?: Category) => {
+  const handleOpenModal = (parentId?: string, category?: Category, mode: 'full' | 'budget' = 'full') => {
     setEditingCategory(category || null);
     setParentIdForNew(parentId);
+    setModalMode(mode);
     setIsModalOpen(true);
   };
 
@@ -209,7 +211,7 @@ export const Categories: React.FC = () => {
       'Tem certeza que deseja excluir este lançamento? Esta ação não poderá ser desfeita e afetará o saldo desta categoria.',
       { variant: 'danger', confirmText: 'Excluir Agora' }
     );
-    
+
     if (confirmed) {
       deleteTransaction(id);
       setSelectedTxIds(prev => prev.filter(i => i !== id));
@@ -667,9 +669,9 @@ export const Categories: React.FC = () => {
         {/* Search Field */}
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground opacity-40" size={18} />
-          <input 
+          <input
             id="search-input-categories"
-            type="text" 
+            type="text"
             placeholder="Pesquisar categoria ou subcategoria..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -871,8 +873,7 @@ export const Categories: React.FC = () => {
         onSave={handleSaveCategory}
         editingCategory={editingCategory}
         parentId={parentIdForNew}
-        parentType={parentIdForNew ? categories.find(c => c.id === parentIdForNew)?.type : editingCategory?.parentId ? categories.find(c => c.id === editingCategory.parentId)?.type : undefined}
-        parentColor={parentIdForNew ? categories.find(c => c.id === parentIdForNew)?.color : editingCategory?.parentId ? categories.find(c => c.id === editingCategory.parentId)?.color : undefined}
+        mode={modalMode}
       />
 
       {/* MODAL: Transações da Categoria */}
@@ -1178,13 +1179,13 @@ export const Categories: React.FC = () => {
                     className="w-14 h-14 rounded-full flex items-center justify-center shadow-lg border-2 border-background shrink-0 overflow-hidden"
                     style={{ backgroundColor: categoryForAction.color }}
                   >
-                    <IconRenderer 
-                      icon={categoryForAction.icon} 
-                      name={categoryForAction.name} 
-                      size={56} 
-                      simple 
-                      scale={0.65} 
-                      className="text-white" 
+                    <IconRenderer
+                      icon={categoryForAction.icon}
+                      name={categoryForAction.name}
+                      size={56}
+                      simple
+                      scale={0.65}
+                      className="text-white"
                     />
                   </div>
                   <div>
@@ -1225,12 +1226,12 @@ export const Categories: React.FC = () => {
                     icon: TrendingUp,
                     color: 'text-blue-500',
                     bg: 'bg-blue-500/10',
-                    onClick: () => { handleOpenModal(undefined, categoryForAction); setCategoryForAction(null); }
+                    onClick: () => { handleOpenModal(undefined, categoryForAction, 'budget'); setCategoryForAction(null); }
                   }] : []),
                   {
                     id: 'edit',
                     label: 'Editar Dados',
-                    description: 'Alterar nome, ícone ou cor principal',
+                    description: categoryForAction.parentId ? 'Alterar nome da subcategoria' : 'Alterar nome, ícone ou cor principal',
                     icon: Edit,
                     color: 'text-muted-foreground',
                     bg: 'bg-muted',

@@ -24,6 +24,7 @@ interface CategoryModalProps {
   parentId?: string;
   parentType?: 'income' | 'expense';
   parentColor?: string;
+  mode?: 'full' | 'budget';
 }
 
 const CATEGORY_COLORS = [
@@ -64,7 +65,8 @@ export const CategoryModal: React.FC<CategoryModalProps> = ({
   editingCategory,
   parentId,
   parentType,
-  parentColor
+  parentColor,
+  mode = 'full'
 }) => {
   const { showAlert } = useModal();
   const [formData, setFormData] = useState<Partial<Category>>({
@@ -160,7 +162,7 @@ export const CategoryModal: React.FC<CategoryModalProps> = ({
               <ChevronLeft size={24} className="text-muted-foreground" />
             </button>
             <h2 className="text-3xl font-black uppercase tracking-tighter text-foreground">
-              {editingCategory ? (editingCategory.parentId ? 'Editar Subcategoria' : 'Editar Categoria') : parentId ? 'Nova Subcategoria' : 'Nova Categoria'}
+              {mode === 'budget' ? 'Meta de Gasto Mensal' : (editingCategory ? (editingCategory.parentId ? 'Editar Subcategoria' : 'Editar Categoria') : parentId ? 'Nova Subcategoria' : 'Nova Categoria')}
             </h2>
           </div>
           <button 
@@ -173,30 +175,42 @@ export const CategoryModal: React.FC<CategoryModalProps> = ({
 
         {/* Corpo Scrollável */}
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-8 space-y-8 custom-scrollbar">
-          <div className="space-y-3">
-            <label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground ml-1">
-              Nome da {(parentId || formData.parentId) ? 'Subcategoria' : 'Categoria'}
-            </label>
-            <input 
-              type="text" 
-              required
-              autoFocus
-              value={formData.name}
-              onChange={(e) => {
-                setFormData({ ...formData, name: e.target.value });
-                if (e.target.value && errors.includes('name')) {
-                  setErrors(prev => prev.filter(err => err !== 'name'));
-                }
-              }}
-              className={cn(
-                "w-full px-6 py-5 bg-muted/30 border rounded-2xl focus:ring-4 focus:ring-primary/10 outline-none shadow-sm font-black text-xl uppercase tracking-tighter transition-all",
-                errors.includes('name') ? "border-rose-500 bg-rose-500/5 ring-4 ring-rose-500/10" : "border-border"
-              )}
-              placeholder={(parentId || formData.parentId) ? "Ex: Mercado, Aluguel..." : "Ex: Alimentação, Salário..."}
-            />
-          </div>
+          {mode === 'full' && (
+            <div className="space-y-3">
+              <label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground ml-1">
+                Nome da {(parentId || formData.parentId) ? 'Subcategoria' : 'Categoria'}
+              </label>
+              <input 
+                type="text" 
+                required
+                autoFocus
+                value={formData.name}
+                onChange={(e) => {
+                  setFormData({ ...formData, name: e.target.value });
+                  if (e.target.value && errors.includes('name')) {
+                    setErrors(prev => prev.filter(err => err !== 'name'));
+                  }
+                }}
+                className={cn(
+                  "w-full px-6 py-5 bg-muted/30 border rounded-2xl focus:ring-4 focus:ring-primary/10 outline-none shadow-sm font-black text-xl uppercase tracking-tighter transition-all",
+                  errors.includes('name') ? "border-rose-500 bg-rose-500/5 ring-4 ring-rose-500/10" : "border-border"
+                )}
+                placeholder={(parentId || formData.parentId) ? "Ex: Mercado, Aluguel..." : "Ex: Alimentação, Salário..."}
+              />
+            </div>
+          )}
 
-          {!parentId && !editingCategory && (
+          {mode === 'budget' && editingCategory && (
+            <div className="bg-muted/10 p-6 rounded-3xl border border-border/50 flex items-center gap-4 mb-4">
+              <IconRenderer icon={editingCategory.icon || 'Tag'} color={editingCategory.color} size={32} />
+              <div>
+                <h4 className="font-black text-lg uppercase tracking-tight leading-none">{editingCategory.name}</h4>
+                <p className="text-[10px] text-muted-foreground font-black uppercase tracking-widest mt-1 opacity-60">Ajustando meta de gastos</p>
+              </div>
+            </div>
+          )}
+
+          {mode === 'full' && !parentId && !editingCategory && (
             <div className="space-y-3">
               <label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground ml-1">Tipo de Fluxo</label>
               <div className="flex p-1.5 bg-muted/50 rounded-2xl gap-2 border border-border/50">
@@ -225,7 +239,7 @@ export const CategoryModal: React.FC<CategoryModalProps> = ({
           )}
 
           {/* Icon and Color Selection Area - Oculto para subcategorias conforme solicitado */}
-          {!(parentId || formData.parentId) && (
+          {mode === 'full' && !(parentId || formData.parentId) && (
             <div className="bg-muted/20 p-8 rounded-[2rem] border border-border/50 space-y-8 animate-in fade-in slide-in-from-top-4 duration-500">
               <div className="flex items-center gap-6">
                 <IconRenderer 

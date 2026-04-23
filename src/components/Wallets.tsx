@@ -381,10 +381,10 @@ export const Wallets: React.FC = () => {
       const dateDiff = dateB.localeCompare(dateA);
       if (dateDiff !== 0) return dateDiff;
       
-      // Para o mesmo dia, segue a ordem de cadastro (o primeiro cadastrado fica no topo do dia)
-      const aKey = String(a.created_at || a.id || "");
-      const bKey = String(b.created_at || b.id || "");
-      return aKey.localeCompare(bKey);
+      // Se for a mesma data, usamos o created_at (DESC) para manter a ordem da planilha
+      const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
+      return timeB - timeA;
     });
   }, [viewingWallet, transactions, activeTxTypeFilter, paymentFilter, monthFilter, yearFilter, invoiceMonthFilter, invoiceYearFilter]);
 

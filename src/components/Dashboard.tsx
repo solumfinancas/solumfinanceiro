@@ -244,7 +244,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, setTxFilter,
             t.isPaid === false &&
             (t.type === 'expense' || t.type === 'provision' || t.type === 'planned')
          )
-         .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+         .sort((a, b) => {
+            const dateCompare = new Date(a.date).getTime() - new Date(b.date).getTime();
+            if (dateCompare !== 0) return dateCompare;
+            const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
+            const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
+            return timeA - timeB;
+         });
 
       const total = list.reduce((sum, t) => sum + t.amount, 0);
       return { total, count: list.length, list: list.slice(0, 5) };
@@ -253,7 +259,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, setTxFilter,
    const pendingToReceive = useMemo(() => {
       const list = transactions
          .filter(t => t.isPaid === false && t.type === 'income')
-         .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+         .sort((a, b) => {
+            const dateCompare = new Date(a.date).getTime() - new Date(b.date).getTime();
+            if (dateCompare !== 0) return dateCompare;
+            const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
+            const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
+            return timeA - timeB;
+         });
 
       const total = list.reduce((sum, t) => sum + t.amount, 0);
       return { total, count: list.length, list: list.slice(0, 5) };
@@ -826,7 +838,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, setTxFilter,
                   {pendingToPay.list.map(t => (
                      <div key={t.id} className="flex items-center justify-between p-2 hover:bg-muted/30 rounded-xl transition-all">
                         <div className="flex flex-col">
-                           <p className="text-[10px] font-black truncate max-w-[120px]">{t.description}</p>
+                           <p className="text-[10px] font-black leading-tight line-clamp-2 mb-0.5">{t.description}</p>
                            <p className="text-[8px] font-bold text-muted-foreground">{new Date(t.date).toLocaleDateString()}</p>
                         </div>
                         <span className="text-[10px] font-black text-rose-500">{formatCurrency(t.amount)}</span>
@@ -859,7 +871,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, setTxFilter,
                   {pendingToReceive.list.map(t => (
                      <div key={t.id} className="flex items-center justify-between p-2 hover:bg-muted/30 rounded-xl transition-all">
                         <div className="flex flex-col">
-                           <p className="text-[10px] font-black truncate max-w-[120px]">{t.description}</p>
+                           <p className="text-[10px] font-black leading-tight line-clamp-2 mb-0.5">{t.description}</p>
                            <p className="text-[8px] font-bold text-muted-foreground">{new Date(t.date).toLocaleDateString()}</p>
                         </div>
                         <span className="text-[10px] font-black text-emerald-500">{formatCurrency(t.amount)}</span>

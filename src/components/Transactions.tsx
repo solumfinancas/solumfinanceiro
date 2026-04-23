@@ -182,7 +182,16 @@ export const Transactions: React.FC<TransactionsProps> = ({
       } else {
         return matchesFilter && matchesSearch && matchesYear && matchesMonth && matchesStatus && isCardTx && matchesWallet && matchesNecessity;
       }
-    }).sort((a, b) => b.date.localeCompare(a.date));
+    }).sort((a, b) => {
+      // Primeiro por data (DESC)
+      const dateCompare = b.date.localeCompare(a.date);
+      if (dateCompare !== 0) return dateCompare;
+      
+      // Se for a mesma data, usamos o created_at (DESC) para manter a ordem da planilha
+      const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
+      return timeB - timeA;
+    });
   }, [transactions, categories, wallets, filter, searchTerm, filterYear, filterMonth, showPaid, showPending, viewModeContas, selectedWalletId, isFilteringPastPending, necessityFilter]);
 
   const periodStats = useMemo(() => {
@@ -448,7 +457,7 @@ export const Transactions: React.FC<TransactionsProps> = ({
                     </div>
                   ) : (
                       <div className="flex items-center gap-2">
-                        <span className="font-bold text-foreground block truncate max-w-[200px]" title={t.description}>
+                        <span className="font-bold text-foreground block leading-tight min-w-[180px]" title={t.description}>
                           {t.description}
                         </span>
                         {isRefund && (

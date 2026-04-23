@@ -279,7 +279,13 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
 
     const tempId = 'temp-' + Date.now();
-    const optimisticTx = { ...txToInsert, id: tempId, userId: effectiveUserId, space: activeSpace } as Transaction;
+    const optimisticTx = { 
+      ...txToInsert, 
+      id: tempId, 
+      userId: effectiveUserId, 
+      space: activeSpace,
+      created_at: new Date().toISOString()
+    } as Transaction;
 
     
     // Optimistic Update
@@ -309,8 +315,17 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const addTransactions = async (txs: Omit<Transaction, 'id'>[]) => {
     if (!user) return;
     
-    const txsToInsert = txs.map(t => {
-      const tx = { ...t, userId: effectiveUserId, space: activeSpace } as any;
+    // Usamos um timestamp base e adicionamos milissegundos baseados na ordem inversa
+    // para que o primeiro item da planilha (index 0) tenha o maior created_at
+    // e apareça no topo na ordenação DESC.
+    const baseTime = Date.now();
+    const txsToInsert = txs.map((t, index) => {
+      const tx = { 
+        ...t, 
+        userId: effectiveUserId, 
+        space: activeSpace,
+        created_at: new Date(baseTime + (txs.length - index)).toISOString()
+      } as any;
 
       const wallet = wallets.find(w => w.id === tx.walletId);
       
@@ -332,7 +347,11 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     });
 
     const tempIds = txs.map(() => 'temp-' + Math.random().toString(36).substr(2, 9));
-    const optimisticTxs = txsToInsert.map((t, i) => ({ ...t, id: tempIds[i] } as Transaction));
+    const optimisticTxs = txsToInsert.map((t, i) => ({ 
+      ...t, 
+      id: tempIds[i],
+      created_at: t.created_at // Já definimos o created_at com os micro-incrementos acima
+    } as Transaction));
     
     setTransactions(prev => [...optimisticTxs, ...prev]);
     updateActivity('update');
