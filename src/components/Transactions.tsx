@@ -475,17 +475,14 @@ export const Transactions: React.FC<TransactionsProps> = ({
                           const wId = isInvoicePayment ? t.toWalletId : t.walletId;
                           const w = wallets.find(item => item.id === wId);
                           if (!w) return null;
-                          return (
-                            <div className="w-6 h-6 rounded-full overflow-hidden flex items-center justify-center bg-white border border-border/10 shrink-0 shadow-sm">
-                               {w.logoUrl ? (
-                                 <img src={w.logoUrl} alt={w.name} className="w-full h-full object-cover" />
-                               ) : (
-                                 <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: w.color }}>
-                                    <span className="text-[10px] font-black text-white">{w.name.charAt(0).toUpperCase()}</span>
-                                 </div>
-                               )}
-                            </div>
-                          );
+                           return (
+                             <IconRenderer 
+                               icon={w.logoUrl || w.icon || (w.type === 'credit_card' ? 'CreditCard' : 'Wallet')} 
+                               color={w.color} 
+                               size={24} 
+                               className="shrink-0 shadow-sm border border-border/10" 
+                             />
+                           );
                        })()}
                        <span className="font-bold">
                          {(() => {

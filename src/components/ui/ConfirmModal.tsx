@@ -99,7 +99,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
                 <Icon className={cn("w-6 h-6", config.text)} />
               </div>
               <div className="flex-1 overflow-hidden">
-                <h3 className="text-xl font-black uppercase tracking-tight text-foreground truncate">
+                <h3 className="text-xl font-black uppercase tracking-tight text-foreground leading-tight">
                   {title}
                 </h3>
                 <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-60">

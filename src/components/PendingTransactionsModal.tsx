@@ -169,19 +169,31 @@ export const PendingTransactionsModal: React.FC<PendingTransactionsModalProps> =
                                    <span className="text-[10px] italic text-muted-foreground">N/A</span>
                                  )}
                              </td>
-                             <td className="px-6 py-4 text-sm whitespace-nowrap">
-                               <div className="flex items-center gap-2">
-                                  <CreditCard size={14} className="text-muted-foreground" />
-                                  <span className="font-bold whitespace-nowrap">
-                                    {(() => {
-                                       const wId = isInvoicePayment ? t.toWalletId : t.walletId;
-                                       const w = wallets.find(item => item.id === wId);
-                                       if (!w) return 'Conta Excluída';
-                                       return w.type === 'credit_card' ? `(CARTÃO) ${w.name}` : w.name;
-                                    })()}
-                                  </span>
-                               </div>
-                             </td>
+                              <td className="px-6 py-4 text-sm whitespace-nowrap">
+                                <div className="flex items-center gap-2">
+                                   {(() => {
+                                        const wId = isInvoicePayment ? t.toWalletId : t.walletId;
+                                        const w = wallets.find(item => item.id === wId);
+                                        if (!w) return null;
+                                        return (
+                                          <IconRenderer 
+                                            icon={w.logoUrl || w.icon || (w.type === 'credit_card' ? 'CreditCard' : 'Wallet')} 
+                                            color={w.color} 
+                                            size={24} 
+                                            className="shrink-0 shadow-sm border border-border/10" 
+                                          />
+                                        );
+                                   })()}
+                                   <span className="font-bold whitespace-nowrap">
+                                     {(() => {
+                                        const wId = isInvoicePayment ? t.toWalletId : t.walletId;
+                                        const w = wallets.find(item => item.id === wId);
+                                        if (!w) return 'Conta Excluída';
+                                        return w.type === 'credit_card' ? `(CARTÃO) ${w.name}` : w.name;
+                                     })()}
+                                   </span>
+                                </div>
+                              </td>
                              <td className={cn(
                                "px-6 py-4 text-sm font-black text-right whitespace-nowrap",
                                type === 'receivable' ? "text-emerald-500" : "text-rose-500"

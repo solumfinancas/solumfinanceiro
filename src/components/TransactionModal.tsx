@@ -235,11 +235,25 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
     const result: SelectOption[] = [];
     if (cards.length > 0) {
       result.push({ id: 'header-cards', name: 'Cartões de Crédito', isHeader: true });
-      cards.forEach(w => result.push({ id: w.id, name: `(CARTÃO) ${w.name}`, logoUrl: w.logoUrl, type: w.type }));
+      cards.forEach(w => result.push({ 
+        id: w.id, 
+        name: `(CARTÃO) ${w.name}`, 
+        logoUrl: w.logoUrl, 
+        icon: w.icon || 'CreditCard',
+        color: w.color,
+        type: w.type 
+      }));
     }
     if (banks.length > 0) {
       result.push({ id: 'header-banks', name: 'Bancos', isHeader: true });
-      banks.forEach(w => result.push({ id: w.id, name: w.name, logoUrl: w.logoUrl, type: w.type }));
+      banks.forEach(w => result.push({ 
+        id: w.id, 
+        name: w.name, 
+        logoUrl: w.logoUrl, 
+        icon: w.icon || 'Wallet',
+        color: w.color,
+        type: w.type 
+      }));
     }
     return result;
   }, [wallets, newTx.walletId, newTx.type, isEstorno]);
