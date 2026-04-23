@@ -2,6 +2,7 @@ import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AlertTriangle, X, CheckCircle2, AlertCircle, Info } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { Portal } from './Portal';
 
 interface ConfirmModalProps {
   isOpen: boolean;
@@ -66,16 +67,17 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
   const Icon = config.icon;
 
   return (
-    <AnimatePresence>
-      <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
-        {/* Overlay */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          onClick={onClose}
-          className="absolute inset-0 bg-background/80 backdrop-blur-sm"
-        />
+    <Portal>
+      <AnimatePresence>
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+          {/* Overlay */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+            className="absolute inset-0 backdrop-premium"
+          />
 
         {/* Modal */}
         <motion.div
@@ -147,5 +149,6 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
         </motion.div>
       </div>
     </AnimatePresence>
+    </Portal>
   );
 };

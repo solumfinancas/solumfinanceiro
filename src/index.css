@@ -82,3 +82,15 @@
     font-family: var(--font-sans);
   }
 }
+
+/* Modal Backdrop Premium */
+.backdrop-premium {
+  background-color: rgba(2, 6, 23, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.modal-portal-root {
+  position: relative;
+  z-index: 9999;
+}

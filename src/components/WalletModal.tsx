@@ -7,6 +7,7 @@ import { Wallet } from '../types';
 import { cn, formatCurrency } from '../lib/utils';
 import { CustomSelect } from './ui/CustomSelect';
 import { IconRenderer } from './ui/IconRenderer';
+import { Portal } from './ui/Portal';
 
 interface WalletModalProps {
   type: 'bank' | 'credit_card';
@@ -264,17 +265,18 @@ export const WalletModal: React.FC<WalletModalProps> = ({ isOpen, onClose, type,
     }
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 z-[150] flex items-center justify-center p-4">
-      <motion.div 
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        onClick={onClose}
-        className="absolute inset-0 bg-black/80 backdrop-blur-md"
-      />
+    <Portal>
+      <AnimatePresence>
+        {isOpen && (
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={onClose}
+              className="absolute inset-0 backdrop-premium"
+            />
       <motion.div 
         initial={{ scale: 0.95, opacity: 0, y: 20 }}
         animate={{ scale: 1, opacity: 1, y: 0 }}
@@ -875,7 +877,10 @@ export const WalletModal: React.FC<WalletModalProps> = ({ isOpen, onClose, type,
             </div>
           )}
         </div>
-      </motion.div>
-    </div>
+          </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </Portal>
   );
 };

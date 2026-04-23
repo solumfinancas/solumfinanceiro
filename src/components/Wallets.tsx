@@ -1302,6 +1302,13 @@ const BankWalletItem: React.FC<{
                     <span className="text-[8px] font-black bg-rose-500 text-white px-2 py-0.5 rounded shadow-sm uppercase tracking-wider">INATIVO</span>
                   )}
                 </div>
+                {wallet.observation && (
+                  <div className="mt-2">
+                    <span className="inline-block px-2 py-0.5 bg-muted/50 text-[7px] font-black uppercase text-muted-foreground rounded tracking-wider whitespace-nowrap" title={wallet.observation}>
+                      {wallet.observation}
+                    </span>
+                  </div>
+                )}
              </div>
           </div>
           
@@ -1354,13 +1361,7 @@ const BankWalletItem: React.FC<{
           </div>
         )}
 
-        {wallet.observation && !wallet.targetValue && (
-          <div className="pt-2">
-            <span className="inline-block px-2 py-0.5 bg-muted/50 text-[7px] font-black uppercase text-muted-foreground rounded tracking-wider whitespace-nowrap" title={wallet.observation}>
-              {wallet.observation}
-            </span>
-          </div>
-        )}
+
       </div>
     </div>
   );
