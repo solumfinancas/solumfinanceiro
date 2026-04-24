@@ -25,6 +25,7 @@ interface FinanceContextType {
   addWallet: (w: Omit<Wallet, 'id'>) => Promise<void>;
   updateWallet: (id: string, w: Partial<Wallet>) => Promise<void>;
   toggleWalletActive: (id: string) => Promise<void>;
+  deleteWallet: (id: string) => Promise<void>;
   updateActivity: (type: 'access' | 'update') => Promise<void>;
   includeCategoryLimits: boolean;
   setIncludeCategoryLimits: (v: boolean) => void;
@@ -180,13 +181,11 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const currentMetadata = viewingProfile ? viewingProfile.user_metadata : user?.user_metadata;
   const initializedSpaces = (currentMetadata?.initialized_spaces || []) as ('personal' | 'business')[];
 
-  // Sync activeSpace with user's primary_space or auto-select if only 1 exists
   useEffect(() => {
     if (user && !isSpaceInitialized) {
       if (initializedSpaces.length === 1) {
         setActiveSpace(initializedSpaces[0]);
       } 
-      // Removido auto-seleção de primary_space se houver > 1 para forçar o seletor
       setIsSpaceInitialized(true);
     }
   }, [user, isSpaceInitialized, initializedSpaces]);
@@ -195,7 +194,6 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     if (isSpaceInitialized) {
       fetchData();
     }
-    // Removido updateActivity automático para evitar loop infinito com AuthContext
   }, [fetchData, isSpaceInitialized]);
 
   useEffect(() => {
@@ -210,8 +208,6 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     localStorage.setItem('includeCategoryLimits', JSON.stringify(includeCategoryLimits));
   }, [includeCategoryLimits]);
 
-  // Recalcular saldo das carteiras localmente quando transações mudam
-  // (O banco de dados é a fonte da verdade, mas o cálculo em tempo real ajuda na UX)
   useEffect(() => {
     setWallets(prevWallets => {
       let changed = false;
@@ -220,8 +216,6 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
           let balanceChange = 0;
           const isCreditCard = w.type === 'credit_card';
           
-          // For bank/cash accounts, only paid transactions count towards the balance
-          // For credit cards, any purchase (expense/planned) consumes the limit immediately
           const isExpenseType = t.type === 'expense' || t.type === 'planned' || t.type === 'provision';
           const isIncomeType = t.type === 'income';
 
@@ -234,7 +228,6 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
             if (t.type === 'transfer') balanceChange -= t.amount;
           }
 
-          // Payments TO the card or transfers TO the account
           const isInvoicePayment = t.description.toLowerCase().includes('pagamento de fatura');
           if ((t.type === 'transfer' || t.type === 'provision' || (isCreditCard && isInvoicePayment)) && t.toWalletId === w.id) {
             balanceChange += t.amount;
@@ -261,19 +254,16 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     
     let txToInsert = { ...t };
     
-    // Auto-calculate invoice for credit cards
     const wallet = wallets.find(w => w.id === txToInsert.walletId);
     if (wallet?.type === 'credit_card') {
-      txToInsert.isPaid = true; // Credit card expenses are always "paid" from the limit perspective
+      txToInsert.isPaid = true; 
       
-      // Sempre define invoiceMonth/Year para cartões, calculando a partir da data se não vier no modal
       if (!txToInsert.invoiceMonth || !txToInsert.invoiceYear) {
         const period = getInvoicePeriod(wallet.closingDay || 5, wallet.dueDay || 15, new Date(txToInsert.date + 'T12:00:00'));
         txToInsert.invoiceMonth = period.due.getUTCMonth() + 1;
         txToInsert.invoiceYear = period.due.getUTCFullYear();
       }
     }
-    // Auto-calculate paidDate if marked as paid on creation AND not manually provided
     if (txToInsert.isPaid && !txToInsert.paidDate) {
       txToInsert.paidDate = new Date().toISOString().split('T')[0];
     }
@@ -287,11 +277,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       created_at: new Date().toISOString()
     } as Transaction;
 
-    
-    // Optimistic Update
     setTransactions(prev => [optimisticTx, ...prev]);
-    
-    // Background updateActivity
     updateActivity('update');
 
     try {
@@ -299,14 +285,11 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         .from('transactions')
         .insert([{ ...txToInsert, userId: effectiveUserId, space: activeSpace }])
         .select()
-
         .single();
       
       if (error) throw error;
-      // Replace temp with real data
       setTransactions(prev => prev.map(tx => tx.id === tempId ? data : tx));
     } catch (error) {
-      // Rollback
       setTransactions(prev => prev.filter(tx => tx.id !== tempId));
       throw error;
     }
@@ -315,9 +298,6 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const addTransactions = async (txs: Omit<Transaction, 'id'>[]) => {
     if (!user) return;
     
-    // Usamos um timestamp base e adicionamos milissegundos baseados na ordem inversa
-    // para que o primeiro item da planilha (index 0) tenha o maior created_at
-    // e apareça no topo na ordenação DESC.
     const baseTime = Date.now();
     const txsToInsert = txs.map((t, index) => {
       const tx = { 
@@ -338,7 +318,6 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
           tx.invoiceYear = period.due.getUTCFullYear();
         }
       }
-      // Auto-calculate paidDate if marked as paid AND not manually provided (bulk)
       if (tx.isPaid && !tx.paidDate) {
         tx.paidDate = new Date().toISOString().split('T')[0];
       }
@@ -350,7 +329,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const optimisticTxs = txsToInsert.map((t, i) => ({ 
       ...t, 
       id: tempIds[i],
-      created_at: t.created_at // Já definimos o created_at com os micro-incrementos acima
+      created_at: t.created_at
     } as Transaction));
     
     setTransactions(prev => [...optimisticTxs, ...prev]);
@@ -377,7 +356,6 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const deleteTransaction = async (id: string) => {
     const originalTxs = [...transactions];
     
-    // Optimistic Update
     setTransactions(prev => prev.filter(tx => tx.id !== id));
     updateActivity('update');
 
@@ -387,7 +365,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       .eq('id', id);
     
     if (error) {
-      setTransactions(originalTxs); // Rollback
+      setTransactions(originalTxs);
       throw error;
     }
   };
@@ -395,7 +373,6 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const updateTransaction = async (id: string, updatedTx: Partial<Transaction>) => {
     let txToUpdate = { ...updatedTx };
     
-    // Auto-calculate invoice for credit cards if logic needs update
     const currentTx = transactions.find(t => t.id === id);
     if (txToUpdate.walletId || txToUpdate.date) {
       const walletId = txToUpdate.walletId || currentTx?.walletId;
@@ -412,7 +389,6 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       }
     }
 
-    // Handle paidDate logic: set when marked as paid (if not provided), clear when marked as pending
     if ('isPaid' in txToUpdate) {
       if (txToUpdate.isPaid && !currentTx?.isPaid && !txToUpdate.paidDate) {
         txToUpdate.paidDate = new Date().toISOString().split('T')[0];
@@ -423,7 +399,6 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
     const originalTxs = [...transactions];
     
-    // Optimistic Update
     setTransactions(prev => prev.map(tx => tx.id === id ? { ...tx, ...txToUpdate } as Transaction : tx));
     updateActivity('update');
 
@@ -438,7 +413,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       if (error) throw error;
       setTransactions(prev => prev.map(tx => tx.id === id ? data : tx));
     } catch (error) {
-      setTransactions(originalTxs); // Rollback
+      setTransactions(originalTxs);
       throw error;
     }
   };
@@ -450,7 +425,6 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       .from('categories')
       .insert([{ ...c, userId: effectiveUserId, space: activeSpace, isActive: true }])
       .select()
-
       .single();
     
     if (error) throw error;
@@ -485,16 +459,41 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     updateActivity('update');
   };
 
-  const deleteCategory = async (id: string) => {
-    const { error } = await supabase
-      .from('categories')
-      .delete()
-      .eq('id', id);
-    
-    if (error) throw error;
-    setCategories(prev => prev.filter(c => c.id !== id));
-    updateActivity('update');
-  };
+    const deleteCategory = async (id: string) => {
+      // Verificar se a categoria ou qualquer uma de suas subcategorias tem transações
+      const subcategoryIds = categories.filter(c => c.parentId === id).map(c => c.id);
+      const allTargetIds = [id, ...subcategoryIds];
+      const hasTransactions = transactions.some(tx => allTargetIds.includes(tx.categoryId));
+      
+      if (hasTransactions) {
+        // Se houver transações (nela ou em subcategorias), arquivamos
+        const { error } = await supabase
+          .from('categories')
+          .update({ isDeleted: true, isActive: false })
+          .eq('id', id);
+        if (error) throw error;
+
+        // Também arquivamos as subcategorias para manter consistência
+        if (subcategoryIds.length > 0) {
+          await supabase
+            .from('categories')
+            .update({ isDeleted: true, isActive: false })
+            .in('id', subcategoryIds);
+        }
+      } else {
+        // Se não houver nada, excluímos fisicamente
+        // O Supabase/Postgres cuidará da exclusão em cascata se configurado, 
+        // mas faremos manual para garantir o estado local
+        const { error } = await supabase
+          .from('categories')
+          .delete()
+          .eq('id', id);
+        if (error) throw error;
+      }
+      
+      setCategories(prev => prev.filter(c => c.id !== id && c.parentId !== id));
+      updateActivity('update');
+    };
 
   const addWallet = async (w: Omit<Wallet, 'id'>) => {
     if (!effectiveUserId) return;
@@ -503,7 +502,6 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       .from('wallets')
       .insert([{ ...w, userId: effectiveUserId, space: activeSpace }])
       .select()
-
       .single();
     
     if (error) throw error;
@@ -523,26 +521,46 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     updateActivity('update');
   };
 
-  const toggleWalletActive = async (id: string) => {
-    const wal = wallets.find(w => w.id === id);
-    if (!wal) return;
-    const { data, error } = await supabase
-      .from('wallets')
-      .update({ isActive: !wal.isActive })
-      .eq('id', id)
-      .select()
-      .single();
-    
-    if (error) throw error;
-    setWallets(prev => prev.map(w => w.id === id ? data : w));
-    updateActivity('update');
-  };
+   const toggleWalletActive = async (id: string) => {
+     const wal = wallets.find(w => w.id === id);
+     if (!wal) return;
+     const { data, error } = await supabase
+       .from('wallets')
+       .update({ isActive: !wal.isActive })
+       .eq('id', id)
+       .select()
+       .single();
+     
+     if (error) throw error;
+     setWallets(prev => prev.map(w => w.id === id ? data : w));
+     updateActivity('update');
+   };
+ 
+   const deleteWallet = async (id: string) => {
+     const hasTransactions = transactions.some(tx => tx.walletId === id || tx.toWalletId === id);
+     
+     if (hasTransactions) {
+       const { error } = await supabase
+         .from('wallets')
+         .update({ isDeleted: true, isActive: false })
+         .eq('id', id);
+       if (error) throw error;
+     } else {
+       const { error } = await supabase
+         .from('wallets')
+         .delete()
+         .eq('id', id);
+       if (error) throw error;
+     }
+     
+     setWallets(prev => prev.filter(w => w.id !== id));
+     updateActivity('update');
+   };
 
   const updateActivity = async (type: 'access' | 'update') => {
     if (!user) return;
     
     const now = Date.now();
-    // Throttle: no máximo uma atualização a cada 5 minutos para 'access'
     if (type === 'access' && now - lastActivityUpdate.current < 5 * 60 * 1000) {
       return;
     }
@@ -590,7 +608,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     <FinanceContext.Provider value={{
       transactions, categories, wallets, activeSpace, theme, loading,
       setActiveSpace, toggleTheme, addTransaction, addTransactions, addCategory, addWallet, deleteTransaction, updateTransaction,
-      toggleCategoryActive, updateCategory, deleteCategory, updateWallet, toggleWalletActive, updateActivity,
+      toggleCategoryActive, updateCategory, deleteCategory, updateWallet, toggleWalletActive, deleteWallet, updateActivity,
       includeCategoryLimits, setIncludeCategoryLimits, seedCategories,
       orderedCards, orderedAccounts,
       initializedSpaces,

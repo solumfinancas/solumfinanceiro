@@ -219,37 +219,35 @@ export const Categories: React.FC = () => {
   };
 
   const handleDeleteSubcategory = async (sub: Category) => {
-    if (!sub.parentId) return;
+    // Usamos a mesma lógica de exclusão/arquivamento da categoria principal
+    await handleDeleteCategory(sub);
+  };
 
-    const count = transactions.filter(t => t.categoryId === sub.id).length;
-    const parent = categories.find(c => c.id === sub.parentId);
-
-    const msg = count > 0
-      ? `Esta subcategoria possui ${count} lançamentos. Ao excluí-la, todos os lançamentos serão movidos para a categoria pai "${parent?.name || 'Geral'}". Deseja continuar?`
-      : `Deseja excluir permanentemente a subcategoria "${sub.name}"?`;
-
+  const handleDeleteCategory = async (cat: Category) => {
+    const subcategoryIds = categories.filter(c => c.parentId === cat.id).map(c => c.id);
+    const allTargetIds = [cat.id, ...subcategoryIds];
+    const hasTransactions = transactions.some(t => allTargetIds.includes(t.categoryId));
+    
     const confirmed = await showConfirm(
-      count > 0 ? 'Mover Lançamentos' : 'Excluir Subcategoria',
-      msg,
-      { variant: count > 0 ? 'warning' : 'danger', confirmText: 'Confirmar' }
+      hasTransactions ? 'Arquivar Categoria' : 'Excluir Categoria',
+      hasTransactions 
+        ? `Esta categoria (ou suas subcategorias) possui lançamentos vinculados. Ela será ocultada da sua lista, mas os lançamentos históricos serão preservados para seus relatórios. Deseja continuar?`
+        : `Deseja excluir permanentemente a categoria "${cat.name}"? Esta ação não pode ser desfeita.`,
+      {
+        variant: hasTransactions ? 'warning' : 'danger',
+        confirmText: hasTransactions ? 'Arquivar e Ocultar' : 'Excluir Permanentemente',
+        cancelText: 'Cancelar'
+      }
     );
 
     if (confirmed) {
       try {
-        // 1. Move transactions to parent
-        if (count > 0) {
-          const txUpdates = transactions
-            .filter(t => t.categoryId === sub.id)
-            .map(t => updateTransaction(t.id, { categoryId: sub.parentId! }));
-
-          await Promise.all(txUpdates);
-        }
-
-        // 2. Delete the subcategory
-        await deleteCategory(sub.id);
+        await deleteCategory(cat.id);
+        setCategoryForAction(null);
+        showAlert('Sucesso', hasTransactions ? 'Categoria arquivada com sucesso!' : 'Categoria excluída com sucesso!', 'success');
       } catch (error) {
-        console.error('Erro ao excluir subcategoria:', error);
-        await showAlert('Erro', 'Ocorreu um erro ao excluir a subcategoria.', 'danger');
+        console.error('Erro ao excluir categoria:', error);
+        showAlert('Erro', 'Ocorreu um erro ao excluir a categoria.', 'danger');
       }
     }
   };
@@ -292,12 +290,13 @@ export const Categories: React.FC = () => {
   };
 
   const filteredCategories = categories.filter(c => {
+    if (c.isDeleted) return false;
     const matchesSearch = c.name.toLowerCase().includes(searchTerm.toLowerCase());
     if (c.parentId) {
       const parent = categories.find(p => p.id === c.parentId);
       return matchesSearch || (parent?.name.toLowerCase().includes(searchTerm.toLowerCase()));
     }
-    const hasMatchingChild = categories.some(sub => sub.parentId === c.id && sub.name.toLowerCase().includes(searchTerm.toLowerCase()));
+    const hasMatchingChild = categories.some(sub => !sub.isDeleted && sub.parentId === c.id && sub.name.toLowerCase().includes(searchTerm.toLowerCase()));
     return matchesSearch || hasMatchingChild;
   });
 
@@ -529,7 +528,7 @@ export const Categories: React.FC = () => {
                   className="ml-12 overflow-hidden space-y-2 border-l border-dashed border-border/50 pl-3"
                 >
                   {(() => {
-                    const subcats = categories.filter(sub => sub.parentId === c.id && sub.name.toLowerCase().includes(searchTerm.toLowerCase()));
+                    const subcats = categories.filter(sub => sub.parentId === c.id && !sub.isDeleted && sub.name.toLowerCase().includes(searchTerm.toLowerCase()));
                     if (subcats.length === 0) {
                       return (
                         <motion.div
@@ -1236,7 +1235,16 @@ export const Categories: React.FC = () => {
                     color: 'text-muted-foreground',
                     bg: 'bg-muted',
                     onClick: () => { handleOpenModal(undefined, categoryForAction); setCategoryForAction(null); }
-                  }
+                  },
+                  ...(categoryForAction.isActive === false ? [{
+                    id: 'delete',
+                    label: 'Excluir Categoria',
+                    description: 'Remover permanentemente ou arquivar',
+                    icon: Trash2,
+                    color: 'text-rose-500',
+                    bg: 'bg-rose-500/10',
+                    onClick: () => handleDeleteCategory(categoryForAction)
+                  }] : [])
                 ].map((action) => (
                   <button
                     key={action.id}

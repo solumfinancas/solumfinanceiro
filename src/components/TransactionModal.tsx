@@ -226,10 +226,10 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   const walletOptions = useMemo(() => {
     const isSpecialType = ['income', 'transfer', 'provision'].includes(newTx.type || '') || isInvoicePayment;
     
-    const banks = wallets.filter(w => w.type !== 'credit_card' && (w.isActive !== false || w.id === newTx.walletId));
+    const banks = wallets.filter(w => w.type !== 'credit_card' && ((w.isActive !== false && !w.isDeleted) || w.id === newTx.walletId));
     const cards = wallets.filter(w => w.type === 'credit_card' && (
       w.id === newTx.walletId || 
-      (!isSpecialType || isEstorno) && w.isActive !== false
+      (!isSpecialType || isEstorno) && w.isActive !== false && !w.isDeleted
     ));
     
     const result: SelectOption[] = [];
@@ -262,8 +262,12 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
     const isIncome = newTx.type === 'income';
     const targetType = (newTx.type === 'provision' || newTx.type === 'planned') ? 'expense' : newTx.type;
     
+    // Identificar categoria atual e seu pai para garantir que apareçam mesmo se excluídos
+    const currentCategory = categories.find(c => c.id === newTx.categoryId);
+    const parentIdOfSelected = currentCategory?.parentId;
+
     const filtered = categories.filter(c => 
-      (c.isActive !== false) && 
+      ((c.isActive !== false && !c.isDeleted) || c.id === newTx.categoryId || c.id === parentIdOfSelected) && 
       c.type === targetType
     );
     
@@ -278,7 +282,12 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
         color: parent.color
       });
       
-      const children = categories.filter(c => c.parentId === parent.id);
+      // Filhos do pai atual que estão ativos OU são o selecionado
+      const children = categories.filter(c => 
+        c.parentId === parent.id && 
+        ((c.isActive !== false && !c.isDeleted) || c.id === newTx.categoryId)
+      );
+      
       children.forEach(child => {
         result.push({
           id: child.id,
@@ -291,16 +300,18 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
     });
     
     return result;
-  }, [categories, newTx.type]);
+  }, [categories, newTx.type, newTx.categoryId]);
 
   const targetWalletOptions = useMemo(() => 
     wallets
-      .filter(w => w.id !== newTx.walletId && w.type !== 'credit_card' && (w.isActive !== false || w.id === newTx.toWalletId))
+      .filter(w => w.id !== newTx.walletId && w.type !== 'credit_card' && ((w.isActive !== false && !w.isDeleted) || w.id === newTx.toWalletId))
       .sort((a, b) => (a.type === b.type ? 0 : a.type === 'credit_card' ? -1 : 1))
       .map(w => ({
         id: w.id,
         name: w.type === 'credit_card' ? `(CARTÃO) ${w.name}` : w.name,
         logoUrl: w.logoUrl,
+        icon: w.icon || 'Wallet',
+        color: w.color,
         type: w.type
       }))
   , [wallets, newTx.walletId, newTx.toWalletId]);

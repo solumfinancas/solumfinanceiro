@@ -16,6 +16,7 @@ interface WalletActionsModalProps {
   onViewTransactions: (month?: number, year?: number) => void;
   onEdit: () => void;
   onToggleActive: () => void;
+  onDelete: () => void;
   onEditTransaction: (tx: Transaction) => void;
 }
 
@@ -26,6 +27,7 @@ export const WalletActionsModal: React.FC<WalletActionsModalProps> = ({
   onViewTransactions, 
   onEdit, 
   onToggleActive,
+  onDelete,
   onEditTransaction
 }) => {
   const { addTransaction, updateTransaction, deleteTransaction, wallets = [], transactions = [], categories = [] } = useFinance();
@@ -356,7 +358,7 @@ export const WalletActionsModal: React.FC<WalletActionsModalProps> = ({
     },
     {
       id: 'edit',
-      label: 'Editar Carteira',
+      label: isCreditCard ? 'Editar Cartão' : 'Editar Carteira',
       description: 'Alterar nome, cor ou configurações',
       icon: Edit3,
       color: 'text-blue-500',
@@ -365,13 +367,26 @@ export const WalletActionsModal: React.FC<WalletActionsModalProps> = ({
     },
     {
       id: 'toggle',
-      label: wallet.isActive !== false ? 'Inativar Carteira' : 'Reativar Carteira',
+      label: wallet.isActive !== false 
+        ? (isCreditCard ? 'Inativar Cartão' : 'Inativar Carteira') 
+        : (isCreditCard ? 'Reativar Cartão' : 'Reativar Carteira'),
       description: wallet.isActive !== false ? 'Ocultar das opções de novos lançamentos' : 'Tornar visível novamente',
       icon: wallet.isActive !== false ? PowerOff : Power,
       color: wallet.isActive !== false ? 'text-amber-500' : 'text-emerald-500',
       bg: wallet.isActive !== false ? 'bg-amber-500/10' : 'bg-emerald-500/10',
       onClick: onToggleActive
-    }
+    },
+    ...(!isCreditCard && wallet.isActive === false ? [
+      {
+        id: 'delete',
+        label: 'Excluir Carteira',
+        description: 'Remover permanentemente ou arquivar',
+        icon: Trash2,
+        color: 'text-rose-500',
+        bg: 'bg-rose-500/10',
+        onClick: onDelete
+      }
+    ] : [])
   ];
 
   if (errorInfo) {

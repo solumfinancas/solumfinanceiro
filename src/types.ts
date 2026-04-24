@@ -9,6 +9,7 @@ export interface Category {
   color: string;
   parentId?: string; // If present, it's a subcategory
   isActive?: boolean; // New: handle inactivation instead of deletion
+  isDeleted?: boolean;
   limit?: number; // New: budget limit for the category
   space?: 'personal' | 'business';
 }
@@ -27,6 +28,7 @@ export interface Wallet {
   logoUrl?: string;
   icon?: 'wallet' | 'bank' | 'piggy';
   isActive?: boolean;
+  isDeleted?: boolean;
   cardLevel?: string;
   cardColor?: string;
   defaultPaymentWalletId?: string;

@@ -441,24 +441,32 @@ export const Transactions: React.FC<TransactionsProps> = ({
                                size={24} 
                                className="rounded-lg shadow-sm border border-border/30" 
                              />
-                             {category.parentId ? (
-                               <div className="flex flex-col">
-                                 <span className="text-[8px] font-black uppercase text-muted-foreground/60 -mb-0.5 tracking-wider">
-                                   {parentCategory?.name}
+                             <div className="flex flex-col">
+                               {category.parentId ? (
+                                 <>
+                                   <span className="text-[8px] font-black uppercase text-muted-foreground/60 -mb-0.5 tracking-wider">
+                                     {parentCategory?.name}
+                                   </span>
+                                   <span className="text-xs font-black uppercase tracking-tighter opacity-80 flex items-center gap-1.5">
+                                     {category.name}
+                                     {category.isDeleted && <span className="text-[8px] text-red-500 font-black px-1.5 py-0 bg-red-500/10 rounded-full border border-red-500/20">EXCLUÍDA</span>}
+                                   </span>
+                                 </>
+                               ) : (
+                                 <span className="text-xs font-black uppercase tracking-tighter opacity-80 flex items-center gap-1.5">
+                                   {category.name}
+                                   {category.isDeleted && <span className="text-[8px] text-red-500 font-black px-1.5 py-0 bg-red-500/10 rounded-full border border-red-500/20">EXCLUÍDA</span>}
                                  </span>
-                                 <span className="text-xs font-black uppercase tracking-tighter opacity-80">{category.name}</span>
-                               </div>
-                             ) : (
-                               <span className="text-xs font-black uppercase tracking-tighter opacity-80">{category.name}</span>
-                             )}
+                               )}
+                             </div>
                           </div>
                         );
                       })()}
                     </div>
                   ) : (
                       <div className="flex items-center gap-2">
-                        <span className="font-bold text-foreground block leading-tight min-w-[180px]" title={t.description}>
-                          {t.description}
+                        <span className="text-muted-foreground italic text-[11px] opacity-60">
+                          {t.type === 'transfer' ? 'Sem categoria' : t.description}
                         </span>
                         {isRefund && (
                           <span className="px-2 py-0.5 bg-pink-500/10 text-pink-500 text-[8px] font-black uppercase tracking-widest rounded-full border border-pink-500/20 shadow-sm whitespace-nowrap">
@@ -484,12 +492,18 @@ export const Transactions: React.FC<TransactionsProps> = ({
                              />
                            );
                        })()}
-                       <span className="font-bold">
+                       <span className="font-bold flex items-center gap-1.5">
                          {(() => {
                             const wId = isInvoicePayment ? t.toWalletId : t.walletId;
                             const w = wallets.find(item => item.id === wId);
                             if (!w) return 'Conta Excluída';
-                            return w.type === 'credit_card' ? `(CARTÃO) ${w.name}` : w.name;
+                            const name = w.type === 'credit_card' ? `(CARTÃO) ${w.name}` : w.name;
+                            return (
+                              <>
+                                {name}
+                                {w.isDeleted && <span className="text-[8px] text-red-500 font-black px-1.5 py-0 bg-red-500/10 rounded-full border border-red-500/20">EXCLUÍDA</span>}
+                              </>
+                            );
                          })()}
                        </span>
                     </div>
@@ -511,12 +525,18 @@ export const Transactions: React.FC<TransactionsProps> = ({
                     {(t.type === 'transfer' || t.type === 'provision' || isInvoicePayment) && (
                       <div className="flex items-center gap-2 ml-5">
                          <ArrowLeftRight size={10} className="text-primary opacity-50" />
-                          <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-widest">
+                          <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
                             {(() => {
                                const wId = isInvoicePayment ? t.walletId : t.toWalletId;
                                const w = wallets.find(item => item.id === wId);
                                if (!w) return 'Conta Excluída';
-                               return w.type === 'credit_card' ? `(CARTÃO) ${w.name}` : w.name;
+                               const name = w.type === 'credit_card' ? `(CARTÃO) ${w.name}` : w.name;
+                               return (
+                                 <>
+                                   {name}
+                                   {w.isDeleted && <span className="text-[8px] text-red-500 font-black px-1.5 py-0 bg-red-500/10 rounded-full border border-red-500/20">EXCLUÍDA</span>}
+                                 </>
+                               );
                             })()}
                           </span>
                       </div>

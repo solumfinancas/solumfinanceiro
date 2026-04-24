@@ -89,7 +89,7 @@ const OrganizeItem: React.FC<{
 };
 
 export const Wallets: React.FC = () => {
-  const { wallets, transactions, categories, updateTransaction, deleteTransaction, toggleWalletActive, orderedCards, orderedAccounts, saveWalletOrder } = useFinance();
+  const { wallets, transactions, categories, updateTransaction, deleteTransaction, toggleWalletActive, deleteWallet, orderedCards, orderedAccounts, saveWalletOrder } = useFinance();
   const { showConfirm, showAlert } = useModal();
   const [searchTerm, setSearchTerm] = React.useState('');
   const [viewingTransactionsId, setViewingTransactionsId] = useState<string | null>(null);
@@ -166,7 +166,7 @@ export const Wallets: React.FC = () => {
   const totalCreditInvoices = useMemo(() => {
     const now = new Date();
     return wallets
-      .filter(w => w.type === 'credit_card' && w.isActive !== false)
+      .filter(w => w.type === 'credit_card' && w.isActive !== false && !w.isDeleted)
       .reduce((sum, w) => {
         // Encontrar todos os meses/anos únicos nas transações deste cartão
         const relevantInvoices = new Set<string>();
@@ -202,7 +202,7 @@ export const Wallets: React.FC = () => {
 
   const totalAccountsBalance = useMemo(() => {
     return wallets
-      .filter(w => w.type !== 'credit_card' && w.isActive !== false)
+      .filter(w => w.type !== 'credit_card' && w.isActive !== false && !w.isDeleted)
       .reduce((sum, w) => sum + (w.balance || 0), 0);
   }, [wallets]);
 
@@ -214,7 +214,7 @@ export const Wallets: React.FC = () => {
     };
 
     wallets.forEach(w => {
-      if (w.type === 'credit_card' || w.isActive === false) return;
+      if (w.type === 'credit_card' || w.isActive === false || w.isDeleted) return;
       const cat = w.walletCategory || 'checking';
       if (cat === 'checking') totals.checking += (w.balance || 0);
       else if (cat === 'savings') totals.savings += (w.balance || 0);
@@ -235,7 +235,7 @@ export const Wallets: React.FC = () => {
     };
 
     wallets.forEach(w => {
-      if (w.type === 'credit_card' || w.isActive === false) return;
+      if (w.type === 'credit_card' || w.isActive === false || w.isDeleted) return;
       if (!w.targetValue || w.targetValue <= 0) return;
 
       const cat = w.walletCategory || 'checking';
@@ -262,7 +262,7 @@ export const Wallets: React.FC = () => {
   const years = React.useMemo(() => getAvailableYears(transactions), [transactions]);
 
   const allFilteredWallets = wallets.filter(w =>
-    w.name.toLowerCase().includes(searchTerm.toLowerCase())
+    !w.isDeleted && w.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const bankWallets = allFilteredWallets.filter(w => w.type === 'bank' || w.type === 'cash');
@@ -358,7 +358,35 @@ export const Wallets: React.FC = () => {
       setIsActionsModalOpen(false);
     } catch (error) {
       console.error('Erro ao alternar status da carteira:', error);
-      await showAlert('Erro', 'Ocorreu um erro ao alterar o status da carteira.', 'danger');
+      await showAlert('Erro', `Ocorreu um erro ao alterar o status do ${wallet.type === 'credit_card' ? 'cartão' : 'da carteira'}.`, 'danger');
+    }
+  };
+
+  const handleDeleteWallet = async (wallet: Wallet) => {
+    const isCard = wallet.type === 'credit_card';
+    const hasTransactions = transactions.some(t => t.walletId === wallet.id || t.toWalletId === wallet.id);
+    
+    const confirmed = await showConfirm(
+      hasTransactions ? (isCard ? 'Arquivar Cartão' : 'Arquivar Carteira') : (isCard ? 'Excluir Cartão' : 'Excluir Carteira'),
+      hasTransactions 
+        ? `Este ${isCard ? 'cartão' : 'carteira'} possui lançamentos vinculados. ${isCard ? 'Ele' : 'Ela'} será ocultado da sua lista, mas os lançamentos históricos serão preservados para seus relatórios. Deseja continuar?`
+        : `Deseja excluir permanentemente o ${isCard ? 'cartão' : 'a carteira'} "${wallet.name}"? Esta ação não pode ser desfeita.`,
+      {
+        variant: hasTransactions ? 'warning' : 'danger',
+        confirmText: hasTransactions ? 'Arquivar e Ocultar' : 'Excluir Permanentemente',
+        cancelText: 'Cancelar'
+      }
+    );
+
+    if (confirmed) {
+      try {
+        await deleteWallet(wallet.id);
+        setIsActionsModalOpen(false);
+        showAlert('Sucesso', hasTransactions ? `${isCard ? 'Cartão arquivado' : 'Carteira arquivada'} com sucesso!` : `${isCard ? 'Cartão excluído' : 'Carteira excluída'} com sucesso!`, 'success');
+      } catch (error) {
+        console.error('Erro ao excluir carteira:', error);
+        showAlert('Erro', `Ocorreu um erro ao excluir o ${isCard ? 'cartão' : 'a carteira'}.`, 'danger');
+      }
     }
   };
 
@@ -599,10 +627,10 @@ export const Wallets: React.FC = () => {
           {(() => {
             const activeOrdered = orderedCards
               .map(id => wallets.find(w => w.id === id))
-              .filter(w => w && w.isActive !== false);
+              .filter(w => w && w.isActive !== false && !w.isDeleted);
 
             const inactive = showInactiveCards
-              ? wallets.filter(w => w.type === 'credit_card' && w.isActive === false)
+              ? wallets.filter(w => w.type === 'credit_card' && w.isActive === false && !w.isDeleted)
               : [];
 
             const allItems = [...activeOrdered, ...inactive];
@@ -782,13 +810,14 @@ export const Wallets: React.FC = () => {
                 if (searchTerm && !w.name.toLowerCase().includes(searchTerm.toLowerCase())) return false;
 
                 const wCat = w.walletCategory || 'checking';
-                return wCat === catId && w.isActive !== false;
+                return wCat === catId && w.isActive !== false && !w.isDeleted;
               });
 
               const inactiveInCategory = showInactiveBanks
                 ? wallets.filter(w => {
                   if (w.type === 'credit_card') return false;
                   if (w.isActive !== false) return false;
+                  if (w.isDeleted) return false;
                   if (searchTerm && !w.name.toLowerCase().includes(searchTerm.toLowerCase())) return false;
                   const wCat = w.walletCategory || 'checking';
                   return wCat === catId;
@@ -1388,6 +1417,7 @@ export const Wallets: React.FC = () => {
         onViewTransactions={(m, y) => selectedWalletForAction && handleViewTransactions(selectedWalletForAction, m, y)}
         onEdit={() => selectedWalletForAction && handleEditWallet(selectedWalletForAction)}
         onToggleActive={() => selectedWalletForAction && handleToggleActive(selectedWalletForAction)}
+        onDelete={() => selectedWalletForAction && handleDeleteWallet(selectedWalletForAction)}
         onEditTransaction={(tx) => handleEditTransaction(tx)}
       />
 
