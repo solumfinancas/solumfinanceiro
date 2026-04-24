@@ -61,6 +61,22 @@ const AppContent = () => {
   }, [user, profile, viewingUserId, activeSessionView]);
 
 
+  // Limpar sessão ao trocar de usuário (login) para forçar o seletor e evitar flicker
+  React.useEffect(() => {
+    if (user?.id) {
+      const lastUser = localStorage.getItem('solum_last_user');
+      if (user.id !== lastUser) {
+        sessionStorage.removeItem('solum_session_view');
+        setActiveSessionView(null);
+        setViewingManagement(false);
+        localStorage.setItem('solum_last_user', user.id);
+      }
+    } else {
+      localStorage.removeItem('solum_last_user');
+    }
+  }, [user?.id]);
+
+
 
   if (authLoading) {
     return (
@@ -104,8 +120,35 @@ const AppContent = () => {
     }
   };
 
-  return (
+  // Define se precisamos mostrar o seletor antes de qualquer coisa
+  const isSelectionNeeded = !!user && 
+    !viewingManagement && 
+    !viewingUserId && (
+      !activeSessionView || initializedSpaces.length === 0
+    );
 
+  if (isSelectionNeeded) {
+    return (
+      <div className="min-h-screen bg-[#020617]">
+        <SpaceSelectorOverlay 
+          isOpen={true}
+          onSelect={(space) => {
+            setActiveSpace(space);
+            sessionStorage.setItem('solum_session_view', 'finance');
+            setActiveSessionView('finance');
+          }}
+          onSelectManagement={() => {
+            setViewingManagement(true);
+            sessionStorage.setItem('solum_session_view', 'management');
+            setActiveSessionView('management');
+          }}
+        />
+        <ProfileSetupModal isOpen={showSetup} onComplete={() => setShowSetup(false)} />
+      </div>
+    );
+  }
+
+  return (
     <div className="flex flex-col lg:flex-row h-screen overflow-hidden bg-background text-foreground transition-colors duration-300">
       <Sidebar 
         activeTab={viewingManagement ? 'management' : activeTab} 
@@ -200,26 +243,6 @@ const AppContent = () => {
           )}
         </div>
       </main>
-
-      <SpaceSelectorOverlay 
-        isOpen={
-          !!user && 
-          !viewingManagement && 
-          !viewingUserId && (
-            !activeSessionView || initializedSpaces.length === 0
-          )
-        }
-        onSelect={(space) => {
-          setActiveSpace(space);
-          sessionStorage.setItem('solum_session_view', 'finance');
-          setActiveSessionView('finance');
-        }}
-        onSelectManagement={() => {
-          setViewingManagement(true);
-          sessionStorage.setItem('solum_session_view', 'management');
-          setActiveSessionView('management');
-        }}
-      />
 
       <ProfileSetupModal isOpen={showSetup} onComplete={() => setShowSetup(false)} />
     </div>

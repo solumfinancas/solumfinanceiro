@@ -348,7 +348,7 @@ export const ManagementPortal: React.FC = () => {
             <Shield className="text-primary" size={20} />
             <span className="text-[10px] font-black uppercase tracking-[0.3em] text-primary">Portal de Gestão</span>
           </div>
-          <h1 className="text-4xl font-black uppercase tracking-tighter text-white">
+          <h1 className="text-4xl font-black uppercase tracking-tighter text-slate-900 dark:text-white">
             {profile?.role === 'educator' ? 'Meus Clientes' : 'Controle de Acessos'}
           </h1>
         </div>
@@ -360,15 +360,15 @@ export const ManagementPortal: React.FC = () => {
         )}
       </div>
 
-      <div className="bg-slate-100 dark:bg-slate-900/40 backdrop-blur-xl border border-slate-200 dark:border-white/5 rounded-[2.5rem] p-6 flex flex-col xl:flex-row gap-6">
+      <div className="bg-card backdrop-blur-xl border border-border rounded-[2.5rem] p-6 flex flex-col xl:flex-row gap-6 shadow-xl shadow-slate-200/10 dark:shadow-none">
         <div className="relative flex-1 group">
-          <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
+          <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
           <input 
             type="text"
             placeholder="Buscar por nome ou e-mail..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-slate-950/50 border border-white/10 rounded-2xl h-14 pl-14 pr-6 text-sm text-white outline-none focus:border-primary/50 transition-all"
+            className="w-full bg-muted/30 border border-border rounded-2xl h-14 pl-14 pr-6 text-sm text-foreground outline-none focus:border-primary/50 transition-all placeholder:text-muted-foreground/60"
           />
         </div>
         {profile?.role !== 'educator' && (
@@ -386,7 +386,9 @@ export const ManagementPortal: React.FC = () => {
                 onClick={() => setActiveFilter(filter as any)}
                 className={cn(
                   "px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest border transition-all",
-                  activeFilter === filter ? "bg-primary border-primary text-white" : "bg-slate-950/50 border-white/5 text-slate-400"
+                  activeFilter === filter 
+                    ? "bg-primary border-primary text-white shadow-lg shadow-primary/20" 
+                    : "bg-muted/50 border-border text-muted-foreground hover:border-primary/30"
                 )}
               >
                 {filter === 'all' ? 'Todos' : getRoleLabel(filter as UserRole)}
@@ -402,19 +404,19 @@ export const ManagementPortal: React.FC = () => {
         </div>
       ) : (
         <div className="space-y-12">
-          {roleGroups.map((group) => {
+{ roleGroups.map((group) => {
             const groupUsers = filteredProfiles.filter(p => group.roles.includes(p.role));
             
             return (
               <div key={group.title} className="space-y-6">
-                <div className="flex items-center justify-between border-b border-slate-200 dark:border-white/5 pb-4">
+                <div className="flex items-center justify-between border-b border-border pb-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-900 flex items-center justify-center text-slate-500">
+                    <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center text-muted-foreground">
                       <group.icon size={20} />
                     </div>
                     <div>
-                      <h2 className="text-xl font-black text-slate-800 dark:text-white uppercase tracking-tighter">{group.title}</h2>
-                      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{groupUsers.length} {groupUsers.length === 1 ? 'perfil localizado' : 'perfis localizados'}</p>
+                      <h2 className="text-xl font-black text-foreground uppercase tracking-tighter">{group.title}</h2>
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{groupUsers.length} {groupUsers.length === 1 ? 'perfil localizado' : 'perfis localizados'}</p>
                     </div>
                   </div>
                 </div>
@@ -437,21 +439,21 @@ export const ManagementPortal: React.FC = () => {
                           animate={{ opacity: 1, y: 0 }} 
                           exit={{ opacity: 0, scale: 0.95 }}
                           className={cn(
-                            "bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-white/5 rounded-[2.5rem] p-8 hover:border-primary/30 transition-all group relative overflow-hidden shadow-sm dark:shadow-none",
+                            "bg-card border border-border rounded-[2.5rem] p-8 hover:border-primary/40 transition-all group relative overflow-hidden shadow-xl shadow-slate-200/40 dark:shadow-none",
                             p.user_metadata?.is_suspended && "opacity-60 grayscale-[0.5] border-rose-500/20"
                           )}
                         >
                           <div className="flex items-start justify-between mb-8">
                             <div className="flex items-center gap-4">
-                              <div className="w-16 h-16 rounded-2xl bg-white dark:bg-slate-950 border border-slate-200 dark:border-white/5 flex items-center justify-center relative shadow-sm">
-                                <span className="text-xl font-black text-slate-400 dark:text-slate-400">{getInitials(p.full_name)}</span>
-                                <div className="absolute -bottom-2 -right-2 w-8 h-8 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 flex items-center justify-center shadow-md">
+                              <div className="w-16 h-16 rounded-2xl bg-muted border border-white/10 flex items-center justify-center relative shadow-inner group-hover:border-primary/30 transition-all">
+                                <span className="text-xl font-black text-muted-foreground/60">{getInitials(p.full_name)}</span>
+                                <div className="absolute -bottom-2 -right-2 w-8 h-8 rounded-xl bg-card border border-white/20 flex items-center justify-center shadow-xl group-hover:border-primary/50 transition-all">
                                   {getRoleIcon(p.role)}
                                 </div>
                               </div>
                               <div>
                                 <div className="flex flex-col gap-1">
-                                  <h3 className="text-xl font-black text-slate-900 dark:text-white tracking-tight leading-none group-hover:text-primary transition-colors">{p.full_name}</h3>
+                                  <h3 className="text-xl font-black text-foreground tracking-tight leading-none group-hover:text-primary transition-colors">{p.full_name}</h3>
                                   {/* Tags de Relacionamento e Espaços Ativos */}
                                   <div className="flex flex-wrap gap-1.5 mt-1">
                                     {/* Educadores Vinculados */}
@@ -490,7 +492,7 @@ export const ManagementPortal: React.FC = () => {
                                     )}
                                   </div>
                                 </div>
-                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mt-1">{p.email}</p>
+                                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mt-1">{p.email}</p>
                               </div>
                             </div>
 
@@ -501,7 +503,7 @@ export const ManagementPortal: React.FC = () => {
                                   setActiveMenuId(activeMenuId === p.id ? null : p.id);
                                 }}
                                 className={cn(
-                                  "w-10 h-10 flex items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-white/10 text-slate-500 hover:text-primary transition-all shadow-sm",
+                                  "w-10 h-10 flex items-center justify-center rounded-xl bg-muted border border-border text-muted-foreground hover:text-primary transition-all shadow-sm",
                                   activeMenuId === p.id && "bg-primary text-white border-primary"
                                 )}
                               >
@@ -514,7 +516,7 @@ export const ManagementPortal: React.FC = () => {
                                     initial={{ opacity: 0, scale: 0.95, y: 10 }}
                                     animate={{ opacity: 1, scale: 1, y: 0 }}
                                     exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                                    className="absolute right-0 top-12 w-56 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-2xl shadow-2xl z-50 overflow-hidden"
+                                    className="absolute right-0 top-12 w-56 bg-card border border-border rounded-2xl shadow-2xl z-50 overflow-hidden"
                                     onClick={e => e.stopPropagation()}
                                   >
                                     <div className="p-2 space-y-1">
@@ -602,10 +604,10 @@ export const ManagementPortal: React.FC = () => {
                           </div>
 
                           <div className="space-y-4">
-                            <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800/80 rounded-2xl border border-slate-200 dark:border-white/10 shadow-inner">
+                            <div className="flex items-center justify-between p-4 bg-muted/40 rounded-2xl border border-border shadow-inner">
                               <div className="space-y-0.5">
                                 <p className="text-[10px] font-black uppercase tracking-[0.2em] text-primary/80">Nível de Acesso</p>
-                                <p className="text-xs font-black text-slate-800 dark:text-white uppercase tracking-tight">{getRoleLabel(p.role)}</p>
+                                <p className="text-xs font-black text-foreground uppercase tracking-tight">{getRoleLabel(p.role)}</p>
                               </div>
                               {p.user_metadata?.is_suspended && (
                                 <div className="bg-rose-500/20 text-rose-500 text-[8px] font-black uppercase px-2 py-1 rounded-md border border-rose-500/30 animate-pulse">
@@ -727,19 +729,19 @@ export const ManagementPortal: React.FC = () => {
         {showCreateModal && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowCreateModal(false)} className="absolute inset-0 bg-slate-950/80 backdrop-blur-md" />
-            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="relative w-full max-w-lg bg-slate-900 border border-white/10 rounded-[2.5rem] p-8 shadow-2xl">
+            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="relative w-full max-w-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-[2.5rem] p-8 shadow-2xl">
                <button 
                  onClick={() => setShowCreateModal(false)}
-                 className="absolute top-8 right-8 w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/10 transition-all z-10"
+                 className="absolute top-8 right-8 w-10 h-10 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-white/10 transition-all z-10"
                >
                  <X size={20} />
                </button>
                
-               <h2 className="text-2xl font-black text-white uppercase tracking-tighter mb-8">Novo Perfil</h2>
+               <h2 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tighter mb-8">Novo Perfil</h2>
                <form onSubmit={handleCreateUser} className="space-y-6">
-                 <input required type="text" value={newUser.full_name} onChange={e => setNewUser(prev => ({ ...prev, full_name: e.target.value }))} placeholder="Nome Completo" className="w-full bg-slate-950 border border-white/5 rounded-2xl h-14 px-6 text-sm text-white" />
-                 <input required type="email" value={newUser.email} onChange={e => setNewUser(prev => ({ ...prev, email: e.target.value }))} placeholder="E-mail" className="w-full bg-slate-950 border border-white/5 rounded-2xl h-14 px-6 text-sm text-white" />
-                 <input required type="password" value={newUser.password} onChange={e => setNewUser(prev => ({ ...prev, password: e.target.value }))} placeholder="Senha" minLength={6} className="w-full bg-slate-950 border border-white/5 rounded-2xl h-14 px-6 text-sm text-white" />
+                 <input required type="text" value={newUser.full_name} onChange={e => setNewUser(prev => ({ ...prev, full_name: e.target.value }))} placeholder="Nome Completo" className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/5 rounded-2xl h-14 px-6 text-sm text-slate-900 dark:text-white outline-none focus:border-primary/50 transition-all" />
+                 <input required type="email" value={newUser.email} onChange={e => setNewUser(prev => ({ ...prev, email: e.target.value }))} placeholder="E-mail" className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/5 rounded-2xl h-14 px-6 text-sm text-slate-900 dark:text-white outline-none focus:border-primary/50 transition-all" />
+                 <input required type="password" value={newUser.password} onChange={e => setNewUser(prev => ({ ...prev, password: e.target.value }))} placeholder="Senha" minLength={6} className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/5 rounded-2xl h-14 px-6 text-sm text-slate-900 dark:text-white outline-none focus:border-primary/50 transition-all" />
                  <div className="space-y-4">
                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-4 block">Nível de Acesso</label>
                    <div className="grid grid-cols-2 gap-3">
@@ -754,13 +756,13 @@ export const ManagementPortal: React.FC = () => {
                         }
                         return true;
                       }).map((role) => (
-                       <button key={role.id} type="button" onClick={() => setNewUser(prev => ({ ...prev, role: role.id as UserRole }))} className={cn("p-4 rounded-2xl border-2 transition-all flex flex-col gap-2 group relative overflow-hidden", newUser.role === role.id ? "bg-primary/10 border-primary shadow-lg shadow-primary/10" : "bg-slate-950/50 border-white/5")}>
-                         <div className={cn("w-8 h-8 rounded-xl flex items-center justify-center transition-colors", newUser.role === role.id ? "bg-primary text-white" : "bg-slate-900 text-slate-500")}>
+                       <button key={role.id} type="button" onClick={() => setNewUser(prev => ({ ...prev, role: role.id as UserRole }))} className={cn("p-4 rounded-2xl border-2 transition-all flex flex-col gap-2 group relative overflow-hidden", newUser.role === role.id ? "bg-primary/10 border-primary shadow-lg shadow-primary/10" : "bg-slate-50/50 dark:bg-slate-950/50 border-slate-200 dark:border-white/5")}>
+                         <div className={cn("w-8 h-8 rounded-xl flex items-center justify-center transition-colors", newUser.role === role.id ? "bg-primary text-white" : "bg-slate-200 dark:bg-slate-900 text-slate-500")}>
                            <role.icon size={16} />
                          </div>
                          <div className="text-left">
-                           <p className={cn("text-[10px] font-black uppercase tracking-wider", newUser.role === role.id ? "text-white" : "text-slate-400")}>{role.name}</p>
-                           <p className="text-[8px] font-bold text-slate-600 uppercase mt-0.5">{role.desc}</p>
+                           <p className={cn("text-[10px] font-black uppercase tracking-wider", newUser.role === role.id ? "text-slate-900 dark:text-white" : "text-slate-400")}>{role.name}</p>
+                           <p className="text-[8px] font-bold text-slate-500 dark:text-slate-600 uppercase mt-0.5">{role.desc}</p>
                          </div>
                        </button>
                      ))}
@@ -777,29 +779,29 @@ export const ManagementPortal: React.FC = () => {
       <AnimatePresence>
         {userToEditRole && (
           <div className="fixed inset-0 z-[75] flex items-center justify-center p-4">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setUserToEditRole(null)} className="absolute inset-0 bg-slate-950/90 backdrop-blur-md" />
-            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="relative w-full max-w-lg bg-slate-900 border border-white/10 rounded-[2.5rem] p-8 shadow-2xl">
-               <h2 className="text-2xl font-black text-white uppercase tracking-tighter mb-2">Alterar Cargo</h2>
-               <p className="text-slate-400 text-sm mb-8">Novo nível para <span className="text-white font-bold">{userToEditRole.full_name}</span></p>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setUserToEditRole(null)} className="absolute inset-0 bg-slate-950/80 backdrop-blur-md" />
+            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="relative w-full max-w-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-[2.5rem] p-8 shadow-2xl">
+               <h2 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tighter mb-2">Alterar Cargo</h2>
+               <p className="text-slate-500 dark:text-slate-400 text-sm mb-8">Novo nível para <span className="text-slate-900 dark:text-white font-bold">{userToEditRole.full_name}</span></p>
                <div className="grid grid-cols-2 gap-3 mb-8">
                   {[
                     { id: 'user', name: 'Usuário', icon: Users, desc: 'Acesso padrão', color: 'slate' },
                     { id: 'educator', name: 'Educador', icon: GraduationCap, desc: 'Mentor', color: 'emerald' },
                     { id: 'secretary', name: 'Secretário', icon: BookOpen, desc: 'Auxílio', color: 'purple' },
-                    { id: 'admin', name: 'Admin', icon: Shield, desc: 'Controle', color: 'blue' }
+                    { id: 'admin', name: 'Admin', icon: Shield, desc: 'Completo', color: 'blue' }
                   ].filter(r => roleRank(profile?.role as UserRole) > roleRank(r.id as UserRole)).map((role) => (
-                    <button key={role.id} onClick={() => handleUpdateRole(userToEditRole.id, role.id as UserRole)} className={cn("p-4 rounded-2xl border-2 transition-all flex flex-col gap-2 group relative overflow-hidden", userToEditRole.role === role.id ? "bg-primary/10 border-primary" : "bg-slate-950/50 border-white/5")}>
-                       <div className={cn("w-8 h-8 rounded-xl flex items-center justify-center transition-colors", userToEditRole.role === role.id ? "bg-primary text-white" : "bg-slate-900 text-slate-500")}>
+                    <button key={role.id} onClick={() => handleUpdateRole(userToEditRole.id, role.id as UserRole)} className={cn("p-4 rounded-2xl border-2 transition-all flex flex-col gap-2 group relative overflow-hidden", userToEditRole.role === role.id ? "bg-primary/10 border-primary" : "bg-slate-50/50 dark:bg-slate-950/50 border-slate-200 dark:border-white/5")}>
+                       <div className={cn("w-8 h-8 rounded-xl flex items-center justify-center transition-colors", userToEditRole.role === role.id ? "bg-primary text-white" : "bg-slate-200 dark:bg-slate-900 text-slate-500")}>
                          <role.icon size={16} />
                        </div>
                        <div className="text-left">
-                         <p className="text-[10px] font-black uppercase tracking-wider text-white">{role.name}</p>
-                         <p className="text-[8px] font-bold text-slate-600 uppercase mt-0.5">{role.desc}</p>
+                         <p className="text-[10px] font-black uppercase tracking-wider text-slate-900 dark:text-white">{role.name}</p>
+                         <p className="text-[8px] font-bold text-slate-500 dark:text-slate-600 uppercase mt-0.5">{role.desc}</p>
                        </div>
                     </button>
                   ))}
                </div>
-               <button onClick={() => setUserToEditRole(null)} className="w-full h-14 bg-slate-800 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest">Cancelar</button>
+               <button onClick={() => setUserToEditRole(null)} className="w-full h-14 bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">Cancelar</button>
             </motion.div>
           </div>
         )}
@@ -809,15 +811,15 @@ export const ManagementPortal: React.FC = () => {
       <AnimatePresence>
         {educatorToLink && (
           <div className="fixed inset-0 z-[75] flex items-center justify-center p-4">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setEducatorToLink(null)} className="absolute inset-0 bg-slate-950/90 backdrop-blur-md" />
-            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="relative w-full max-w-xl bg-slate-900 border border-white/10 rounded-[2.5rem] p-8 shadow-2xl flex flex-col max-h-[85vh]">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setEducatorToLink(null)} className="absolute inset-0 bg-slate-950/80 backdrop-blur-md" />
+            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="relative w-full max-w-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-[2.5rem] p-8 shadow-2xl flex flex-col max-h-[85vh]">
                <div className="flex items-center gap-4 mb-8">
                  <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center", linkMode === 'educator_to_clients' ? "bg-emerald-500/20 text-emerald-500" : "bg-primary/20 text-primary")}><UserPlus size={24} /></div>
                  <div>
-                   <h2 className="text-2xl font-black text-white uppercase tracking-tighter">
+                   <h2 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">
                      {linkMode === 'educator_to_clients' ? 'Vincular Clientes' : 'Vincular Educador'}
                    </h2>
-                   <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest mt-1">
+                   <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mt-1">
                      {linkMode === 'educator_to_clients' ? `Educador: ${educatorToLink?.full_name}` : `Cliente: ${educatorToLink?.full_name}`}
                    </p>
                  </div>

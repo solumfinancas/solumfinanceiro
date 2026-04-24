@@ -21,6 +21,10 @@ export const SpaceSelectorOverlay: React.FC<SpaceSelectorOverlayProps> = ({ isOp
   });
 
   if (!isOpen) return null;
+  
+  // Garantia de que temos o perfil carregado para decidir se mostramos o Portal de Gestão
+  // Evita o salto visual de 2 para 3 colunas
+  if (user && !profile) return null;
 
   const isStaff = profile && profile.role !== 'user';
 
@@ -78,9 +82,9 @@ export const SpaceSelectorOverlay: React.FC<SpaceSelectorOverlayProps> = ({ isOp
           {/* Management Portal (ONLY FOR STAFF) */}
           {isStaff && (
             <motion.button
-              initial={{ opacity: 0, y: 50 }}
+              initial={{ opacity: 0, y: 40 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.05 }}
+              transition={{ duration: 0.6, delay: 0.1, ease: "easeOut" }}
               onClick={onSelectManagement}
               className="group relative p-8 rounded-[3rem] border transition-all duration-500 text-left overflow-hidden bg-amber-500/5 border-amber-500/20 hover:border-amber-500/50 hover:bg-amber-500/10"
             >
@@ -113,9 +117,9 @@ export const SpaceSelectorOverlay: React.FC<SpaceSelectorOverlayProps> = ({ isOp
 
           {/* Personal Space */}
           <motion.button
-            initial={{ opacity: 0, x: -50 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.1 }}
+            initial={{ opacity: 0, y: 40 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.1, ease: "easeOut" }}
             onClick={() => handleChoice('personal')}
             className={cn(
               "group relative p-8 rounded-[3rem] border transition-all duration-500 text-left overflow-hidden",
@@ -162,9 +166,9 @@ export const SpaceSelectorOverlay: React.FC<SpaceSelectorOverlayProps> = ({ isOp
 
           {/* Business Space */}
           <motion.button
-            initial={{ opacity: 0, x: 50 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.2 }}
+            initial={{ opacity: 0, y: 40 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.1, ease: "easeOut" }}
             onClick={() => handleChoice('business')}
             className={cn(
               "group relative p-8 rounded-[3rem] border transition-all duration-500 text-left overflow-hidden",

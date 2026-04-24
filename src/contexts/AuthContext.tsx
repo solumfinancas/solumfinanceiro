@@ -194,10 +194,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     let mounted = true;
     if (user?.id) {
        fetchProfile(user.id).then(p => {
-         if (mounted) setProfile(p);
+         if (mounted) {
+           setProfile(p);
+           // Se o perfil carregou (ou falhou mas retornou), encerramos o loading global
+           setLoading(false);
+         }
        });
     } else {
        setProfile(null);
+       // Se não há usuário, o loading é encerrado pelo listener de Auth
     }
     return () => { mounted = false; };
   }, [user, fetchProfile]);
@@ -223,11 +228,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       console.log(`Auth Event: ${event}`);
       setSession(session);
-      setUser(session?.user ?? null);
+      
+      const currentUser = session?.user ?? null;
+      setUser(currentUser);
       
       if (mounted) {
-        setLoading(false);
-        clearTimeout(safetyTimeout);
+        // Se não houver sessão, encerramos o loading imediatamente.
+        // Se houver, o useEffect do profile cuidará de encerrar o loading após a busca.
+        if (!currentUser) {
+          setLoading(false);
+          clearTimeout(safetyTimeout);
+        }
       }
     });
 
