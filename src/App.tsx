@@ -20,6 +20,7 @@ const AppContent = () => {
   const { user, profile, viewingUserId, viewingProfile, impersonateUser, loading: authLoading } = useAuth();
   const { loading: financeLoading, wallets, activeSpace, initializedSpaces, setActiveSpace } = useFinance();
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [managementTab, setManagementTab] = useState('management');
   const [txInitialFilter, setTxInitialFilter] = useState<'all' | 'pending' | 'paid'>('all');
   const [txTypeFilter, setTxTypeFilter] = useState<'all' | 'income' | 'expense'>('all');
   const [showSetup, setShowSetup] = useState(false);
@@ -44,6 +45,12 @@ const AppContent = () => {
     if (profile && profile.role !== 'user' && !viewingUserId) {
       if (activeSessionView === 'management') {
         setViewingManagement(true);
+        // Define default sub-tab based on role
+        if (profile.role === 'educator') {
+          setManagementTab('finance');
+        } else {
+          setManagementTab('management');
+        }
       } else if (activeSessionView === 'finance') {
         setViewingManagement(false);
       } else {
@@ -151,7 +158,7 @@ const AppContent = () => {
   return (
     <div className="flex flex-col lg:flex-row h-screen overflow-hidden bg-background text-foreground transition-colors duration-300">
       <Sidebar 
-        activeTab={viewingManagement ? 'management' : activeTab} 
+        activeTab={viewingManagement ? managementTab : activeTab} 
         isManagementOnly={viewingManagement && !viewingUserId}
         onExitManagement={() => {
           setActiveSessionView(null);
@@ -159,9 +166,12 @@ const AppContent = () => {
           setViewingManagement(false);
         }}
         setActiveTab={(tab) => {
-          if (tab === 'management') {
+          const managementSubTabs = ['management', 'finance', 'clients', 'tasks', 'simulators', 'referrals', 'settings'];
+          
+          if (managementSubTabs.includes(tab)) {
             impersonateUser(null);
             setViewingManagement(true);
+            setManagementTab(tab);
             setActiveSessionView('management');
             sessionStorage.setItem('solum_session_view', 'management');
           } else {
@@ -232,7 +242,7 @@ const AppContent = () => {
           
           {/* Só renderiza o conteúdo se o espaço estiver selecionado (ou se for gestão) */}
           {((viewingManagement || viewingUserId || activeSessionView) && initializedSpaces.length > 0) || (profile && profile.role !== 'user' && activeSessionView === 'management') ? (
-            viewingManagement ? <ManagementPortal /> : renderContent()
+            viewingManagement ? <ManagementPortal activeTab={managementTab} /> : renderContent()
           ) : (
             <div className="flex items-center justify-center h-[60vh]">
                <div className="text-center space-y-4">

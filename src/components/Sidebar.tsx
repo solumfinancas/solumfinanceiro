@@ -15,7 +15,13 @@ import {
   Menu,
   X,
   Shield,
-  ArrowLeft
+  ArrowLeft,
+  GraduationCap,
+  Users,
+  CheckSquare,
+  Calculator,
+  Share2,
+  Settings
 } from 'lucide-react';
 
 import { cn } from '../lib/utils';
@@ -59,8 +65,32 @@ export const Sidebar: React.FC<SidebarProps> = ({
     setActiveSpace(space);
   };
 
+  const getManagementMenuItems = () => {
+    const items = [];
+    const role = profile?.role || 'user';
+
+    // Portal de Gestão (Controle de Acessos) - Admins and Secretaries
+    if (['master_admin', 'admin', 'secretary'].includes(role)) {
+      items.push({ id: 'management', label: 'Controle de Acessos', icon: Shield });
+    }
+
+    // Educator-specific tabs - Admins and Educators
+    if (['master_admin', 'admin', 'educator'].includes(role)) {
+      items.push(
+        { id: 'finance', label: 'Financeiro', icon: LayoutDashboard },
+        { id: 'clients', label: 'Clientes', icon: Users },
+        { id: 'tasks', label: 'Tarefas', icon: CheckSquare },
+        { id: 'simulators', label: 'Simuladores', icon: Calculator },
+        { id: 'referrals', label: 'Indicações', icon: Share2 },
+        { id: 'settings', label: 'Configurações', icon: Settings }
+      );
+    }
+
+    return items;
+  };
+
   const menuItems = isManagementOnly 
-    ? [{ id: 'management', label: 'Portal de Gestão', icon: Shield }]
+    ? getManagementMenuItems()
     : [
         { id: 'dashboard', label: 'Visão Geral', icon: LayoutDashboard },
         { id: 'wallets', label: 'Carteiras e Cartões', icon: WalletIcon },

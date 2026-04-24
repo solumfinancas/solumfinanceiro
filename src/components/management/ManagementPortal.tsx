@@ -24,6 +24,12 @@ import { cn } from '../../lib/utils';
 import { useModal } from '../../contexts/ModalContext';
 import { useFinance } from '../../FinanceContext';
 import { SpaceActivationModal } from '../SpaceActivationModal';
+import { FinanceTab } from './tabs/FinanceTab';
+import { ClientsTab, TasksTab, SimulatorsTab, ReferralsTab, SettingsTab } from './tabs/EmptyTabs';
+
+interface ManagementPortalProps {
+  activeTab?: string;
+}
 
 // Helper Functions
 const roleRank = (role: UserRole) => {
@@ -60,7 +66,7 @@ const getInitials = (name: string) => {
   return name?.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2) || '?';
 };
 
-export const ManagementPortal: React.FC = () => {
+export const ManagementPortal: React.FC<ManagementPortalProps> = ({ activeTab = 'management' }) => {
   const { profile, impersonateUser } = useAuth();
   const { setActiveSpace } = useFinance();
   const { showAlert } = useModal();
@@ -340,7 +346,27 @@ export const ManagementPortal: React.FC = () => {
     return group.roles.includes(activeFilter as UserRole);
   });
 
-  return (
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case 'finance':
+        return <FinanceTab />;
+      case 'clients':
+        return <ClientsTab />;
+      case 'tasks':
+        return <TasksTab />;
+      case 'simulators':
+        return <SimulatorsTab />;
+      case 'referrals':
+        return <ReferralsTab />;
+      case 'settings':
+        return <SettingsTab />;
+      case 'management':
+      default:
+        return renderManagementContent();
+    }
+  };
+
+  const renderManagementContent = () => (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
@@ -404,7 +430,7 @@ export const ManagementPortal: React.FC = () => {
         </div>
       ) : (
         <div className="space-y-12">
-{ roleGroups.map((group) => {
+          {roleGroups.map((group) => {
             const groupUsers = filteredProfiles.filter(p => group.roles.includes(p.role));
             
             return (
@@ -454,9 +480,7 @@ export const ManagementPortal: React.FC = () => {
                               <div>
                                 <div className="flex flex-col gap-1">
                                   <h3 className="text-xl font-black text-foreground tracking-tight leading-none group-hover:text-primary transition-colors">{p.full_name}</h3>
-                                  {/* Tags de Relacionamento e Espaços Ativos */}
                                   <div className="flex flex-wrap gap-1.5 mt-1">
-                                    {/* Educadores Vinculados */}
                                     {relationships
                                       .filter(r => r.client_id === p.id)
                                       .map(rel => {
@@ -472,7 +496,6 @@ export const ManagementPortal: React.FC = () => {
                                         );
                                       })}
 
-                                    {/* Espaços Ativos */}
                                     {p.user_metadata?.initialized_spaces?.includes('personal') && (
                                       <div className={cn(
                                         "flex items-center gap-1.5 py-1 px-2 rounded-lg w-fit border shadow-sm",
@@ -496,7 +519,7 @@ export const ManagementPortal: React.FC = () => {
                               </div>
                             </div>
 
-                               <div className="relative">
+                            <div className="relative">
                               <button 
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -520,7 +543,6 @@ export const ManagementPortal: React.FC = () => {
                                     onClick={e => e.stopPropagation()}
                                   >
                                     <div className="p-2 space-y-1">
-                                      {/* Gerenciar Clientes (para educativos/admins) */}
                                       {(p.role === 'educator' || p.role === 'admin' || p.role === 'master_admin') && ['admin', 'master_admin', 'secretary'].includes(profile?.role || '') && (
                                         <button 
                                           onClick={() => {
@@ -536,7 +558,6 @@ export const ManagementPortal: React.FC = () => {
                                         </button>
                                       )}
 
-                                      {/* Vincular Educador (para usuários) */}
                                       {p.role === 'user' && ['admin', 'master_admin', 'secretary'].includes(profile?.role || '') && (
                                         <button 
                                           onClick={() => {
@@ -552,7 +573,6 @@ export const ManagementPortal: React.FC = () => {
                                         </button>
                                       )}
 
-                                      {/* Alterar Nível */}
                                       {p.id !== profile?.id && roleRank(profile?.role as UserRole) > roleRank(p.role) && profile?.role !== 'educator' && (
                                         <button 
                                           onClick={() => {
@@ -565,7 +585,6 @@ export const ManagementPortal: React.FC = () => {
                                         </button>
                                       )}
 
-                                      {/* Suspender / Inativar */}
                                       {p.id !== profile?.id && p.role !== 'master_admin' && roleRank(profile?.role as UserRole) > roleRank(p.role) && profile?.role !== 'educator' && (
                                         <button 
                                           onClick={() => {
@@ -584,7 +603,6 @@ export const ManagementPortal: React.FC = () => {
                                         </button>
                                       )}
 
-                                      {/* Excluir */}
                                       {p.id !== profile?.id && roleRank(profile?.role as UserRole) > roleRank(p.role) && profile?.role !== 'educator' && (
                                         <button 
                                           onClick={() => {
@@ -641,6 +659,12 @@ export const ManagementPortal: React.FC = () => {
           })}
         </div>
       )}
+    </div>
+  );
+
+  return (
+    <>
+      {renderTabContent()}
 
       {/* Modal Seleção de Espaço */}
       <AnimatePresence>
@@ -889,6 +913,6 @@ export const ManagementPortal: React.FC = () => {
           </div>
         )}
       </AnimatePresence>
-    </div>
+    </>
   );
 };

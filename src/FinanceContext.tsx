@@ -480,18 +480,25 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
             .update({ isDeleted: true, isActive: false })
             .in('id', subcategoryIds);
         }
+
+        // ATUALIZAÇÃO: Em vez de filter, usamos map para manter no estado com a flag isDeleted
+        setCategories(prev => prev.map(c => 
+          (c.id === id || c.parentId === id) 
+            ? { ...c, isDeleted: true, isActive: false } 
+            : c
+        ));
       } else {
         // Se não houver nada, excluímos fisicamente
-        // O Supabase/Postgres cuidará da exclusão em cascata se configurado, 
-        // mas faremos manual para garantir o estado local
         const { error } = await supabase
           .from('categories')
           .delete()
           .eq('id', id);
         if (error) throw error;
+        
+        // Se foi exclusão física, aí sim removemos do estado
+        setCategories(prev => prev.filter(c => c.id !== id && c.parentId !== id));
       }
       
-      setCategories(prev => prev.filter(c => c.id !== id && c.parentId !== id));
       updateActivity('update');
     };
 
@@ -545,15 +552,20 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
          .update({ isDeleted: true, isActive: false })
          .eq('id', id);
        if (error) throw error;
+
+       // ATUALIZAÇÃO: Mantemos no estado com isDeleted para preservar histórico
+       setWallets(prev => prev.map(w => w.id === id ? { ...w, isDeleted: true, isActive: false } : w));
      } else {
        const { error } = await supabase
          .from('wallets')
          .delete()
          .eq('id', id);
        if (error) throw error;
+
+       // Se for exclusão física, removemos
+       setWallets(prev => prev.filter(w => w.id !== id));
      }
      
-     setWallets(prev => prev.filter(w => w.id !== id));
      updateActivity('update');
    };
 
