@@ -14,13 +14,16 @@ import { Profile as ProfilePage } from './components/Profile';
 import { ManagementPortal } from './components/management/ManagementPortal';
 import { SpaceSelectorOverlay } from './components/SpaceSelectorOverlay';
 import { Loader2, AlertCircle, X } from 'lucide-react';
+import { Tasks } from './components/Tasks';
 
 
 const AppContent = () => {
   const { user, profile, viewingUserId, viewingProfile, impersonateUser, loading: authLoading } = useAuth();
   const { loading: financeLoading, wallets, activeSpace, initializedSpaces, setActiveSpace } = useFinance();
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [managementTab, setManagementTab] = useState('management');
+  const [managementTab, setManagementTab] = useState(() => {
+    return localStorage.getItem('solum_management_tab') || 'management';
+  });
   const [txInitialFilter, setTxInitialFilter] = useState<'all' | 'pending' | 'paid'>('all');
   const [txTypeFilter, setTxTypeFilter] = useState<'all' | 'income' | 'expense'>('all');
   const [showSetup, setShowSetup] = useState(false);
@@ -42,14 +45,29 @@ const AppContent = () => {
       setShowSetup(true);
     }
 
+    // Check for tab redirection (e.g. from Educator Task Portal)
+    const redirectTab = localStorage.getItem('active_tab_redirect');
+    if (redirectTab && viewingUserId) {
+      setActiveTab(redirectTab);
+      localStorage.removeItem('active_tab_redirect');
+    }
+
     if (profile && profile.role !== 'user' && !viewingUserId) {
       if (activeSessionView === 'management') {
         setViewingManagement(true);
-        // Define default sub-tab based on role
-        if (profile.role === 'educator') {
-          setManagementTab('finance');
+        
+        // Use saved tab if available, otherwise use default based on role
+        const savedManagementTab = localStorage.getItem('solum_management_tab');
+        if (savedManagementTab) {
+          setManagementTab(savedManagementTab);
         } else {
-          setManagementTab('management');
+          if (profile.role === 'educator') {
+            setManagementTab('finance');
+            localStorage.setItem('solum_management_tab', 'finance');
+          } else {
+            setManagementTab('management');
+            localStorage.setItem('solum_management_tab', 'management');
+          }
         }
       } else if (activeSessionView === 'finance') {
         setViewingManagement(false);
@@ -74,6 +92,7 @@ const AppContent = () => {
       const lastUser = localStorage.getItem('solum_last_user');
       if (user.id !== lastUser) {
         sessionStorage.removeItem('solum_session_view');
+        localStorage.removeItem('solum_management_tab');
         setActiveSessionView(null);
         setViewingManagement(false);
         localStorage.setItem('solum_last_user', user.id);
@@ -118,6 +137,8 @@ const AppContent = () => {
         />;
       case 'import':
         return <Import setActiveTab={setActiveTab} />;
+      case 'tasks':
+        return <Tasks />;
       case 'profile':
         return <ProfilePage />;
       case 'management':
@@ -168,10 +189,27 @@ const AppContent = () => {
         setActiveTab={(tab) => {
           const managementSubTabs = ['management', 'finance', 'clients', 'tasks', 'simulators', 'referrals', 'settings'];
           
-          if (managementSubTabs.includes(tab)) {
+          // Só entra/mantém no modo gestão se clicou no botão do portal OU se já estava no modo gestão e clicou em uma sub-aba
+          const isEnteringManagement = tab === 'management';
+          const isNavigatingInManagement = viewingManagement && managementSubTabs.includes(tab);
+
+          if (isEnteringManagement || isNavigatingInManagement) {
             impersonateUser(null);
             setViewingManagement(true);
-            setManagementTab(tab);
+            
+            let targetTab = tab;
+            // Se estiver entrando no portal agora (vindo das finanças) via o botão principal
+            if (!viewingManagement && isEnteringManagement) {
+              if (profile?.role === 'educator') {
+                targetTab = 'finance';
+              } else {
+                const saved = localStorage.getItem('solum_management_tab');
+                if (saved) targetTab = saved;
+              }
+            }
+
+            setManagementTab(targetTab);
+            localStorage.setItem('solum_management_tab', targetTab);
             setActiveSessionView('management');
             sessionStorage.setItem('solum_session_view', 'management');
           } else {

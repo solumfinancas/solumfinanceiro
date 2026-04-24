@@ -25,7 +25,9 @@ import { useModal } from '../../contexts/ModalContext';
 import { useFinance } from '../../FinanceContext';
 import { SpaceActivationModal } from '../SpaceActivationModal';
 import { FinanceTab } from './tabs/FinanceTab';
-import { ClientsTab, TasksTab, SimulatorsTab, ReferralsTab, SettingsTab } from './tabs/EmptyTabs';
+import { ClientsTab } from './tabs/ClientsTab';
+import { TasksTab } from './tabs/TasksTab';
+import { SimulatorsTab, ReferralsTab, SettingsTab } from './tabs/EmptyTabs';
 
 interface ManagementPortalProps {
   activeTab?: string;
@@ -73,6 +75,8 @@ export const ManagementPortal: React.FC<ManagementPortalProps> = ({ activeTab = 
   
   // Core Data State
   const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [impersonating, setImpersonating] = useState(false);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<UserRole | 'all'>('all');
@@ -177,9 +181,24 @@ export const ManagementPortal: React.FC<ManagementPortalProps> = ({ activeTab = 
       });
       if (error) throw error;
       if (data.error) throw new Error(data.error);
+
+      // Se quem está criando é um educador, vincula o novo cliente automaticamente
+      if (profile?.role === 'educator' && data.data?.user?.id) {
+        const { error: linkError } = await supabase
+          .from('educator_clients')
+          .insert({
+            educator_id: profile.id,
+            client_id: data.data.user.id,
+            status: 'active'
+          });
+        
+        if (linkError) console.error('Erro ao vincular cliente automaticamente:', linkError);
+      }
+
       showAlert('Sucesso', 'Perfil criado com sucesso!', 'success');
       setShowCreateModal(false);
       setNewUser({ full_name: '', email: '', password: '', role: 'user' });
+      setRefreshTrigger(prev => prev + 1);
       fetchData();
     } catch (err: any) {
       showAlert('Erro', 'Não foi possível criar o perfil: ' + err.message, 'danger');
@@ -351,7 +370,7 @@ export const ManagementPortal: React.FC<ManagementPortalProps> = ({ activeTab = 
       case 'finance':
         return <FinanceTab />;
       case 'clients':
-        return <ClientsTab />;
+        return <ClientsTab onAddClient={() => setShowCreateModal(true)} refreshTrigger={refreshTrigger} />;
       case 'tasks':
         return <TasksTab />;
       case 'simulators':
@@ -777,6 +796,9 @@ export const ManagementPortal: React.FC<ManagementPortalProps> = ({ activeTab = 
                      ].filter(role => {
                         if (profile?.role === 'secretary') {
                           return role.id !== 'secretary' && role.id !== 'admin';
+                        }
+                        if (profile?.role === 'educator') {
+                          return role.id === 'user';
                         }
                         return true;
                       }).map((role) => (

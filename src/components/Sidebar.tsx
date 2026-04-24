@@ -96,6 +96,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         { id: 'wallets', label: 'Carteiras e Cartões', icon: WalletIcon },
         { id: 'categories', label: 'Categorias', icon: Tags },
         { id: 'transactions', label: 'Lançamentos', icon: ArrowLeftRight },
+        { id: 'tasks', label: 'Tarefas', icon: CheckSquare },
         { id: 'import', label: 'Importação', icon: FileUp },
         ...(profile && profile.role !== 'user' ? [{ id: 'management', label: 'Portal de Gestão', icon: Shield }] : []),
       ];

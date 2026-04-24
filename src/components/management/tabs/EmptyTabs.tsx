@@ -13,8 +13,8 @@ const EmptyState: React.FC<{ icon: React.ElementType, title: string }> = ({ icon
   </div>
 );
 
-export const ClientsTab = () => <EmptyState icon={Users} title="Gestão de Clientes" />;
-export const TasksTab = () => <EmptyState icon={CheckSquare} title="Tarefas e Compromissos" />;
+// export const ClientsTab = () => <EmptyState icon={Users} title="Gestão de Clientes" />;
+// export const TasksTab = () => <EmptyState icon={CheckSquare} title="Tarefas e Compromissos" />;
 export const SimulatorsTab = () => <EmptyState icon={Calculator} title="Simuladores Financeiros" />;
 export const ReferralsTab = () => <EmptyState icon={Share2} title="Indicações e Parcerias" />;
 export const SettingsTab = () => <EmptyState icon={SettingsIcon} title="Configurações da Gestão" />;
