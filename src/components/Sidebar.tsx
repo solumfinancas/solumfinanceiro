@@ -21,7 +21,11 @@ import {
   CheckSquare,
   Calculator,
   Share2,
-  Settings
+  Settings,
+  Gift,
+  ClipboardList,
+  TrendingDown,
+  Gem
 } from 'lucide-react';
 
 import { cn } from '../lib/utils';
@@ -81,7 +85,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         { id: 'clients', label: 'Clientes', icon: Users },
         { id: 'tasks', label: 'Tarefas', icon: CheckSquare },
         { id: 'simulators', label: 'Simuladores', icon: Calculator },
-        { id: 'referrals', label: 'Indicações', icon: Share2 },
+        { id: 'referrals', label: 'Indicações', icon: Gift },
         { id: 'settings', label: 'Configurações', icon: Settings }
       );
     }
@@ -96,6 +100,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
         { id: 'wallets', label: 'Carteiras e Cartões', icon: WalletIcon },
         { id: 'categories', label: 'Categorias', icon: Tags },
         { id: 'transactions', label: 'Lançamentos', icon: ArrowLeftRight },
+        { id: 'anamnese', label: 'Anamnese', icon: ClipboardList },
+        { id: 'dividas', label: 'Dívidas', icon: TrendingDown },
+        { id: 'patrimonio', label: 'Patrimônio', icon: Gem },
         { id: 'tasks', label: 'Tarefas', icon: CheckSquare },
         { id: 'import', label: 'Importação', icon: FileUp },
         ...(profile && profile.role !== 'user' ? [{ id: 'management', label: 'Portal de Gestão', icon: Shield }] : []),

@@ -27,7 +27,8 @@ import { SpaceActivationModal } from '../SpaceActivationModal';
 import { FinanceTab } from './tabs/FinanceTab';
 import { ClientsTab } from './tabs/ClientsTab';
 import { TasksTab } from './tabs/TasksTab';
-import { SimulatorsTab, ReferralsTab, SettingsTab } from './tabs/EmptyTabs';
+import { SimulatorsTab, ReferralsTab } from './tabs/EmptyTabs';
+import { SettingsTab } from './tabs/SettingsTab';
 
 interface ManagementPortalProps {
   activeTab?: string;

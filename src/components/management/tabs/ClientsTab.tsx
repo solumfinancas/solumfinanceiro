@@ -16,11 +16,15 @@ import {
   Shield,
   Trash2,
   X,
-  LayoutDashboard
+  LayoutDashboard,
+  User,
+  Building2,
+  ArrowRight
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../../../lib/utils';
 import { useModal } from '../../../contexts/ModalContext';
+import { useFinance } from '../../../FinanceContext';
 
 interface ClientProfile extends Profile {
   link_status: 'active' | 'inactive' | 'archived';
@@ -34,6 +38,7 @@ interface ClientsTabProps {
 
 export const ClientsTab: React.FC<ClientsTabProps> = ({ onAddClient, refreshTrigger = 0 }) => {
   const { profile, impersonateUser } = useAuth();
+  const { setActiveSpace } = useFinance();
   const { showAlert } = useModal();
   
   const [clients, setClients] = useState<ClientProfile[]>([]);
@@ -42,6 +47,7 @@ export const ClientsTab: React.FC<ClientsTabProps> = ({ onAddClient, refreshTrig
   const [activeStatusTab, setActiveStatusTab] = useState<'active' | 'inactive' | 'archived'>('active');
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [spaceSelectionClient, setSpaceSelectionClient] = useState<ClientProfile | null>(null);
 
   const CLIENT_LIMIT = 10;
 
@@ -106,6 +112,23 @@ export const ClientsTab: React.FC<ClientsTabProps> = ({ onAddClient, refreshTrig
     } finally {
       setUpdatingId(null);
       setActiveMenuId(null);
+    }
+  };
+
+  const handleManageWallet = (client: ClientProfile) => {
+    const spaces = (client.user_metadata?.initialized_spaces || []) as ('personal' | 'business')[];
+    
+    if (spaces.length > 1) {
+      setSpaceSelectionClient(client);
+    } else if (spaces.length === 1) {
+      setActiveSpace(spaces[0]);
+      impersonateUser(client.id);
+      showAlert('Modo Gestão', `Acessando Espaço ${spaces[0] === 'personal' ? 'Pessoal' : 'Empresarial'} de ${client.full_name}`, 'success');
+    } else {
+      // Fallback: Default to personal if somehow no spaces are initialized in metadata
+      setActiveSpace('personal');
+      impersonateUser(client.id);
+      showAlert('Modo Gestão', `Acessando finanças de ${client.full_name}`, 'success');
     }
   };
 
@@ -270,11 +293,43 @@ export const ClientsTab: React.FC<ClientsTabProps> = ({ onAddClient, refreshTrig
                       <h3 className="text-xl font-black text-foreground tracking-tight leading-none group-hover:text-primary transition-colors truncate max-w-[150px]">
                         {client.full_name}
                       </h3>
-                      <div className="flex items-center gap-2 mt-2">
-                        <Mail size={10} className="text-muted-foreground" />
-                        <span className="text-[10px] font-bold text-muted-foreground truncate max-w-[140px] uppercase tracking-tighter">
-                          {client.email}
-                        </span>
+                      <div className="flex flex-col gap-1.5 mt-2">
+                        <div className="flex items-center gap-2">
+                          <Mail size={10} className="text-muted-foreground" />
+                          <span className="text-[10px] font-bold text-muted-foreground truncate max-w-[140px] uppercase tracking-tighter">
+                            {client.email}
+                          </span>
+                        </div>
+                        
+                        {/* Space Tags */}
+                        <div className="flex flex-wrap gap-1">
+                          {((client.user_metadata?.initialized_spaces || []) as string[]).map(space => {
+                            const isFemale = client.user_metadata?.gender === 'female';
+                            const personalColorClass = isFemale 
+                              ? "bg-pink-500/10 border-pink-500/20 text-pink-500" 
+                              : "bg-blue-500/10 border-blue-500/20 text-blue-500";
+                            
+                            return (
+                              <div 
+                                key={space}
+                                className={cn(
+                                  "px-1.5 py-0.5 rounded-md text-[7px] font-black uppercase tracking-widest border flex items-center gap-1",
+                                  space === 'personal' 
+                                    ? personalColorClass 
+                                    : "bg-slate-900 border-slate-800 text-white dark:bg-white dark:text-slate-900"
+                                )}
+                              >
+                                <div className={cn(
+                                  "w-1 h-1 rounded-full", 
+                                  space === 'personal' 
+                                    ? (isFemale ? "bg-pink-500" : "bg-blue-500") 
+                                    : "bg-slate-400"
+                                )} />
+                                {space === 'personal' ? 'Pessoal' : 'Empresarial'}
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -329,10 +384,7 @@ export const ClientsTab: React.FC<ClientsTabProps> = ({ onAddClient, refreshTrig
                             )}
                             <div className="h-px bg-border my-1 mx-2" />
                             <button 
-                              onClick={() => {
-                                impersonateUser(client.id);
-                                showAlert('Modo Gestão', `Acessando finanças de ${client.full_name}`, 'success');
-                              }}
+                              onClick={() => handleManageWallet(client)}
                               className="w-full flex items-center gap-3 px-4 py-3 text-[10px] font-black uppercase tracking-widest text-primary hover:bg-primary/10 rounded-xl transition-all"
                             >
                               <LayoutDashboard size={16} /> Ver Finanças
@@ -366,7 +418,7 @@ export const ClientsTab: React.FC<ClientsTabProps> = ({ onAddClient, refreshTrig
                   </div>
 
                   <button 
-                    onClick={() => impersonateUser(client.id)}
+                    onClick={() => handleManageWallet(client)}
                     className="w-full h-14 rounded-2xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-[11px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-95 shadow-lg"
                   >
                     Gerenciar Carteira
@@ -378,6 +430,99 @@ export const ClientsTab: React.FC<ClientsTabProps> = ({ onAddClient, refreshTrig
           </AnimatePresence>
         </div>
       )}
+      {/* Space Selection Modal */}
+      <AnimatePresence>
+        {spaceSelectionClient && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm"
+              onClick={() => setSpaceSelectionClient(null)}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-lg bg-card border border-border rounded-[3rem] p-8 shadow-2xl overflow-hidden"
+              onClick={e => e.stopPropagation()}
+            >
+              {/* Decorative elements */}
+              <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-3xl -mr-16 -mt-16" />
+              
+              <div className="relative space-y-8">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <LayoutDashboard className="text-primary" size={20} />
+                      <span className="text-[10px] font-black uppercase tracking-[0.3em] text-primary">Seleção de Espaço</span>
+                    </div>
+                    <h2 className="text-2xl font-black uppercase tracking-tighter text-foreground">
+                      Onde vamos atuar hoje?
+                    </h2>
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest leading-relaxed">
+                      O cliente <span className="text-foreground">{spaceSelectionClient.full_name}</span> possui dois espaços ativos.
+                    </p>
+                  </div>
+                  <button 
+                    onClick={() => setSpaceSelectionClient(null)}
+                    className="w-10 h-10 rounded-xl bg-muted border border-border flex items-center justify-center text-muted-foreground hover:text-rose-500 transition-all"
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  {[
+                    { id: 'personal', label: 'Pessoal', icon: User, color: 'primary', desc: 'Contas individuais' },
+                    { id: 'business', label: 'Empresarial', icon: Building2, color: 'blue-500', desc: 'Contas de negócio' }
+                  ].map((space) => (
+                    <button
+                      key={space.id}
+                      onClick={() => {
+                        setActiveSpace(space.id as any);
+                        impersonateUser(spaceSelectionClient.id);
+                        setSpaceSelectionClient(null);
+                        showAlert('Modo Gestão', `Acessando Espaço ${space.label} de ${spaceSelectionClient.full_name}`, 'success');
+                      }}
+                      className={cn(
+                        "group relative p-6 rounded-[2rem] border transition-all duration-300 text-left overflow-hidden",
+                        space.id === 'personal' 
+                          ? (spaceSelectionClient.user_metadata?.gender === 'female'
+                              ? "bg-pink-500/5 border-pink-500/20 hover:border-pink-500/50 hover:bg-pink-500/10"
+                              : "bg-blue-500/5 border-blue-500/20 hover:border-blue-500/50 hover:bg-blue-500/10")
+                          : "bg-slate-900/5 border-slate-900/20 hover:border-slate-900/50 hover:bg-slate-900/10 dark:bg-white/5 dark:border-white/20 dark:hover:border-white/50 dark:hover:bg-white/10"
+                      )}
+                    >
+                      <div className={cn(
+                        "w-12 h-12 rounded-2xl flex items-center justify-center mb-4 transition-all group-hover:scale-110 shadow-lg",
+                        space.id === 'personal' 
+                          ? (spaceSelectionClient.user_metadata?.gender === 'female' ? "bg-pink-500/10 text-pink-500" : "bg-blue-500/10 text-blue-500")
+                          : "bg-slate-900/10 text-slate-900 dark:bg-white/10 dark:text-white"
+                      )}>
+                        <space.icon size={24} />
+                      </div>
+                      <h4 className="text-sm font-black uppercase tracking-tighter text-foreground mb-1">{space.label}</h4>
+                      <p className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest">{space.desc}</p>
+                      
+                      <div className={cn(
+                        "mt-4 flex items-center gap-2 text-[8px] font-black uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-all transform translate-x-[-10px] group-hover:translate-x-0",
+                        space.id === 'personal' 
+                          ? (spaceSelectionClient.user_metadata?.gender === 'female' ? "text-pink-500" : "text-blue-500")
+                          : "text-slate-900 dark:text-white"
+                      )}>
+                        Selecionar
+                        <ArrowRight size={10} />
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

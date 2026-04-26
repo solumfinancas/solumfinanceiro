@@ -92,6 +92,9 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       if (isInvoicePayment) return false;
       return ['income', 'expense'].includes(newTx.type!) && !newTx.categoryId;
     }
+    if (field === 'necessity') {
+      return hasRecurrence && newTx.type === 'expense' && !newTx.necessity;
+    }
     return false;
   };
 
@@ -118,6 +121,10 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
     
     if (!newTx.description || !newTx.amount || !newTx.walletId) return;
     if (!isInvoicePayment && ['income', 'expense'].includes(newTx.type!) && !newTx.categoryId) return;
+    if (hasRecurrence && newTx.type === 'expense' && !newTx.necessity) {
+      showAlert('Classificação Obrigatória', 'Para lançamentos recorrentes, você deve informar se a despesa é Necessária ou Desnecessária.', 'warning');
+      return;
+    }
     
     if ((newTx.type === 'transfer' || newTx.type === 'provision') && (!newTx.toWalletId || newTx.walletId === newTx.toWalletId)) {
       showAlert('Campos Obrigatórios', 'A carteira de destino é obrigatória e deve ser diferente da origem.', 'warning');
@@ -613,8 +620,16 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                           className="space-y-4 overflow-hidden"
                         >
                           <div className="space-y-2">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Classificação</label>
-                            <div className="flex gap-4 p-1 bg-muted/40 rounded-2xl border border-border/50">
+                            <label className={cn(
+                              "text-[10px] font-black uppercase tracking-widest ml-1 transition-colors",
+                              isFieldInvalid('necessity') ? "text-rose-500" : "text-muted-foreground"
+                            )}>
+                              Classificação {isFieldInvalid('necessity') && <span className="lowercase font-bold">(obrigatório)</span>}
+                            </label>
+                            <div className={cn(
+                              "flex gap-4 p-1 bg-muted/40 rounded-2xl border transition-all",
+                              isFieldInvalid('necessity') ? "border-rose-500 bg-rose-500/5 shadow-[0_0_10px_rgba(244,63,94,0.1)]" : "border-border/50"
+                            )}>
                               <button
                                 type="button"
                                 onClick={() => setNewTx(prev => ({ ...prev, necessity: 'necessary' }))}

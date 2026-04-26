@@ -1,5 +1,5 @@
 import React from 'react';
-import { Users, CheckSquare, Calculator, Share2, Settings as SettingsIcon } from 'lucide-react';
+import { Users, CheckSquare, Calculator, Gift, Settings as SettingsIcon } from 'lucide-react';
 
 const EmptyState: React.FC<{ icon: React.ElementType, title: string }> = ({ icon: Icon, title }) => (
   <div className="h-[60vh] flex flex-col items-center justify-center text-center p-8 animate-in fade-in zoom-in duration-500">
@@ -16,5 +16,4 @@ const EmptyState: React.FC<{ icon: React.ElementType, title: string }> = ({ icon
 // export const ClientsTab = () => <EmptyState icon={Users} title="Gestão de Clientes" />;
 // export const TasksTab = () => <EmptyState icon={CheckSquare} title="Tarefas e Compromissos" />;
 export const SimulatorsTab = () => <EmptyState icon={Calculator} title="Simuladores Financeiros" />;
-export const ReferralsTab = () => <EmptyState icon={Share2} title="Indicações e Parcerias" />;
-export const SettingsTab = () => <EmptyState icon={SettingsIcon} title="Configurações da Gestão" />;
+export const ReferralsTab = () => <EmptyState icon={Gift} title="Indicações e Parcerias" />;

@@ -11,6 +11,8 @@ export interface Profile {
   role: UserRole;
   created_at: string;
   user_metadata?: any;
+  plan?: string | null;
+  plan_expires_at?: string | null;
 }
 
 interface AuthContextType {

@@ -13,8 +13,11 @@ import { ProfileSetupModal } from './components/ProfileSetupModal';
 import { Profile as ProfilePage } from './components/Profile';
 import { ManagementPortal } from './components/management/ManagementPortal';
 import { SpaceSelectorOverlay } from './components/SpaceSelectorOverlay';
-import { Loader2, AlertCircle, X } from 'lucide-react';
+import { Loader2, AlertCircle, X, ArrowRight, Clock } from 'lucide-react';
 import { Tasks } from './components/Tasks';
+import { Anamnesis } from './components/Anamnesis';
+import { Debts } from './components/Debts';
+import { Equity } from './components/Equity';
 
 
 const AppContent = () => {
@@ -103,15 +106,13 @@ const AppContent = () => {
   }, [user?.id]);
 
 
-
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-[#020617] flex flex-col items-center justify-center gap-4">
-        <div className="relative">
-           <div className="w-16 h-16 border-4 border-primary/20 rounded-full animate-pulse" />
-           <Loader2 className="absolute inset-0 m-auto text-primary animate-spin" size={32} />
+      <div className="h-screen w-screen flex items-center justify-center bg-background">
+        <div className="text-center space-y-4">
+          <Loader2 className="text-primary animate-spin mx-auto" size={40} />
+          <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground animate-pulse">Carregando Solum...</p>
         </div>
-        <span className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 animate-pulse">Sincronizando...</span>
       </div>
     );
   }
@@ -141,6 +142,12 @@ const AppContent = () => {
         return <Tasks />;
       case 'profile':
         return <ProfilePage />;
+      case 'anamnese':
+        return <Anamnesis />;
+      case 'dividas':
+        return <Debts />;
+      case 'patrimonio':
+        return <Equity />;
       case 'management':
         return <ManagementPortal />;
       default:
@@ -157,22 +164,19 @@ const AppContent = () => {
 
   if (isSelectionNeeded) {
     return (
-      <div className="min-h-screen bg-[#020617]">
-        <SpaceSelectorOverlay 
-          isOpen={true}
-          onSelect={(space) => {
-            setActiveSpace(space);
-            sessionStorage.setItem('solum_session_view', 'finance');
-            setActiveSessionView('finance');
-          }}
-          onSelectManagement={() => {
-            setViewingManagement(true);
-            sessionStorage.setItem('solum_session_view', 'management');
-            setActiveSessionView('management');
-          }}
-        />
-        <ProfileSetupModal isOpen={showSetup} onComplete={() => setShowSetup(false)} />
-      </div>
+      <SpaceSelectorOverlay 
+        isOpen={true} 
+        onSelect={(space) => {
+          setActiveSpace(space);
+          setActiveSessionView('finance');
+          sessionStorage.setItem('solum_session_view', 'finance');
+        }} 
+        onSelectManagement={() => {
+          setViewingManagement(true);
+          setActiveSessionView('management');
+          sessionStorage.setItem('solum_session_view', 'management');
+        }}
+      />
     );
   }
 
@@ -259,16 +263,63 @@ const AppContent = () => {
                      setActiveSessionView('management');
                      sessionStorage.setItem('solum_session_view', 'management');
                    }}
-                   className="flex items-center gap-3 px-8 py-4 bg-primary text-white rounded-2xl transition-all hover:scale-[1.03] active:scale-95 shadow-xl shadow-primary/20 group/exit"
+                   className="flex items-center gap-3 px-8 py-4 bg-primary text-white rounded-2xl text-[11px] font-black uppercase tracking-widest hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-primary/30"
                  >
-                   <span className="text-[10px] font-black uppercase tracking-[0.2em]">Encerrar Visualização</span>
-                   <X size={18} className="transition-transform group-hover/exit:rotate-90" />
+                   Parar de Gerenciar
+                   <ArrowRight size={18} />
                  </button>
                </div>
             </div>
           </div>
         )}
 
+        {/* Trial Notification Bar */}
+        {profile?.role === 'educator' && profile?.plan === 'trial' && !viewingUserId && (
+          <div className="max-w-[1600px] mx-auto mb-6">
+            <div className="relative group overflow-hidden">
+               <div className="absolute inset-0 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent backdrop-blur-xl border border-amber-500/20 rounded-[2rem]" />
+               <div className="relative p-5 flex flex-col md:flex-row items-center justify-between gap-6">
+                 <div className="flex items-center gap-5">
+                   <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-500 shadow-lg shadow-amber-500/10">
+                     <Clock size={24} className="animate-pulse" />
+                   </div>
+                   <div>
+                     <div className="flex items-center gap-2 mb-1">
+                       <span className="px-3 py-1 rounded-full bg-amber-500 text-white text-[8px] font-black uppercase tracking-widest shadow-lg shadow-amber-500/20">
+                         Período de Teste Grátis
+                       </span>
+                     </div>
+                     <h3 className="text-lg font-black tracking-tighter text-foreground uppercase">
+                       Restam <span className="text-amber-500">{(() => {
+                         if (!profile.plan_expires_at) return 0;
+                         const expiry = new Date(profile.plan_expires_at);
+                         const now = new Date();
+                         const diff = expiry.getTime() - now.getTime();
+                         return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+                       })()} dias</span> de teste
+                     </h3>
+                     <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                       Aproveite todos os recursos antes que seu período expire.
+                     </p>
+                   </div>
+                 </div>
+
+                 <button 
+                   onClick={() => {
+                     setViewingManagement(true);
+                     setManagementTab('settings');
+                     setActiveSessionView('management');
+                     localStorage.setItem('solum_management_tab', 'settings');
+                   }}
+                   className="flex items-center gap-3 px-8 py-4 bg-amber-500 text-white rounded-2xl text-[11px] font-black uppercase tracking-widest hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-amber-500/30"
+                 >
+                   Assinar Plano Agora
+                   <ArrowRight size={18} />
+                 </button>
+               </div>
+            </div>
+          </div>
+        )}
 
         <div className="max-w-[1600px] mx-auto w-full">
 
