@@ -32,6 +32,7 @@ import { SettingsTab } from './tabs/SettingsTab';
 
 interface ManagementPortalProps {
   activeTab?: string;
+  onTabChange?: (tab: string) => void;
 }
 
 // Helper Functions
@@ -69,7 +70,7 @@ const getInitials = (name: string) => {
   return name?.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2) || '?';
 };
 
-export const ManagementPortal: React.FC<ManagementPortalProps> = ({ activeTab = 'management' }) => {
+export const ManagementPortal: React.FC<ManagementPortalProps> = ({ activeTab = 'management', onTabChange }) => {
   const { profile, impersonateUser } = useAuth();
   const { setActiveSpace } = useFinance();
   const { showAlert } = useModal();
@@ -96,6 +97,7 @@ export const ManagementPortal: React.FC<ManagementPortalProps> = ({ activeTab = 
   const [relationships, setRelationships] = useState<{educator_id: string, client_id: string}[]>([]);
   const [allProfiles, setAllProfiles] = useState<Profile[]>([]);
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+  const [clientSearch, setClientSearch] = useState('');
   
   const [creatingUser, setCreatingUser] = useState(false);
   const [linkingUsers, setLinkingUsers] = useState(false);
@@ -108,6 +110,7 @@ export const ManagementPortal: React.FC<ManagementPortalProps> = ({ activeTab = 
     password: '',
     role: 'user' as UserRole
   });
+  const [suspensionReason, setSuspensionReason] = useState('');
 
   const fetchData = async () => {
     setLoading(true);
@@ -168,6 +171,37 @@ export const ManagementPortal: React.FC<ManagementPortalProps> = ({ activeTab = 
     window.addEventListener('click', handleClose);
     return () => window.removeEventListener('click', handleClose);
   }, []);
+
+  // Inscrição para atualizações em tempo real
+  useEffect(() => {
+    if (!profile) return;
+
+    const channel = supabase
+      .channel('management_portal_sync')
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'profiles' 
+      }, (payload) => {
+        if (payload.eventType === 'UPDATE') {
+          setProfiles(prev => prev.map(p => p.id === payload.new.id ? { ...p, ...payload.new } : p));
+        } else {
+          fetchData();
+        }
+      })
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'educator_clients'
+      }, () => {
+        fetchData();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [profile]);
 
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -255,17 +289,33 @@ export const ManagementPortal: React.FC<ManagementPortalProps> = ({ activeTab = 
         showAlert('Sucesso', 'Perfil e todos os dados financeiros excluídos permanentemente.', 'success');
       } else if (action === 'suspend') {
         const isSuspended = target.user_metadata?.is_suspended;
+        
+        if (!isSuspended && !suspensionReason.trim()) {
+          showAlert('Atenção', 'Informe o motivo da suspensão.', 'warning');
+          return;
+        }
+
         const { data, error } = await supabase.functions.invoke('admin-create-user', {
-          body: { action: 'suspend', userId: target.id, suspend: !isSuspended }
+          body: { 
+            action: 'suspend', 
+            userId: target.id, 
+            suspend: !isSuspended,
+            reason: !isSuspended ? suspensionReason : null
+          }
         });
         if (error || data?.error) throw new Error(error?.message || data?.error);
         
         setProfiles(prev => prev.map(p => p.id === target.id ? { 
           ...p, 
-          user_metadata: { ...p.user_metadata, is_suspended: !isSuspended } 
+          user_metadata: { 
+            ...p.user_metadata, 
+            is_suspended: !isSuspended,
+            suspension_reason: !isSuspended ? suspensionReason : null
+          } 
         } : p));
         
         showAlert('Sucesso', `Usuário ${!isSuspended ? 'suspenso' : 'reativado'} com sucesso.`, 'success');
+        setSuspensionReason('');
       }
     } catch (err: any) {
       showAlert('Erro', err.message, 'danger');
@@ -369,9 +419,23 @@ export const ManagementPortal: React.FC<ManagementPortalProps> = ({ activeTab = 
   const renderTabContent = () => {
     switch (activeTab) {
       case 'finance':
-        return <FinanceTab />;
+        return (
+          <FinanceTab 
+            onNavigateToClients={(search) => {
+              setClientSearch(search);
+              if (onTabChange) onTabChange('clients');
+            }} 
+          />
+        );
       case 'clients':
-        return <ClientsTab onAddClient={() => setShowCreateModal(true)} refreshTrigger={refreshTrigger} />;
+        return (
+          <ClientsTab 
+            onAddClient={() => setShowCreateModal(true)} 
+            refreshTrigger={refreshTrigger} 
+            initialSearch={clientSearch}
+            onSearchClear={() => setClientSearch('')}
+          />
+        );
       case 'tasks':
         return <TasksTab />;
       case 'simulators':
@@ -728,7 +792,7 @@ export const ManagementPortal: React.FC<ManagementPortalProps> = ({ activeTab = 
       <AnimatePresence>
         {userToManage && (
           <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setUserToManage(null)} className="absolute inset-0 bg-slate-950/90 backdrop-blur-md" />
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => { setUserToManage(null); setSuspensionReason(''); }} className="absolute inset-0 bg-slate-950/90 backdrop-blur-md" />
             <motion.div 
               initial={{ scale: 0.9, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0, y: 20 }}
               className={cn(
@@ -742,11 +806,24 @@ export const ManagementPortal: React.FC<ManagementPortalProps> = ({ activeTab = 
                    {userToManage.action === 'delete' ? <Trash2 size={32} /> : <Shield className="animate-pulse" size={32} />}
                  </div>
                  <h2 className="text-2xl font-black text-white uppercase tracking-tighter mb-2">{userToManage.action === 'delete' ? 'Exclusão Permanente' : userToManage.profile.user_metadata?.is_suspended ? 'Reativar Conta' : 'Suspender Conta'}</h2>
-                 <p className="text-slate-400 text-sm font-medium mb-8">
+                 <p className="text-slate-400 text-sm font-medium mb-6">
                    {userToManage.action === 'delete' ? (<>Deseja excluir permanentemente <span className="text-white font-bold">{userToManage.profile.full_name}</span>? <br/><br/> <span className="text-rose-400 font-bold uppercase tracking-widest text-[10px]">CUIDADO: Dados financeiros serão removidos.</span></>) : (userToManage.profile.user_metadata?.is_suspended ? 'Deseja reativar o acesso?' : 'Deseja suspender o acesso?')}
                  </p>
+
+                 {userToManage.action === 'suspend' && !userToManage.profile.user_metadata?.is_suspended && (
+                    <div className="w-full space-y-2 mb-8 text-left">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-4">Motivo da Suspensão</label>
+                      <textarea
+                        value={suspensionReason}
+                        onChange={(e) => setSuspensionReason(e.target.value)}
+                        placeholder="Ex: Falta de pagamento, Quebra de contrato..."
+                        className="w-full bg-slate-950 border border-white/5 rounded-2xl p-4 text-sm text-white outline-none focus:border-primary/50 transition-all resize-none h-24 shadow-inner"
+                      />
+                    </div>
+                  )}
+
                  <div className="grid grid-cols-2 gap-4 w-full">
-                   <button onClick={() => setUserToManage(null)} className="h-14 bg-slate-800 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest">Cancelar</button>
+                   <button onClick={() => { setUserToManage(null); setSuspensionReason(''); }} className="h-14 bg-slate-800 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest">Cancelar</button>
                    <button onClick={handleAction} className={cn("h-14 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg", userToManage.action === 'delete' ? "bg-rose-600 hover:bg-rose-500" : "bg-primary hover:bg-orange-500")}>Confirmar</button>
                  </div>
                </div>

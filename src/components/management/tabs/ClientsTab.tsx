@@ -14,6 +14,7 @@ import {
   Calendar,
   ChevronRight,
   Shield,
+  ShieldAlert,
   Trash2,
   X,
   LayoutDashboard,
@@ -35,9 +36,16 @@ interface ClientProfile extends Profile {
 interface ClientsTabProps {
   onAddClient?: () => void;
   refreshTrigger?: number;
+  initialSearch?: string;
+  onSearchClear?: () => void;
 }
 
-export const ClientsTab: React.FC<ClientsTabProps> = ({ onAddClient, refreshTrigger = 0 }) => {
+export const ClientsTab: React.FC<ClientsTabProps> = ({ 
+  onAddClient, 
+  refreshTrigger = 0,
+  initialSearch = '',
+  onSearchClear
+}) => {
   const { profile, impersonateUser } = useAuth();
   const { setActiveSpace } = useFinance();
   const { showAlert } = useModal();
@@ -48,6 +56,13 @@ export const ClientsTab: React.FC<ClientsTabProps> = ({ onAddClient, refreshTrig
   const [activeStatusTab, setActiveStatusTab] = useState<'active' | 'inactive' | 'archived'>('active');
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [showSuspensionModal, setShowSuspensionModal] = useState<{ 
+    clientId: string; 
+    status: 'active' | 'inactive' | 'archived';
+    fromStatus: 'active' | 'inactive' | 'archived';
+  } | null>(null);
+  const [suspensionReason, setSuspensionReason] = useState('');
+  const [isSyncing, setIsSyncing] = useState(false);
   const [spaceSelectionClient, setSpaceSelectionClient] = useState<ClientProfile | null>(null);
 
   const CLIENT_LIMIT = 10;
@@ -85,6 +100,13 @@ export const ClientsTab: React.FC<ClientsTabProps> = ({ onAddClient, refreshTrig
   useEffect(() => {
     fetchClients();
   }, [profile, refreshTrigger]);
+  
+  useEffect(() => {
+    if (initialSearch) {
+      setSearchQuery(initialSearch);
+      if (onSearchClear) onSearchClear();
+    }
+  }, [initialSearch]);
 
   useEffect(() => {
     const handleClose = () => setActiveMenuId(null);
@@ -92,27 +114,92 @@ export const ClientsTab: React.FC<ClientsTabProps> = ({ onAddClient, refreshTrig
     return () => window.removeEventListener('click', handleClose);
   }, []);
 
-  const handleUpdateStatus = async (clientId: string, newStatus: 'active' | 'inactive' | 'archived') => {
-    setUpdatingId(clientId);
-    try {
-      const { error } = await supabase
-        .from('educator_clients')
-        .update({ status: newStatus })
-        .eq('educator_id', profile?.id)
-        .eq('client_id', clientId);
+  // Inscrição para atualizações em tempo real
+  useEffect(() => {
+    if (!profile) return;
 
-      if (error) throw error;
+    const channel = supabase
+      .channel('clients_tab_sync')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'educator_clients',
+        filter: `educator_id=eq.${profile.id}`
+      }, () => {
+        fetchClients();
+      })
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'profiles'
+      }, (payload) => {
+        setClients(prev => prev.map(c => c.id === payload.new.id ? { ...c, ...payload.new } : c));
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [profile]);
+
+  const handleUpdateStatus = async (clientId: string, newStatus: 'active' | 'inactive' | 'archived', reason?: string) => {
+    if (newStatus === 'inactive' && !reason) {
+      const client = clients.find(c => c.id === clientId);
+      if (client?.user_metadata?.suspension_reason) {
+        setSuspensionReason(client.user_metadata.suspension_reason);
+      } else {
+        setSuspensionReason('');
+      }
+      setShowSuspensionModal({ 
+        clientId, 
+        status: newStatus, 
+        fromStatus: client?.link_status || 'active' 
+      });
+      return;
+    }
+
+    setUpdatingId(clientId);
+    setIsSyncing(true);
+    try {
+      // 1. Chamar Edge Function para suspensão global e sincronização automática
+      if (newStatus === 'inactive' || newStatus === 'active') {
+        const isSuspending = newStatus === 'inactive';
+        
+        const { data: funcData, error: funcError } = await supabase.functions.invoke('admin-create-user', {
+          body: { 
+            action: 'suspend', 
+            userId: clientId, 
+            suspend: isSuspending,
+            reason: isSuspending ? reason : null
+          }
+        });
+        
+        if (funcError || funcData?.error) throw new Error(funcError?.message || funcData?.error);
+      } else {
+        // Se for arquivamento ou algo que não afeta a suspensão global
+        const { error: linkError } = await supabase
+          .from('educator_clients')
+          .update({ status: newStatus })
+          .eq('educator_id', profile?.id)
+          .eq('client_id', clientId);
+
+        if (linkError) throw linkError;
+      }
 
       setClients(prev => prev.map(c => 
         c.id === clientId ? { ...c, link_status: newStatus } : c
       ));
       
-      showAlert('Sucesso', 'Status do cliente atualizado.', 'success');
+      showAlert('Sucesso', 'Status do cliente atualizado e sincronizado.', 'success');
+      setShowSuspensionModal(null);
+      setSuspensionReason('');
     } catch (err: any) {
-      showAlert('Erro', 'Não foi possível atualizar o status.', 'danger');
+      console.error('Erro ao atualizar status:', err);
+      showAlert('Erro', 'Não foi possível atualizar o status: ' + err.message, 'danger');
     } finally {
       setUpdatingId(null);
       setActiveMenuId(null);
+      setIsSyncing(false);
     }
   };
 
@@ -295,13 +382,13 @@ export const ClientsTab: React.FC<ClientsTabProps> = ({ onAddClient, refreshTrig
                       </div>
                     </div>
                     <div>
-                      <h3 className="text-xl font-black text-foreground tracking-tight leading-none group-hover:text-primary transition-colors truncate max-w-[150px]">
+                      <h3 className="text-xl font-black text-foreground tracking-tight leading-none group-hover:text-primary transition-colors">
                         {client.full_name}
                       </h3>
                       <div className="flex flex-col gap-1.5 mt-2">
                         <div className="flex items-center gap-2">
                           <Mail size={10} className="text-muted-foreground" />
-                          <span className="text-[10px] font-bold text-muted-foreground truncate max-w-[140px] uppercase tracking-tighter">
+                          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-tighter">
                             {client.email}
                           </span>
                         </div>
@@ -363,7 +450,8 @@ export const ClientsTab: React.FC<ClientsTabProps> = ({ onAddClient, refreshTrig
                           onClick={e => e.stopPropagation()}
                         >
                           <div className="p-2 space-y-1">
-                            {client.link_status !== 'active' && (
+                            {/* Se está Inativo ou Arquivado, pode Ativar */}
+                            {(client.link_status === 'inactive' || client.link_status === 'archived') && (
                               <button 
                                 onClick={() => handleUpdateStatus(client.id, 'active')}
                                 className="w-full flex items-center gap-3 px-4 py-3 text-[10px] font-black uppercase tracking-widest text-emerald-500 hover:bg-emerald-500/10 rounded-xl transition-all"
@@ -371,20 +459,34 @@ export const ClientsTab: React.FC<ClientsTabProps> = ({ onAddClient, refreshTrig
                                 <UserCheck size={16} /> Ativar Cliente
                               </button>
                             )}
-                            {client.link_status !== 'inactive' && (
+                            
+                            {/* Se está Ativo, pode Inativar */}
+                            {client.link_status === 'active' && (
                               <button 
                                 onClick={() => handleUpdateStatus(client.id, 'inactive')}
                                 className="w-full flex items-center gap-3 px-4 py-3 text-[10px] font-black uppercase tracking-widest text-amber-500 hover:bg-amber-500/10 rounded-xl transition-all"
                               >
-                                <UserMinus size={16} /> Desativar Cliente
+                                <UserMinus size={16} /> Inativar Cliente
                               </button>
                             )}
-                            {client.link_status !== 'archived' && (
+
+                            {/* Se está Inativo, pode Arquivar */}
+                            {client.link_status === 'inactive' && (
                               <button 
                                 onClick={() => handleUpdateStatus(client.id, 'archived')}
                                 className="w-full flex items-center gap-3 px-4 py-3 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:bg-slate-500/10 rounded-xl transition-all"
                               >
                                 <Archive size={16} /> Arquivar Cliente
+                              </button>
+                            )}
+
+                            {/* Se está Arquivado, pode retornar para Inativos */}
+                            {client.link_status === 'archived' && (
+                              <button 
+                                onClick={() => handleUpdateStatus(client.id, 'inactive')}
+                                className="w-full flex items-center gap-3 px-4 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:bg-slate-400/10 rounded-xl transition-all"
+                              >
+                                <ArrowRight size={16} /> Retornar para Inativos
                               </button>
                             )}
                             <div className="h-px bg-border my-1 mx-2" />
@@ -435,6 +537,87 @@ export const ClientsTab: React.FC<ClientsTabProps> = ({ onAddClient, refreshTrig
           </AnimatePresence>
         </div>
       )}
+      {/* Modal Motivo da Inativação/Suspensão */}
+      <AnimatePresence>
+        {showSuspensionModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-slate-950/90 backdrop-blur-md"
+              onClick={() => !isSyncing && setShowSuspensionModal(null)}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-lg bg-card border border-border rounded-[3rem] p-8 md:p-12 shadow-2xl overflow-hidden"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 rounded-full blur-3xl -mr-16 -mt-16" />
+              
+              <div className="relative space-y-8">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1 text-left">
+                    <div className="flex items-center gap-2">
+                      <ShieldAlert className="text-amber-500" size={20} />
+                      <span className="text-[10px] font-black uppercase tracking-[0.3em] text-amber-500">
+                        {showSuspensionModal.fromStatus === 'archived' ? 'Atualização de Status' : 'Inativação de Cliente'}
+                      </span>
+                    </div>
+                    <h2 className="text-2xl font-black uppercase tracking-tighter text-foreground">
+                      {showSuspensionModal.fromStatus === 'archived' ? 'Confirmar Retorno?' : 'Por que inativar?'}
+                    </h2>
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest leading-relaxed text-left">
+                      {showSuspensionModal.fromStatus === 'archived' 
+                        ? 'O cliente voltará para a lista de inativos. Verifique se o motivo abaixo permanece o mesmo.' 
+                        : 'Este motivo será exibido ao cliente quando ele tentar acessar o sistema.'}
+                    </p>
+                  </div>
+                  <button 
+                    disabled={isSyncing}
+                    onClick={() => setShowSuspensionModal(null)}
+                    className="w-10 h-10 rounded-xl bg-muted border border-border flex items-center justify-center text-muted-foreground hover:text-rose-500 transition-all"
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-4">Motivo Detalhado</label>
+                    <textarea
+                      value={suspensionReason}
+                      onChange={(e) => setSuspensionReason(e.target.value)}
+                      placeholder="Ex: Pendência financeira, Encerramento de consultoria, Quebra de contrato..."
+                      className="w-full bg-muted/50 border border-border rounded-2xl p-6 text-sm text-foreground outline-none focus:border-amber-500/50 transition-all resize-none h-32 shadow-inner"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <button 
+                    disabled={isSyncing}
+                    onClick={() => setShowSuspensionModal(null)}
+                    className="h-16 rounded-2xl bg-muted text-muted-foreground text-[10px] font-black uppercase tracking-widest transition-all hover:bg-muted/80"
+                  >
+                    Cancelar
+                  </button>
+                  <button 
+                    disabled={isSyncing || !suspensionReason.trim()}
+                    onClick={() => handleUpdateStatus(showSuspensionModal.clientId, showSuspensionModal.status, suspensionReason)}
+                    className="h-16 rounded-2xl bg-amber-500 text-white text-[10px] font-black uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-95 shadow-lg shadow-amber-500/20 disabled:opacity-50"
+                  >
+                    {isSyncing ? 'Sincronizando...' : (showSuspensionModal.fromStatus === 'archived' ? 'Confirmar Atualização' : 'Confirmar e Inativar')}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       {/* Space Selection Modal */}
       <AnimatePresence>
         {spaceSelectionClient && (

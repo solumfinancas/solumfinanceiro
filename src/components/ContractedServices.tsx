@@ -27,7 +27,7 @@ interface ContractedService {
   client_id: string;
   educator_id: string;
   contract_id: string;
-  type: 'Consultoria' | 'Mentoria' | 'Acompanhamento';
+  type: 'Consultoria' | 'Mentoria' | 'Acompanhamento' | 'Uso do Aplicativo';
   name: string | null;
   amount: number;
   due_date: string;
@@ -49,7 +49,7 @@ export const ContractedServices: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Form states
-  const [type, setType] = useState<'Consultoria' | 'Mentoria' | 'Acompanhamento'>('Consultoria');
+  const [type, setType] = useState<'Consultoria' | 'Mentoria' | 'Acompanhamento' | 'Uso do Aplicativo'>('Consultoria');
   const [name, setName] = useState('');
   const [totalValue, setTotalValue] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<'vista' | 'parcelado'>('vista');
@@ -511,8 +511,8 @@ export const ContractedServices: React.FC = () => {
                   {/* Tipo de Serviço */}
                   <div className="space-y-3">
                     <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-4">Tipo de Serviço</label>
-                    <div className="grid grid-cols-3 gap-3">
-                      {['Consultoria', 'Mentoria', 'Acompanhamento'].map((t) => (
+                    <div className="grid grid-cols-2 gap-3">
+                      {['Consultoria', 'Mentoria', 'Acompanhamento', 'Uso do Aplicativo'].map((t) => (
                         <button 
                           key={t}
                           type="button"

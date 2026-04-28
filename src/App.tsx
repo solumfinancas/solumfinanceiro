@@ -18,6 +18,7 @@ import { Tasks } from './components/Tasks';
 import { Anamnesis } from './components/Anamnesis';
 import { Debts } from './components/Debts';
 import { Equity } from './components/Equity';
+import { SuspensionBlock } from './components/SuspensionBlock';
 
 
 const AppContent = () => {
@@ -104,6 +105,12 @@ const AppContent = () => {
       localStorage.removeItem('solum_last_user');
     }
   }, [user?.id]);
+
+
+  // Verificação de suspensão global
+  if (user && profile?.user_metadata?.is_suspended) {
+    return <SuspensionBlock reason={profile.user_metadata.suspension_reason} />;
+  }
 
 
   if (authLoading) {
@@ -331,7 +338,7 @@ const AppContent = () => {
           
           {/* Só renderiza o conteúdo se o espaço estiver selecionado (ou se for gestão) */}
           {((viewingManagement || viewingUserId || activeSessionView) && initializedSpaces.length > 0) || (profile && profile.role !== 'user' && activeSessionView === 'management') ? (
-            viewingManagement ? <ManagementPortal activeTab={managementTab} /> : renderContent()
+            viewingManagement ? <ManagementPortal activeTab={managementTab} onTabChange={setManagementTab} /> : renderContent()
           ) : (
             <div className="flex items-center justify-center h-[60vh]">
                <div className="text-center space-y-4">
