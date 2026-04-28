@@ -210,7 +210,7 @@ export const WalletActionsModal: React.FC<WalletActionsModalProps> = ({
 
   const handlePayInvoice = async () => {
     if (!isPaying || !wallet) return;
-    const amountToPay = parseFloat(payAmount.replace(',', '.'));
+    const amountToPay = parseFloat(payAmount.replace(/\./g, '').replace(',', '.'));
     const sourceWalletId = payWalletId;
 
     if (isNaN(amountToPay) || amountToPay <= 0) {
@@ -278,7 +278,7 @@ export const WalletActionsModal: React.FC<WalletActionsModalProps> = ({
 
   const handleManualAdjustment = async () => {
     if (!isAdjusting || !adjustValue || !wallet) return;
-    const value = parseFloat(adjustValue.replace(',', '.'));
+    const value = parseFloat(adjustValue.replace(/\./g, '').replace(',', '.'));
     if (isNaN(value) || value === 0) return;
 
     // Find "Outros" category or any expense category to avoid UUID error
@@ -306,7 +306,7 @@ export const WalletActionsModal: React.FC<WalletActionsModalProps> = ({
 
   const handleRefund = async () => {
     if (!isRefunding || !refundAmount || !wallet) return;
-    const value = parseFloat(refundAmount.replace(',', '.'));
+    const value = parseFloat(refundAmount.replace(/\./g, '').replace(',', '.'));
     if (isNaN(value) || value === 0) return;
 
     // Find "Outras receitas" category

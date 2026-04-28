@@ -192,8 +192,8 @@ export const WalletModal: React.FC<WalletModalProps> = ({ isOpen, onClose, type,
     if (!formData.name) newErrors.push('name');
     
     if (type === 'credit_card') {
-      const rawLimit = formData.limit.replace(/\D/g, '');
-      if (!rawLimit || parseInt(rawLimit) === 0) newErrors.push('limit');
+      const rawLimit = formData.limit.replace(/\./g, '').replace(',', '.');
+      if (!rawLimit || parseFloat(rawLimit) === 0) newErrors.push('limit');
       
       const cDay = parseInt(formData.closingDay);
       if (!formData.closingDay || isNaN(cDay) || cDay < 1 || cDay > 31) newErrors.push('closingDay');
@@ -214,19 +214,14 @@ export const WalletModal: React.FC<WalletModalProps> = ({ isOpen, onClose, type,
     setIsSaving(true);
 
     try {
-      // Converter o valor formatado (ex: "1.234,56") de volta para número puro
-      const rawValue = formData.balance.replace(/\./g, '').replace(',', '.');
-      const numericBalance = parseFloat(rawValue) || 0;
-
-      // Converter limit também se for cartão
-      const rawLimit = formData.limit.replace(/\./g, '').replace(',', '.');
-      const numericLimit = parseFloat(rawLimit) || 0;
+      const numericBalance = parseFloat(formData.balance.replace(/\./g, '').replace(',', '.')) || 0;
+      const numericLimit = parseFloat(formData.limit.replace(/\./g, '').replace(',', '.')) || 0;
 
       const walletData: any = {
         name: formData.name || (selectedInst?.name || selectedIcon?.name || ''),
         type: type,
         initialBalance: numericBalance,
-        balance: numericBalance, // Inicia igual ao inicial, será reconciliado
+        balance: numericBalance,
         color: selectedIconColor,
         cardColor: type === 'credit_card' ? selectedCardColor : undefined,
         logoUrl: selectedInst?.logo,
@@ -246,8 +241,6 @@ export const WalletModal: React.FC<WalletModalProps> = ({ isOpen, onClose, type,
           ? (parseInt(calcMonths) || null)
           : null,
         observation: formData.observation || '',
-
-
         isActive: editingWallet ? editingWallet.isActive : true
       };
 
@@ -283,7 +276,6 @@ export const WalletModal: React.FC<WalletModalProps> = ({ isOpen, onClose, type,
         exit={{ scale: 0.95, opacity: 0, y: 20 }}
         className="relative bg-card w-full max-w-2xl max-h-[90vh] rounded-[2.5rem] shadow-2xl border border-border/50 flex flex-col overflow-hidden"
       >
-        {/* Header */}
         <div className="p-8 border-b border-border/40 flex items-center justify-between shrink-0 bg-muted/10">
           <div>
             <h2 className="text-2xl font-black uppercase tracking-tight">
@@ -298,11 +290,9 @@ export const WalletModal: React.FC<WalletModalProps> = ({ isOpen, onClose, type,
           </button>
         </div>
 
-        {/* Content */}
         <div className="flex-1 overflow-y-auto p-8 space-y-8 custom-scrollbar">
           {step === 'selection' ? (
             <>
-              {/* Toggle Selection Type */}
               <div className="flex p-1.5 bg-muted/50 rounded-2xl border border-border/40 shrink-0">
                 <button 
                   onClick={() => setSelectionType('institution')}
@@ -442,8 +432,6 @@ export const WalletModal: React.FC<WalletModalProps> = ({ isOpen, onClose, type,
                     disabled={!selectedIcon}
                     onClick={() => { 
                       setSelectedInst(null); 
-                      // Não preencher nome para ícone genérico automaticamente para forçar o usuário a preencher algo personalizado, 
-                      // mas garantir que vamos para os detalhes
                       setStep('details'); 
                     }}
                     className="w-full py-6 bg-foreground text-background rounded-[2rem] font-black uppercase tracking-[0.2em] text-xs hover:scale-[1.02] active:scale-95 transition-all shadow-xl disabled:opacity-30 disabled:pointer-events-none"
@@ -579,7 +567,6 @@ export const WalletModal: React.FC<WalletModalProps> = ({ isOpen, onClose, type,
                               const newVal = formatBalance(e.target.value);
                               setFormData(prev => ({ ...prev, targetValue: newVal }));
                               
-                              // Recalcular economia mensal se houver meses
                               if (calcMonths) {
                                 const targetNum = parseFloat(newVal.replace(/\./g, '').replace(',', '.')) || 0;
                                 const monthsNum = parseInt(calcMonths) || 0;
