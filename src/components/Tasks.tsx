@@ -490,7 +490,7 @@ export const Tasks: React.FC = () => {
                          )}
                        </button>
 
-                       {!task.archived && (
+                       {isImpersonating && !task.archived && (
                          <>
                            <button 
                              onClick={(e) => {
@@ -517,21 +517,23 @@ export const Tasks: React.FC = () => {
                          </>
                        )}
 
-                       <button 
-                         onClick={(e) => {
-                           e.stopPropagation();
-                           archiveTask(task.id, !task.archived);
-                         }}
-                         className={cn(
-                           "w-10 h-10 flex items-center justify-center rounded-xl transition-all border",
-                           task.archived 
-                             ? "bg-amber-500/10 text-amber-500 border-amber-500/20 hover:bg-amber-500 hover:text-white"
-                             : "bg-muted/50 text-muted-foreground border-transparent hover:bg-slate-900 dark:hover:bg-white hover:text-white dark:hover:text-slate-900"
-                         )}
-                         title={task.archived ? "Desarquivar Tarefa" : "Arquivar Tarefa"}
-                       >
-                         <Archive size={16} />
-                       </button>
+                       {isImpersonating && (task.completed || task.archived) && (
+                         <button 
+                           onClick={(e) => {
+                             e.stopPropagation();
+                             archiveTask(task.id, !task.archived);
+                           }}
+                           className={cn(
+                             "w-10 h-10 flex items-center justify-center rounded-xl transition-all border",
+                             task.archived 
+                               ? "bg-amber-500/10 text-amber-500 border-amber-500/20 hover:bg-amber-500 hover:text-white"
+                               : "bg-muted/50 text-muted-foreground border-transparent hover:bg-slate-900 dark:hover:bg-white hover:text-white dark:hover:text-slate-900"
+                           )}
+                           title={task.archived ? "Desarquivar Tarefa" : "Arquivar Tarefa"}
+                         >
+                           <Archive size={16} />
+                         </button>
+                       )}
                     </div>
                   </div>
 
@@ -763,7 +765,7 @@ export const Tasks: React.FC = () => {
                          Chat {(selectedTask as any).commentCount > 0 ? `(${(selectedTask as any).commentCount})` : ''}
                        </button>
 
-                       {!selectedTask.archived && (
+                       {isImpersonating && !selectedTask.archived && (
                          <>
                            <button 
                              onClick={() => {
@@ -790,18 +792,20 @@ export const Tasks: React.FC = () => {
                          </>
                        )}
 
-                       <button 
-                         onClick={() => archiveTask(selectedTask.id, !selectedTask.archived)}
-                         className={cn(
-                           "p-3 rounded-2xl transition-all border",
-                           selectedTask.archived 
-                             ? "bg-amber-500/10 text-amber-500 border-amber-500/20 hover:bg-amber-500 hover:text-white"
-                             : "bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-white/10 hover:bg-slate-900 dark:hover:bg-white hover:text-white dark:hover:text-slate-900"
-                         )}
-                         title={selectedTask.archived ? "Desarquivar" : "Arquivar"}
-                       >
-                         <Archive size={18} />
-                       </button>
+                       {isImpersonating && (selectedTask.completed || selectedTask.archived) && (
+                         <button 
+                           onClick={() => archiveTask(selectedTask.id, !selectedTask.archived)}
+                           className={cn(
+                             "p-3 rounded-2xl transition-all border",
+                             selectedTask.archived 
+                               ? "bg-amber-500/10 text-amber-500 border-amber-500/20 hover:bg-amber-500 hover:text-white"
+                               : "bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-white/10 hover:bg-slate-900 dark:hover:bg-white hover:text-white dark:hover:text-slate-900"
+                           )}
+                           title={selectedTask.archived ? "Desarquivar" : "Arquivar"}
+                         >
+                           <Archive size={18} />
+                         </button>
+                       )}
                      </div>
                    </div>
 

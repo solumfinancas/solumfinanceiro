@@ -19,7 +19,8 @@ import {
   LayoutDashboard,
   User,
   Building2,
-  ArrowRight
+  ArrowRight,
+  Briefcase
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../../../lib/utils';
@@ -115,9 +116,13 @@ export const ClientsTab: React.FC<ClientsTabProps> = ({ onAddClient, refreshTrig
     }
   };
 
-  const handleManageWallet = (client: ClientProfile) => {
+  const handleManageWallet = (client: ClientProfile, targetTab?: string) => {
     const spaces = (client.user_metadata?.initialized_spaces || []) as ('personal' | 'business')[];
     
+    if (targetTab) {
+      localStorage.setItem('active_tab_redirect', targetTab);
+    }
+
     if (spaces.length > 1) {
       setSpaceSelectionClient(client);
     } else if (spaces.length === 1) {
@@ -384,10 +389,10 @@ export const ClientsTab: React.FC<ClientsTabProps> = ({ onAddClient, refreshTrig
                             )}
                             <div className="h-px bg-border my-1 mx-2" />
                             <button 
-                              onClick={() => handleManageWallet(client)}
+                              onClick={() => handleManageWallet(client, 'profile')}
                               className="w-full flex items-center gap-3 px-4 py-3 text-[10px] font-black uppercase tracking-widest text-primary hover:bg-primary/10 rounded-xl transition-all"
                             >
-                              <LayoutDashboard size={16} /> Ver Finanças
+                              <Briefcase size={16} /> Serviços Contratados
                             </button>
                           </div>
                         </motion.div>

@@ -28,6 +28,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useFinance } from '../FinanceContext';
 import { SpaceActivationModal } from './SpaceActivationModal';
 import { ChangePasswordModal } from './ChangePasswordModal';
+import { ContractedServices } from './ContractedServices';
 
 export const Profile: React.FC = () => {
   const { user, profile, viewingUserId, viewingProfile, refreshProfile } = useAuth();
@@ -303,9 +304,9 @@ export const Profile: React.FC = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Left Column: Form */}
-        <div className="lg:col-span-2 space-y-6">
+      <div className="space-y-8">
+        {/* Main Column: Form */}
+        <div className="space-y-8">
           <div className="bg-card rounded-[2.5rem] p-8 border border-border shadow-sm space-y-8">
             <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2 border-b border-border/50 pb-4">
               <Palette size={14} className={accentText} /> {isBusiness ? 'Identidade Empresarial' : 'Informações Pessoais'}
@@ -407,6 +408,43 @@ export const Profile: React.FC = () => {
             </div>
           </div>
 
+          {/* Segurança e Reset de Dados - Lado a Lado */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="bg-card rounded-[2.5rem] p-8 border border-border shadow-sm space-y-6 flex flex-col justify-between">
+              <div className="space-y-4">
+                <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                  <Lock size={14} className={accentText} /> Segurança & Senha
+                </h3>
+                <p className="text-[10px] font-bold text-muted-foreground/60 uppercase leading-relaxed">Mantenha sua conta protegida alterando sua senha regularmente.</p>
+              </div>
+              <button 
+                onClick={() => setIsPasswordModalOpen(true)}
+                className="w-full py-4 bg-muted/50 hover:bg-muted text-[10px] font-black uppercase tracking-widest rounded-2xl border border-border/50 transition-all flex items-center justify-center gap-2"
+              >
+                <Lock size={14} className="text-amber-500" /> Alterar Senha
+              </button>
+            </div>
+
+            <div className="bg-card rounded-[2.5rem] p-8 border border-border shadow-sm space-y-6 flex flex-col justify-between">
+              <div className="space-y-4">
+                <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                  <Trash2 size={14} className="text-rose-500" /> Zona de Risco
+                </h3>
+                <p className="text-[10px] font-bold text-muted-foreground/60 uppercase leading-relaxed">
+                  Apague todos os lançamentos do espaço selecionado de forma definitiva.
+                </p>
+              </div>
+              <div className="space-y-4">
+                <button 
+                  onClick={() => setShowResetModal(true)}
+                  className="w-full py-4 bg-rose-500/10 hover:bg-rose-500 text-[10px] font-black uppercase tracking-widest rounded-2xl border border-rose-500/20 text-rose-500 hover:text-white transition-all flex items-center justify-center gap-3 group shadow-xl shadow-rose-500/5"
+                >
+                  <Trash2 size={16} className="group-hover:rotate-12 transition-transform" /> Resetar Dados
+                </button>
+              </div>
+            </div>
+          </div>
+
           <div className="bg-card rounded-[2.5rem] p-8 border border-border shadow-sm space-y-6">
             <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2 border-b border-border/50 pb-4">
               <Briefcase size={14} className={accentText} /> Espaço de Trabalho
@@ -476,39 +514,10 @@ export const Profile: React.FC = () => {
               })}
             </div>
           </div>
-        </div>
 
-        {/* Right Column: Cards & Features */}
-        <div className="space-y-6">
-          <div className="bg-[#820ad1] text-white rounded-[2.5rem] p-8 shadow-2xl relative overflow-hidden group">
-            <div className="absolute -top-12 -right-12 w-40 h-40 bg-white/10 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-1000" />
-            <h4 className="text-xs font-black uppercase tracking-widest opacity-60 mb-2">Conta Premium</h4>
-            <div className="text-3xl font-black tracking-tighter uppercase mb-4 leading-none">Nível Gold Personal</div>
-            <p className="text-[10px] font-bold opacity-80 leading-relaxed uppercase">Você tem acesso a todos os recursos de inteligência e projeções mensais.</p>
-            <button className="mt-8 w-full py-4 bg-white/20 hover:bg-white/30 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all">Ver Vantagens</button>
-          </div>
-
-          <div className="bg-card rounded-[2.5rem] p-8 border border-border shadow-sm space-y-6">
-            <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground">Segurança & Senha</h3>
-            <p className="text-[10px] font-bold text-muted-foreground/60 uppercase leading-relaxed">Mantenha sua conta protegida alterando sua senha regularmente.</p>
-            <button 
-              onClick={() => setIsPasswordModalOpen(true)}
-              className="w-full py-4 bg-muted/50 hover:bg-muted text-[10px] font-black uppercase tracking-widest rounded-2xl border border-border/50 transition-all flex items-center justify-center gap-2"
-            >
-              <Lock size={14} className="text-amber-500" /> Alterar Senha
-            </button>
-          </div>
-
-          <div className="space-y-4">
-            <button 
-              onClick={() => setShowResetModal(true)}
-              className="w-full py-5 bg-rose-500/10 hover:bg-rose-500 text-[10px] font-black uppercase tracking-widest rounded-[2rem] border border-rose-500/20 text-rose-500 hover:text-white transition-all flex items-center justify-center gap-3 group shadow-xl shadow-rose-500/5"
-            >
-              <Trash2 size={16} className="group-hover:rotate-12 transition-transform" /> Resetar Dados Financeiros do Perfil
-            </button>
-            <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest text-center opacity-50 px-6">
-              Atenção: Esta ação é irreversível e apagará todos os lançamentos do espaço selecionado.
-            </p>
+          {/* Seção de Serviços Contratados */}
+          <div className="bg-card rounded-[2.5rem] p-8 border border-border shadow-sm">
+            <ContractedServices />
           </div>
         </div>
       </div>
