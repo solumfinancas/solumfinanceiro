@@ -157,8 +157,7 @@ export function getInvoiceAmount(transactions: Transaction[], walletId: string, 
   const payments = transactions.filter(t => 
     t.toWalletId === walletId && 
     t.invoiceMonth === (period.due.getUTCMonth() + 1) && 
-    t.invoiceYear === period.due.getUTCFullYear() &&
-    t.description.toLowerCase().includes('fatura')
+    t.invoiceYear === period.due.getUTCFullYear()
   );
   
   const paidSum = payments.reduce((sum, t) => sum + t.amount, 0);
@@ -177,8 +176,7 @@ export function getInvoicePayments(cardId: string, transactions: Transaction[], 
   return transactions.filter(t => 
     t.toWalletId === cardId && 
     t.invoiceMonth === month && 
-    t.invoiceYear === year &&
-    t.description.toLowerCase().includes('fatura')
+    t.invoiceYear === year
   );
 }
 

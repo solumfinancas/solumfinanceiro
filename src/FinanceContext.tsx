@@ -34,6 +34,9 @@ interface FinanceContextType {
   orderedAccounts: string[];
   saveWalletOrder: (cards: string[], accounts: string[]) => Promise<void>;
   initializedSpaces: ('personal' | 'business')[];
+  overdueServices: any[];
+  hasAcknowledgedOverdue: boolean;
+  acknowledgeOverdue: () => void;
 }
 
 const FinanceContext = createContext<FinanceContextType | undefined>(undefined);
@@ -70,7 +73,7 @@ const INITIAL_CATEGORIES_TEMPLATE: Omit<Category, 'id' | 'userId' | 'space'>[] =
 ];
 
 export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user, viewingUserId, viewingProfile } = useAuth();
+  const { user, profile, viewingUserId, viewingProfile } = useAuth();
 
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -85,6 +88,15 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const saved = localStorage.getItem('includeCategoryLimits');
     return saved !== null ? JSON.parse(saved) : true;
   });
+  const [overdueServices, setOverdueServices] = useState<any[]>([]);
+  const [hasAcknowledgedOverdue, setHasAcknowledgedOverdue] = useState<boolean>(() => {
+    return sessionStorage.getItem('overdue_acknowledged') === 'true';
+  });
+
+  const acknowledgeOverdue = () => {
+    setHasAcknowledgedOverdue(true);
+    sessionStorage.setItem('overdue_acknowledged', 'true');
+  };
   const isFetchingData = React.useRef(false);
   const lastActivityUpdate = React.useRef<number>(0);
  
@@ -170,13 +182,30 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       if (txErr) throw txErr;
       setTransactions(txs || []);
 
+      // 5. Verificar pagamentos em atraso (Somente para o usuário real, não em visualização)
+      if (profile?.role === 'user' && !viewingUserId) {
+        const today = new Date().toISOString().split('T')[0];
+        const { data: svcs, error: svcsErr } = await supabase
+          .from('contracted_services')
+          .select('*')
+          .eq('client_id', effectiveUserId)
+          .eq('status', 'pending')
+          .lt('due_date', today);
+        
+        if (!svcsErr) {
+          setOverdueServices(svcs || []);
+        }
+      } else {
+        setOverdueServices([]);
+      }
+
     } catch (err) {
       console.error('Erro ao buscar dados:', err);
     } finally {
       setLoading(false);
       isFetchingData.current = false;
     }
-  }, [user, effectiveUserId, activeSpace, isSpaceInitialized]);
+  }, [user, profile, effectiveUserId, activeSpace, isSpaceInitialized]);
 
   const currentMetadata = viewingProfile ? viewingProfile.user_metadata : user?.user_metadata;
   const initializedSpaces = (currentMetadata?.initialized_spaces || []) as ('personal' | 'business')[];
@@ -624,6 +653,9 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       includeCategoryLimits, setIncludeCategoryLimits, seedCategories,
       orderedCards, orderedAccounts,
       initializedSpaces,
+      overdueServices,
+      hasAcknowledgedOverdue,
+      acknowledgeOverdue,
       saveWalletOrder: async (cards: string[], accounts: string[]) => {
         if (!user) return;
         

@@ -19,6 +19,8 @@ import { Anamnesis } from './components/Anamnesis';
 import { Debts } from './components/Debts';
 import { Equity } from './components/Equity';
 import { SuspensionBlock } from './components/SuspensionBlock';
+import { OverdueAlertModal } from './components/OverdueAlertModal';
+import { OverduePersistentReminder } from './components/OverduePersistentReminder';
 
 
 const AppContent = () => {
@@ -165,7 +167,8 @@ const AppContent = () => {
   // Define se precisamos mostrar o seletor antes de qualquer coisa
   const isSelectionNeeded = !!user && 
     !viewingManagement && 
-    !viewingUserId && (
+    !viewingUserId && 
+    !showSetup && (
       !activeSessionView || initializedSpaces.length === 0
     );
 
@@ -233,6 +236,12 @@ const AppContent = () => {
       />
 
       <main className="flex-1 h-full overflow-y-auto p-4 lg:p-8 relative">
+        {/* Overdue Alert Modal */}
+        <OverdueAlertModal />
+
+        {/* Overdue Persistent Reminder */}
+        <OverduePersistentReminder />
+
         {/* Impersonation Banner */}
         {viewingUserId && viewingProfile?.id && (
           <div className="max-w-[1600px] mx-auto mb-6">

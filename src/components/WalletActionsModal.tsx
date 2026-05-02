@@ -75,12 +75,6 @@ export const WalletActionsModal: React.FC<WalletActionsModalProps> = ({
     const paidSum = invoice.paidSum;
     const payments = getInvoicePayments(wallet.id, transactions, p.due.getUTCMonth() + 1, p.due.getUTCFullYear());
     
-    // Status Logic
-    const isFullyPaid = amt > 0 && paidSum >= amt;
-    const isPartial = paidSum > 0 && paidSum < amt;
-    const isPending = paidSum === 0 && amt > 0;
-    const isFuture = p.start > new Date();
-
     const unpaidEntries = transactions.filter(t => {
       if (t.walletId !== wallet.id) return false;
       if (t.type !== 'expense' && t.type !== 'planned') return false;
@@ -95,15 +89,25 @@ export const WalletActionsModal: React.FC<WalletActionsModalProps> = ({
 
     const pendingPayments = payments.filter(t => t.isPaid === false);
     const hasPendingConciliation = pendingPayments.length > 0;
+    const now = new Date();
+    
+    // Status Logic
+    const isFullyPaid = amt > 0 && paidSum >= (amt - 0.01);
+    const isPartial = paidSum > 0 && paidSum < (amt - 0.01);
+    const isFuture = p.start > now;
+    const isClosed = p.end < now;
+    const isOverdue = !isFullyPaid && amt > 0 && p.due < now;
+    const isPaid = isFullyPaid && !hasPendingConciliation;
 
     return { 
       period: p, 
       amount: amt, 
       paidSum,
-      isPaid: isFullyPaid && !hasPendingConciliation, 
+      isPaid, 
       isPartial: isPartial || (isFullyPaid && hasPendingConciliation),
-      isPending,
       isFuture,
+      isClosed,
+      isOverdue,
       hasPendingConciliation,
       unpaidCount: unpaidEntries.length 
     };
@@ -456,10 +460,10 @@ export const WalletActionsModal: React.FC<WalletActionsModalProps> = ({
                 {/* Latest Closed Pending Summary */}
                 {isCreditCard && latestClosedPending ? (
                   <div className="mb-6 space-y-3">
-                    <div className="p-6 bg-orange-500/10 border border-orange-500/30 rounded-3xl space-y-4">
+                    <div className="p-6 bg-amber-500/10 border border-amber-500/30 rounded-3xl space-y-4">
                       <div className="flex items-center justify-between">
-                         <span className="text-[10px] font-black uppercase tracking-widest text-orange-500 italic">Última Fatura</span>
-                         <div className="flex items-center gap-1.5 bg-orange-500 text-white px-2 py-0.5 rounded text-[8px] font-black uppercase animate-pulse">
+                         <span className="text-[10px] font-black uppercase tracking-widest text-amber-500 italic">Fatura Fechada</span>
+                         <div className="flex items-center gap-1.5 bg-amber-500 text-white px-2 py-0.5 rounded text-[8px] font-black uppercase animate-pulse">
                             <CalendarCheck size={10} />
                              Vencimento: {formatDate(latestClosedPending.period.due)}
                          </div>
@@ -467,31 +471,36 @@ export const WalletActionsModal: React.FC<WalletActionsModalProps> = ({
                       
                       <div className="flex items-end justify-between pt-2">
                          <div>
-                           <span className="text-[10px] font-bold text-muted-foreground uppercase">Valor a Pagar</span>
-                           <h4 className="text-2xl font-black tracking-tight">{formatCurrency(latestClosedPending.amount)}</h4>
+                           <span className="text-[10px] font-bold text-muted-foreground uppercase">
+                             {latestClosedPending.isPartial ? 'Saldo Restante' : 'Valor a Pagar'}
+                           </span>
+                           <h4 className="text-2xl font-black tracking-tight">
+                             {formatCurrency(latestClosedPending.amount - latestClosedPending.paidSum)}
+                           </h4>
                          </div>
                          <div className="flex gap-2">
                            <button 
                              onClick={() => { setIsAdjusting(latestClosedPending.period); setAdjustValue(''); }}
-                             className="p-2.5 bg-white/10 hover:bg-white/20 text-orange-500 rounded-2xl transition-all"
+                             className="p-2.5 bg-white/10 hover:bg-white/20 text-amber-500 rounded-2xl transition-all"
                              title="Ajustar Valor"
                            >
                              <Edit3 size={18} />
                            </button>
                            <button 
                              onClick={() => {
+                               const remaining = latestClosedPending.amount - latestClosedPending.paidSum;
                                setIsPaying({ period: latestClosedPending.period, totalAmount: latestClosedPending.amount });
-                               setPayAmount(latestClosedPending.amount.toFixed(2).replace('.', ','));
+                               setPayAmount(remaining.toFixed(2).replace('.', ','));
                                setPayWalletId(wallet.defaultPaymentWalletId || '');
                              }}
-                             className="px-6 py-2.5 bg-orange-500 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-orange-500/20 hover:scale-105 transition-transform"
+                             className="px-6 py-2.5 bg-amber-500 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-amber-500/20 hover:scale-105 transition-transform"
                            >
-                             Pagar Agora
+                             Pagar {latestClosedPending.isPartial ? 'Restante' : 'Agora'}
                            </button>
                          </div>
                       </div>
                       
-                      <p className="text-[9px] font-medium text-muted-foreground/60 italic text-center pt-2 border-t border-orange-500/10">
+                      <p className="text-[9px] font-medium text-muted-foreground/60 italic text-center pt-2 border-t border-amber-500/10">
                          Referente ao período de {formatDate(latestClosedPending.period.start)} a {formatDate(latestClosedPending.period.end)}
                       </p>
                     </div>
@@ -577,14 +586,13 @@ export const WalletActionsModal: React.FC<WalletActionsModalProps> = ({
                         <div className={cn(
                           "w-10 h-10 rounded-xl flex items-center justify-center",
                           item.isPaid ? "bg-emerald-500/10 text-emerald-500" : 
-                          (item.period.end > new Date()) ? "bg-emerald-500/10 text-emerald-500" :
-                          item.isPartial ? "bg-amber-500/10 text-amber-500" :
-                          item.amount > 0 ? "bg-rose-500/10 text-rose-500" : 
-                          "bg-muted text-muted-foreground"
+                          item.isOverdue ? "bg-rose-500/10 text-rose-500" :
+                          item.isClosed ? "bg-amber-500/10 text-amber-500" :
+                          "bg-blue-500/10 text-blue-500" // Aberta
                         )}>
                           {item.isPaid ? <CheckCircle2 size={18} /> : 
-                           (item.period.end > new Date()) ? <CalendarDays size={18} /> :
-                           item.isPartial ? <AlertTriangle size={18} /> :
+                           item.isOverdue ? <AlertTriangle size={18} /> :
+                           item.isClosed ? <CalendarCheck size={18} /> :
                            <CalendarDays size={18} />}
                         </div>
                         <div className="flex flex-col">
@@ -597,7 +605,10 @@ export const WalletActionsModal: React.FC<WalletActionsModalProps> = ({
                               </span>
                               <span className={cn(
                                 "text-[9px] font-black uppercase",
-                                (item.period.end > new Date()) ? "text-emerald-500/60" : "text-amber-500/60"
+                                item.isPaid ? "text-emerald-500/60" :
+                                item.isOverdue ? "text-rose-500/60" :
+                                item.isClosed ? "text-amber-500/60" :
+                                "text-blue-500/60"
                               )}>
                                  Fecha em: {formatDate(item.period.end)}
                               </span>
@@ -609,7 +620,10 @@ export const WalletActionsModal: React.FC<WalletActionsModalProps> = ({
                        <div className="text-right">
                           <span className={cn(
                             "block text-sm font-black tracking-tight",
-                            item.isPaid || (item.period.end > new Date()) ? "text-emerald-500" : item.isPartial ? "text-amber-500" : "text-foreground"
+                            item.isPaid ? "text-emerald-500" :
+                            item.isOverdue ? "text-rose-500" :
+                            item.isClosed ? "text-amber-500" :
+                            "text-blue-500"
                           )}>
                             {formatCurrency(item.amount)}
                           </span>
@@ -617,11 +631,14 @@ export const WalletActionsModal: React.FC<WalletActionsModalProps> = ({
                                  <span className={cn(
                                    "text-[8px] font-black uppercase px-1.5 py-0.5 rounded",
                                    item.isPaid ? "bg-emerald-500/10 text-emerald-500" : 
-                                   (item.period.end > new Date()) ? "bg-emerald-500/10 text-emerald-500" :
-                                   item.isPartial ? "bg-amber-500/10 text-amber-500" :
-                                   "bg-rose-500/10 text-rose-500"
+                                   item.isOverdue ? "bg-rose-500/10 text-rose-500" :
+                                   item.isClosed ? "bg-amber-500/10 text-amber-500" :
+                                   "bg-blue-500/10 text-blue-500"
                                  )}>
-                                   {item.isPaid ? 'Paga' : (item.period.end > new Date()) ? 'Aberta' : item.isPartial ? 'Parcial' : 'Pendente'}
+                                   {item.isPaid ? 'Paga' : 
+                                    item.isOverdue ? 'Atrasada' : 
+                                    item.isClosed ? 'Fechada' : 
+                                    'Aberta'}
                                  </span>
                                {item.hasPendingConciliation && (
                                  <span className="text-[8px] font-black bg-blue-500/10 text-blue-500 px-1.5 py-0.5 rounded flex items-center gap-1 shadow-sm animate-pulse">
@@ -858,7 +875,7 @@ export const WalletActionsModal: React.FC<WalletActionsModalProps> = ({
                                          </div>
                                          <div>
                                             <div className="flex items-center gap-2 mb-1">
-                                              <span className="block text-[11px] font-black uppercase leading-none">
+                                              <span className="block text-[11px] font-black uppercase leading-tight break-words">
                                                 {wallets.find(w => w.id === p.walletId)?.name || 'Banco'}
                                               </span>
                                               {p.isPaid === false && (
@@ -931,7 +948,7 @@ export const WalletActionsModal: React.FC<WalletActionsModalProps> = ({
                                            </div>
                                            <div>
                                               <div className="flex items-center gap-2 mb-1">
-                                                <span className="block text-[11px] font-black uppercase leading-none">{inc.description}</span>
+                                                <span className="block text-[11px] font-black uppercase leading-tight break-words">{inc.description}</span>
                                                 <span className="text-[7px] font-black uppercase px-1.5 py-0.5 rounded bg-pink-500/10 text-pink-500 border border-pink-500/20 shadow-sm tracking-widest">FATURA</span>
                                               </div>
                                               <span className="text-[9px] font-bold text-muted-foreground uppercase opacity-60">
@@ -996,16 +1013,16 @@ export const WalletActionsModal: React.FC<WalletActionsModalProps> = ({
 
                                    return (
                                      <div key={exp.id} className="p-4 bg-muted/20 border border-border/40 rounded-2xl flex items-center justify-between">
-                                        <div className="flex items-center gap-3 overflow-hidden">
+                                        <div className="flex items-center gap-3 min-w-0">
                                            <div className={cn(
                                              "w-8 h-8 rounded-lg flex items-center justify-center shrink-0 shadow-sm",
                                              exp.type === 'planned' ? "bg-violet-500/10 text-violet-500" : "bg-rose-500/10 text-rose-500"
                                            )}>
                                               <IconRenderer icon={icon} size={16} color={category?.color} />
                                            </div>
-                                           <div className="truncate">
-                                              <div className="flex items-center gap-2 mb-1">
-                                                 <span className="block text-[11px] font-black uppercase leading-none truncate">{exp.description}</span>
+                                           <div className="flex-1 min-w-0">
+                                              <div className="flex items-start gap-2 mb-1 flex-wrap">
+                                                 <span className="text-[11px] font-black uppercase leading-tight break-words">{exp.description}</span>
                                                  <span className={cn(
                                                    "text-[7px] font-black uppercase px-1 py-0.5 rounded",
                                                    exp.type === 'planned' ? "bg-violet-500/10 text-violet-500 border border-violet-500/10" : "bg-rose-500/10 text-rose-500 border border-rose-500/10"

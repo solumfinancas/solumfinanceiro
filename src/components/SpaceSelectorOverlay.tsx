@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, Building2, Rocket, ArrowRight, ShieldCheck, Gem, LayoutDashboard } from 'lucide-react';
+import { User, Building2, Rocket, ArrowRight, ShieldCheck, Gem, LayoutDashboard, LogOut } from 'lucide-react';
 import { useFinance } from '../FinanceContext';
 import { useAuth } from '../contexts/AuthContext';
 import { cn } from '../lib/utils';
@@ -14,7 +14,7 @@ interface SpaceSelectorOverlayProps {
 
 export const SpaceSelectorOverlay: React.FC<SpaceSelectorOverlayProps> = ({ isOpen, onSelect, onSelectManagement }) => {
   const { initializedSpaces } = useFinance();
-  const { user, profile } = useAuth();
+  const { user, profile, signOut } = useAuth();
   const [activationModal, setActivationModal] = React.useState<{ isOpen: boolean; space: 'personal' | 'business' | null }>({
     isOpen: false,
     space: null
@@ -50,7 +50,7 @@ export const SpaceSelectorOverlay: React.FC<SpaceSelectorOverlayProps> = ({ isOp
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-12 space-y-4"
+          className="mb-8 space-y-4"
         >
           <div className="flex items-center justify-center gap-3 mb-6">
             <img 
@@ -219,7 +219,7 @@ export const SpaceSelectorOverlay: React.FC<SpaceSelectorOverlayProps> = ({ isOp
            initial={{ opacity: 0 }}
            animate={{ opacity: 1 }}
            transition={{ delay: 0.5 }}
-           className="mt-16 flex flex-wrap justify-center gap-8"
+           className="mt-12 flex flex-wrap justify-center gap-8"
         >
           <div className="flex items-center gap-3 text-slate-500">
             <ShieldCheck size={18} className="text-emerald-500" />
@@ -233,6 +233,27 @@ export const SpaceSelectorOverlay: React.FC<SpaceSelectorOverlayProps> = ({ isOp
             <Gem size={18} className="text-amber-500" />
             <span className="text-[10px] font-black uppercase tracking-widest">Conta Premium Ativa</span>
           </div>
+        </motion.div>
+
+        {/* Action Buttons */}
+        <motion.div
+           initial={{ opacity: 0, y: 10 }}
+           animate={{ opacity: 1, y: 0 }}
+           transition={{ delay: 0.6 }}
+           className="mt-8"
+        >
+          <button
+            onClick={signOut}
+            className="group flex items-center gap-3 px-5 py-2.5 bg-white/5 hover:bg-destructive/10 border border-white/10 hover:border-destructive/20 rounded-xl transition-all duration-300"
+          >
+            <div className="w-8 h-8 rounded-lg bg-destructive/10 text-destructive flex items-center justify-center transition-transform group-hover:rotate-12">
+              <LogOut size={16} />
+            </div>
+            <div className="text-left">
+              <p className="text-[9px] font-black uppercase tracking-widest text-destructive leading-none mb-1">Encerrar Sessão</p>
+              <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest leading-none">Sair da conta</p>
+            </div>
+          </button>
         </motion.div>
       </div>
 

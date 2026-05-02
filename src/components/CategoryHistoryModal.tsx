@@ -251,12 +251,12 @@ export const CategoryHistoryModal: React.FC<CategoryHistoryModalProps> = ({
                             </div>
                           );
                         })()}
-                        <div className="flex flex-col truncate">
+                        <div className="flex flex-col flex-1 min-w-0">
                           {(() => {
                             const cat = categories.find(c => c.id === t.categoryId);
                             return (
-                              <div className="flex items-center gap-1.5 flex-wrap overflow-hidden">
-                                <span className="font-bold text-[11px] uppercase tracking-tight truncate max-w-[200px]">{t.description}</span>
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="font-bold text-[11px] uppercase tracking-tight break-words">{t.description}</span>
                                 <span className="text-muted-foreground text-[10px]">/</span>
                                 <span className="text-muted-foreground text-[10px] font-medium uppercase tracking-widest">{cat?.name || 'Geral'}</span>
                               </div>
