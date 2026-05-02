@@ -220,6 +220,32 @@ export const FinanceTab: React.FC<FinanceTabProps> = ({ onNavigateToClients }) =
     return { total, received, percent };
   }, [payments, currentDate]);
 
+  const currentMonthPayments = useMemo(() => {
+    const selectedMonth = currentDate.getMonth();
+    const selectedYear = currentDate.getFullYear();
+    
+    return payments
+      .filter(p => {
+        const d = new Date(p.due_date + 'T12:00:00Z');
+        return d.getMonth() === selectedMonth && d.getFullYear() === selectedYear;
+      })
+      .map(p => ({
+        id: p.id,
+        clientId: p.client_id,
+        clientName: p.client?.full_name || 'Cliente',
+        amount: Number(p.amount),
+        status: p.status,
+        type: p.type,
+        serviceName: p.name,
+        spaceType: p.space_type,
+        gender: p.client?.user_metadata?.gender,
+        installmentInfo: p.total_installments > 1 
+          ? `Parcela ${p.installment_number}/${p.total_installments}`
+          : 'Única'
+      }))
+      .sort((a, b) => a.clientName.localeCompare(b.clientName));
+  }, [payments, currentDate]);
+
   const [confirmingPayment, setConfirmingPayment] = useState<any>(null);
 
   const handleConfirmPayment = async () => {
@@ -519,6 +545,112 @@ export const FinanceTab: React.FC<FinanceTabProps> = ({ onNavigateToClients }) =
                 <p className="text-lg font-black text-amber-600 tracking-tight">{formatCurrency(currentMonthStats.total - currentMonthStats.received)}</p>
               </div>
             </div>
+          </div>
+        </motion.div>
+
+        {/* Tabela de Recebimentos do Mês */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-card border border-border rounded-[2.5rem] shadow-sm overflow-hidden mt-8"
+        >
+          <div className="p-8 border-b border-border bg-muted/10">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                  <Receipt size={20} />
+                </div>
+                <div>
+                  <h2 className="text-xl font-black text-foreground uppercase tracking-tighter">Detalhamento Mensal</h2>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Listagem de Clientes e Valores</p>
+                </div>
+              </div>
+              <div className="px-4 py-1.5 rounded-full bg-muted border border-border text-[9px] font-black uppercase tracking-widest text-muted-foreground">
+                {currentMonthPayments.length} {currentMonthPayments.length === 1 ? 'Lançamento' : 'Lançamentos'}
+              </div>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="bg-muted/50 border-b border-border">
+                  <th className="px-8 py-4 text-left text-[10px] font-black uppercase tracking-widest text-muted-foreground">Cliente</th>
+                  <th className="px-8 py-4 text-left text-[10px] font-black uppercase tracking-widest text-muted-foreground">Serviço / Parcela</th>
+                  <th className="px-8 py-4 text-left text-[10px] font-black uppercase tracking-widest text-muted-foreground">Valor</th>
+                  <th className="px-8 py-4 text-right text-[10px] font-black uppercase tracking-widest text-muted-foreground">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {currentMonthPayments.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="px-8 py-12 text-center">
+                      <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Nenhum pagamento registrado para este mês.</p>
+                    </td>
+                  </tr>
+                ) : (
+                  currentMonthPayments.map((payment) => (
+                    <tr key={payment.id} className="group hover:bg-muted/30 transition-colors">
+                      <td className="px-8 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="flex flex-col">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-black text-foreground truncate max-w-[200px]">{payment.clientName}</span>
+                              <button 
+                                onClick={() => {
+                                  localStorage.setItem('active_tab_redirect', 'profile');
+                                  setActiveSpace(payment.spaceType);
+                                  impersonateUser(payment.clientId);
+                                }}
+                                className="p-1.5 rounded-lg bg-muted border border-border text-muted-foreground hover:text-primary hover:bg-primary/10 transition-all"
+                                title="Ver perfil do cliente"
+                              >
+                                <ExternalLink size={12} />
+                              </button>
+                            </div>
+                            <span className={cn(
+                              "text-[8px] font-black uppercase w-fit px-2 py-0.5 rounded-full mt-1",
+                              payment.spaceType === 'business' 
+                                ? "bg-slate-900 text-white" 
+                                : payment.gender === 'female' 
+                                  ? "bg-pink-500 text-white" 
+                                  : "bg-blue-500 text-white"
+                            )}>
+                              {payment.spaceType === 'business' ? 'Empresarial' : 'Pessoal'}
+                            </span>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-8 py-4">
+                        <div className="flex flex-col">
+                          <span className="text-[10px] font-black text-foreground uppercase tracking-tight">
+                            {payment.type} {payment.serviceName && `- ${payment.serviceName}`}
+                          </span>
+                          <span className="text-[9px] font-bold text-muted-foreground uppercase">{payment.installmentInfo}</span>
+                        </div>
+                      </td>
+                      <td className="px-8 py-4">
+                        <span className="text-sm font-black text-foreground">{formatCurrency(payment.amount)}</span>
+                      </td>
+                      <td className="px-8 py-4 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <div className={cn(
+                            "w-2 h-2 rounded-full",
+                            payment.status === 'paid' ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" : "bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]"
+                          )} />
+                          <span className={cn(
+                            "text-[10px] font-black uppercase tracking-widest",
+                            payment.status === 'paid' ? "text-emerald-500" : "text-amber-500"
+                          )}>
+                            {payment.status === 'paid' ? 'Recebido' : 'Pendente'}
+                          </span>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
         </motion.div>
 
