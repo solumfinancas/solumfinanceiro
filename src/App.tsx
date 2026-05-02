@@ -21,6 +21,7 @@ import { Equity } from './components/Equity';
 import { SuspensionBlock } from './components/SuspensionBlock';
 import { OverdueAlertModal } from './components/OverdueAlertModal';
 import { OverduePersistentReminder } from './components/OverduePersistentReminder';
+import { TaskPersistentReminder } from './components/TaskPersistentReminder';
 
 
 const AppContent = () => {
@@ -239,8 +240,11 @@ const AppContent = () => {
         {/* Overdue Alert Modal */}
         <OverdueAlertModal />
 
-        {/* Overdue Persistent Reminder */}
-        <OverduePersistentReminder />
+        {/* Lembretes e Avisos Globais */}
+        <div className="max-w-[1600px] mx-auto space-y-4 mb-6">
+          <OverduePersistentReminder />
+          <TaskPersistentReminder onViewTasks={() => setActiveTab('tasks')} />
+        </div>
 
         {/* Impersonation Banner */}
         {viewingUserId && viewingProfile?.id && (

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useFinance } from '../FinanceContext';
 import { supabase } from '../lib/supabase';
 import { 
   CheckSquare, 
@@ -43,6 +44,7 @@ interface Task {
 
 export const Tasks: React.FC = () => {
   const { user, profile, viewingUserId, viewingProfile } = useAuth();
+  const { setGlobalTasks } = useFinance();
   const { showAlert, showConfirm } = useModal();
   
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -59,6 +61,8 @@ export const Tasks: React.FC = () => {
   const [loadingComments, setLoadingComments] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editingCommentContent, setEditingCommentContent] = useState('');
 
   const effectiveUserId = viewingUserId || user?.id;
   const isImpersonating = !!viewingUserId;
@@ -133,6 +137,10 @@ export const Tasks: React.FC = () => {
     fetchEducatorId();
     fetchTasks();
   }, [effectiveUserId, profile]);
+
+  useEffect(() => {
+    setGlobalTasks(tasks);
+  }, [tasks, setGlobalTasks]);
 
   const handleCreateTask = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -294,6 +302,58 @@ export const Tasks: React.FC = () => {
       setNewComment('');
     } catch (err: any) {
       showAlert('Erro', 'Não foi possível enviar o comentário.', 'danger');
+    }
+  };
+
+  const handleUpdateComment = async (commentId: string) => {
+    if (!editingCommentContent.trim()) return;
+
+    try {
+      const { error } = await supabase
+        .from('task_comments')
+        .update({ content: editingCommentContent.trim() })
+        .eq('id', commentId);
+
+      if (error) throw error;
+
+      setComments(prev => prev.map(c => 
+        c.id === commentId ? { ...c, content: editingCommentContent.trim() } : c
+      ));
+      setEditingCommentId(null);
+      setEditingCommentContent('');
+    } catch (err) {
+      showAlert('Erro', 'Não foi possível editar o comentário.', 'danger');
+    }
+  };
+
+  const handleDeleteComment = async (commentId: string) => {
+    const confirmed = await showConfirm(
+      'Excluir Comentário',
+      'Tem certeza que deseja excluir este comentário? Esta ação não pode ser desfeita.',
+      'Excluir',
+      'rose'
+    );
+
+    if (!confirmed) return;
+
+    try {
+      const { error } = await supabase
+        .from('task_comments')
+        .delete()
+        .eq('id', commentId);
+
+      if (error) throw error;
+
+      setComments(prev => prev.filter(c => c.id !== commentId));
+      
+      // Update task comment count locally
+      setTasks(prev => prev.map(t => 
+        t.id === editingTask?.id 
+          ? { ...t, commentCount: Math.max(0, (t as any).commentCount - 1) } 
+          : t
+      ));
+    } catch (err) {
+      showAlert('Erro', 'Não foi possível excluir o comentário.', 'danger');
     }
   };
 
@@ -946,10 +1006,10 @@ export const Tasks: React.FC = () => {
                      <MessageSquare size={24} />
                    </div>
                    <div>
-                     <h2 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tighter truncate max-w-[300px]">
+                     <h2 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tighter leading-tight">
                        {editingTask.title}
                      </h2>
-                     <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Central de Comentários</p>
+                     <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-0.5">Central de Comentários</p>
                    </div>
                  </div>
                  <button 
@@ -998,12 +1058,70 @@ export const Tasks: React.FC = () => {
                            )}
                          </div>
                          <div className={cn(
-                           "p-4 rounded-2xl shadow-sm border",
+                           "p-4 rounded-2xl shadow-sm border group/comment relative",
                            isMe 
                             ? "bg-primary text-white border-primary rounded-tr-none" 
                             : "bg-white dark:bg-slate-800 text-slate-900 dark:text-white border-border rounded-tl-none"
                          )}>
-                           <p className="text-sm leading-relaxed">{comment.content}</p>
+                            {editingCommentId === comment.id ? (
+                              <div className="space-y-3 min-w-[220px]">
+                                <textarea
+                                  autoFocus
+                                  value={editingCommentContent}
+                                  onChange={e => setEditingCommentContent(e.target.value)}
+                                  className="w-full bg-white/10 dark:bg-black/20 border border-white/20 rounded-xl p-3 text-sm outline-none focus:border-white/50 text-inherit resize-none"
+                                  rows={3}
+                                />
+                                <div className="flex justify-end gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => setEditingCommentId(null)}
+                                    className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-[9px] font-black uppercase tracking-widest transition-all"
+                                  >
+                                    Cancelar
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleUpdateComment(comment.id)}
+                                    className="px-3 py-1.5 rounded-lg bg-white text-primary hover:bg-white/90 text-[9px] font-black uppercase tracking-widest transition-all shadow-sm"
+                                  >
+                                    Salvar
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <>
+                                <p className="text-sm leading-relaxed whitespace-pre-wrap">{comment.content}</p>
+                                
+                                {isMe && !editingTask.archived && (
+                                  <div className={cn(
+                                    "absolute top-2 opacity-0 group-hover/comment:opacity-100 transition-all flex gap-1",
+                                    isMe ? "right-[calc(100%+8px)]" : "left-[calc(100%+8px)]"
+                                  )}>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setEditingCommentId(comment.id);
+                                        setEditingCommentContent(comment.content);
+                                      }}
+                                      className="w-8 h-8 rounded-lg bg-card border border-border flex items-center justify-center text-muted-foreground hover:text-primary hover:border-primary/30 shadow-sm transition-all"
+                                      title="Editar"
+                                    >
+                                      <Edit size={14} />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteComment(comment.id)}
+                                      className="w-8 h-8 rounded-lg bg-card border border-border flex items-center justify-center text-muted-foreground hover:text-rose-500 hover:border-rose-500/30 shadow-sm transition-all"
+                                      title="Excluir"
+                                    >
+                                      <Trash2 size={14} />
+                                    </button>
+                                  </div>
+                                )}
+                              </>
+                            )}
+
                          </div>
                          <span className="text-[8px] font-bold text-muted-foreground uppercase mt-1 px-1">
                            {format(new Date(comment.created_at), "HH:mm '•' dd MMM", { locale: ptBR })}

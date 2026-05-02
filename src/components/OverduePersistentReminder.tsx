@@ -15,7 +15,7 @@ export const OverduePersistentReminder: React.FC = () => {
       <motion.div 
         initial={{ y: -50, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        className="w-full max-w-[1600px] mx-auto mb-6"
+        className="w-full"
       >
         <div className="relative group overflow-hidden">
           {/* Background com efeito glassmorphism e gradiente de alerta */}

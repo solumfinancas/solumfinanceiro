@@ -37,6 +37,8 @@ interface FinanceContextType {
   overdueServices: any[];
   hasAcknowledgedOverdue: boolean;
   acknowledgeOverdue: () => void;
+  tasks: any[];
+  setGlobalTasks: (tasks: any[]) => void;
 }
 
 const FinanceContext = createContext<FinanceContextType | undefined>(undefined);
@@ -92,6 +94,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [hasAcknowledgedOverdue, setHasAcknowledgedOverdue] = useState<boolean>(() => {
     return sessionStorage.getItem('overdue_acknowledged') === 'true';
   });
+  const [tasks, setGlobalTasks] = useState<any[]>([]);
 
   const acknowledgeOverdue = () => {
     setHasAcknowledgedOverdue(true);
@@ -182,7 +185,18 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       if (txErr) throw txErr;
       setTransactions(txs || []);
 
-      // 5. Verificar pagamentos em atraso (Somente para o usuário real, não em visualização)
+      // 5. Tarefas
+      const { data: fetchedTasks, error: taskErr } = await supabase
+        .from('tasks')
+        .select('*')
+        .eq('user_id', effectiveUserId)
+        .eq('archived', false);
+      
+      if (!taskErr) {
+        setGlobalTasks(fetchedTasks || []);
+      }
+
+      // 6. Verificar pagamentos em atraso (Somente para o usuário real, não em visualização)
       if (profile?.role === 'user' && !viewingUserId) {
         const today = new Date().toISOString().split('T')[0];
         const { data: svcs, error: svcsErr } = await supabase
@@ -198,14 +212,13 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       } else {
         setOverdueServices([]);
       }
-
     } catch (err) {
       console.error('Erro ao buscar dados:', err);
     } finally {
       setLoading(false);
       isFetchingData.current = false;
     }
-  }, [user, profile, effectiveUserId, activeSpace, isSpaceInitialized]);
+  }, [effectiveUserId, activeSpace, isSpaceInitialized]);
 
   const currentMetadata = viewingProfile ? viewingProfile.user_metadata : user?.user_metadata;
   const initializedSpaces = (currentMetadata?.initialized_spaces || []) as ('personal' | 'business')[];
@@ -307,7 +320,6 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     } as Transaction;
 
     setTransactions(prev => [optimisticTx, ...prev]);
-    updateActivity('update');
 
     try {
       const { data, error } = await supabase
@@ -318,6 +330,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       
       if (error) throw error;
       setTransactions(prev => prev.map(tx => tx.id === tempId ? data : tx));
+      updateActivity('update');
     } catch (error) {
       setTransactions(prev => prev.filter(tx => tx.id !== tempId));
       throw error;
@@ -362,7 +375,6 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     } as Transaction));
     
     setTransactions(prev => [...optimisticTxs, ...prev]);
-    updateActivity('update');
 
     try {
       const { data, error } = await supabase
@@ -376,6 +388,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         const filtered = prev.filter(tx => !tempIds.includes(tx.id));
         return [...(data || []), ...filtered];
       });
+      updateActivity('update');
     } catch (error) {
       setTransactions(prev => prev.filter(tx => !tempIds.includes(tx.id)));
       throw error;
@@ -386,7 +399,6 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const originalTxs = [...transactions];
     
     setTransactions(prev => prev.filter(tx => tx.id !== id));
-    updateActivity('update');
 
     const { error } = await supabase
       .from('transactions')
@@ -397,6 +409,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setTransactions(originalTxs);
       throw error;
     }
+    updateActivity('update');
   };
 
   const updateTransaction = async (id: string, updatedTx: Partial<Transaction>) => {
@@ -429,7 +442,6 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const originalTxs = [...transactions];
     
     setTransactions(prev => prev.map(tx => tx.id === id ? { ...tx, ...txToUpdate } as Transaction : tx));
-    updateActivity('update');
 
     try {
       const { data, error } = await supabase
@@ -445,11 +457,11 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setTransactions(originalTxs);
       throw error;
     }
+    updateActivity('update');
   };
 
   const addCategory = async (c: Omit<Category, 'id'>) => {
     if (!effectiveUserId) return;
-    updateActivity('update');
     const { data, error } = await supabase
       .from('categories')
       .insert([{ ...c, userId: effectiveUserId, space: activeSpace, isActive: true }])
@@ -458,6 +470,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     
     if (error) throw error;
     setCategories(prev => [...prev, data]);
+    updateActivity('update');
   };
 
   const toggleCategoryActive = async (id: string) => {
@@ -524,7 +537,6 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
           .eq('id', id);
         if (error) throw error;
         
-        // Se foi exclusão física, aí sim removemos do estado
         setCategories(prev => prev.filter(c => c.id !== id && c.parentId !== id));
       }
       
@@ -533,7 +545,6 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const addWallet = async (w: Omit<Wallet, 'id'>) => {
     if (!effectiveUserId) return;
-    updateActivity('update');
     const { data, error } = await supabase
       .from('wallets')
       .insert([{ ...w, userId: effectiveUserId, space: activeSpace }])
@@ -542,6 +553,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     
     if (error) throw error;
     setWallets(prev => [...prev, data]);
+    updateActivity('update');
   };
 
   const updateWallet = async (id: string, updatedWallet: Partial<Wallet>) => {
@@ -591,7 +603,6 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
          .eq('id', id);
        if (error) throw error;
 
-       // Se for exclusão física, removemos
        setWallets(prev => prev.filter(w => w.id !== id));
      }
      
@@ -656,6 +667,8 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       overdueServices,
       hasAcknowledgedOverdue,
       acknowledgeOverdue,
+      tasks,
+      setGlobalTasks,
       saveWalletOrder: async (cards: string[], accounts: string[]) => {
         if (!user) return;
         

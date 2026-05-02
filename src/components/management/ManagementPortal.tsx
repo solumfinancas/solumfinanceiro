@@ -17,7 +17,11 @@ import {
   MoreVertical,
   X,
   User,
-  Building2
+  Building2,
+  Eye,
+  EyeOff,
+  UserCheck,
+  UserX
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../../lib/utils';
@@ -113,6 +117,7 @@ export const ManagementPortal: React.FC<ManagementPortalProps> = ({ activeTab = 
   const [selectedEducatorId, setSelectedEducatorId] = useState<string>('');
   const [createSource, setCreateSource] = useState<'management' | 'clients'>('management');
   const [suspensionReason, setSuspensionReason] = useState('');
+  const [showSuspendedInGroup, setShowSuspendedInGroup] = useState<Record<string, boolean>>({});
 
   const fetchData = async () => {
     setLoading(true);
@@ -520,6 +525,25 @@ export const ManagementPortal: React.FC<ManagementPortalProps> = ({ activeTab = 
           </div>
         )}
       </div>
+      
+      {/* Resumo Global */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+        {[
+          { label: 'Total de Usuários', value: profiles.length, icon: Users, color: 'text-primary', bg: 'bg-primary/5' },
+          { label: 'Perfis Ativos', value: profiles.filter(p => !p.user_metadata?.is_suspended).length, icon: UserCheck, color: 'text-emerald-500', bg: 'bg-emerald-500/5' },
+          { label: 'Perfis Suspensos', value: profiles.filter(p => p.user_metadata?.is_suspended).length, icon: UserX, color: 'text-rose-500', bg: 'bg-rose-500/5' },
+        ].map((stat, i) => (
+          <div key={i} className="bg-card border border-border rounded-3xl p-6 flex items-center gap-4 shadow-sm">
+            <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center", stat.bg, stat.color)}>
+              <stat.icon size={22} />
+            </div>
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">{stat.label}</p>
+              <p className="text-2xl font-black text-foreground">{stat.value}</p>
+            </div>
+          </div>
+        ))}
+      </div>
 
       {loading ? (
         <div className="h-64 flex flex-col items-center justify-center gap-4">
@@ -528,7 +552,10 @@ export const ManagementPortal: React.FC<ManagementPortalProps> = ({ activeTab = 
       ) : (
         <div className="space-y-12">
           {roleGroups.map((group) => {
-            const groupUsers = filteredProfiles.filter(p => group.roles.includes(p.role));
+            const activeUsers = filteredProfiles.filter(p => group.roles.includes(p.role) && !p.user_metadata?.is_suspended);
+            const suspendedUsers = filteredProfiles.filter(p => group.roles.includes(p.role) && p.user_metadata?.is_suspended);
+            const hasSuspended = suspendedUsers.length > 0;
+            const isShowingSuspended = showSuspendedInGroup[group.title];
             
             return (
               <div key={group.title} className="space-y-6">
@@ -539,22 +566,48 @@ export const ManagementPortal: React.FC<ManagementPortalProps> = ({ activeTab = 
                     </div>
                     <div>
                       <h2 className="text-xl font-black text-foreground uppercase tracking-tighter">{group.title}</h2>
-                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{groupUsers.length} {groupUsers.length === 1 ? 'perfil localizado' : 'perfis localizados'}</p>
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                        {activeUsers.length} ativos {hasSuspended && `• ${suspendedUsers.length} suspensos`}
+                      </p>
                     </div>
                   </div>
+
+                  {hasSuspended && (
+                    <button 
+                      onClick={() => setShowSuspendedInGroup(prev => ({ ...prev, [group.title]: !prev[group.title] }))}
+                      className={cn(
+                        "flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
+                        isShowingSuspended 
+                          ? "bg-rose-500 text-white shadow-lg shadow-rose-500/20" 
+                          : "bg-muted text-muted-foreground hover:bg-muted/80 border border-border"
+                      )}
+                    >
+                      {isShowingSuspended ? (
+                        <>
+                          <EyeOff size={14} />
+                          Ocultar Suspensos
+                        </>
+                      ) : (
+                        <>
+                          <Eye size={14} />
+                          Mostrar Suspensos
+                        </>
+                      )}
+                    </button>
+                  )}
                 </div>
 
-                {groupUsers.length === 0 ? (
+                {activeUsers.length === 0 && (!isShowingSuspended || suspendedUsers.length === 0) ? (
                   <div className="py-12 flex flex-col items-center justify-center border-2 border-dashed border-slate-100 dark:border-white/5 rounded-[2.5rem] bg-slate-50/50 dark:bg-white/[0.02]">
                     <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-white/5 flex items-center justify-center mb-4">
                        <Search className="text-slate-300 dark:text-slate-700" size={20} />
                     </div>
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Nenhum perfil nesta categoria</p>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Nenhum perfil ativo nesta categoria</p>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     <AnimatePresence mode="popLayout">
-                      {groupUsers.map((p) => (
+                      {[...activeUsers, ...(isShowingSuspended ? suspendedUsers : [])].map((p) => (
                         <motion.div 
                           key={p.id} 
                           layout 
@@ -719,14 +772,23 @@ export const ManagementPortal: React.FC<ManagementPortalProps> = ({ activeTab = 
                           </div>
 
                           <div className="space-y-4">
-                            <div className="flex items-center justify-between p-4 bg-muted/40 rounded-2xl border border-border shadow-inner">
-                              <div className="space-y-0.5">
-                                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-primary/80">Nível de Acesso</p>
-                                <p className="text-xs font-black text-foreground uppercase tracking-tight">{getRoleLabel(p.role)}</p>
+                            <div className="flex flex-col gap-3 p-4 bg-muted/40 rounded-2xl border border-border shadow-inner">
+                              <div className="flex items-center justify-between">
+                                <div className="space-y-0.5">
+                                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-primary/80">Nível de Acesso</p>
+                                  <p className="text-xs font-black text-foreground uppercase tracking-tight">{getRoleLabel(p.role)}</p>
+                                </div>
+                                {p.user_metadata?.is_suspended && (
+                                  <div className="bg-rose-500/20 text-rose-500 text-[8px] font-black uppercase px-2 py-1 rounded-md border border-rose-500/30 animate-pulse">
+                                    Suspenso
+                                  </div>
+                                )}
                               </div>
-                              {p.user_metadata?.is_suspended && (
-                                <div className="bg-rose-500/20 text-rose-500 text-[8px] font-black uppercase px-2 py-1 rounded-md border border-rose-500/30 animate-pulse">
-                                  Suspenso
+                              
+                              {p.user_metadata?.is_suspended && p.user_metadata?.suspension_reason && (
+                                <div className="pt-3 border-t border-rose-500/10">
+                                  <p className="text-[9px] font-black uppercase tracking-widest text-rose-500/60 mb-1">Motivo da Suspensão</p>
+                                  <p className="text-[10px] font-bold text-rose-600 dark:text-rose-400 italic">"{p.user_metadata.suspension_reason}"</p>
                                 </div>
                               )}
                             </div>
