@@ -24,7 +24,9 @@ import {
    ChevronUp,
    Tag,
    Check,
-   AlertCircle
+   AlertCircle,
+   X,
+   History
 } from 'lucide-react';
 import { IconRenderer } from './ui/IconRenderer';
 import {
@@ -48,8 +50,9 @@ import { formatCurrency, cn, getInvoicePeriod, getInvoiceAmount } from '../lib/u
 import { motion, AnimatePresence } from 'framer-motion';
 import { TransactionModal } from './TransactionModal';
 import { PendingTransactionsModal } from './PendingTransactionsModal';
-import { Transaction, TransactionType } from '../types';
+import { Transaction, TransactionType, Category } from '../types';
 import { useAuth } from '../contexts/AuthContext';
+import { CategoryHistoryModal } from './CategoryHistoryModal';
 
 interface DashboardProps {
    setActiveTab: (tab: string) => void;
@@ -71,6 +74,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, setTxFilter,
    const [modalOpen, setModalOpen] = useState(false);
    const [modalType, setModalType] = useState<TransactionType>('expense');
    const [pendingModalType, setPendingModalType] = useState<'payable' | 'receivable' | null>(null);
+   const [selectedCategoryDetail, setSelectedCategoryDetail] = useState<Category | null>(null);
+   const [historyCategoryId, setHistoryCategoryId] = useState<string | null>(null);
+   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
 
    // Time-based state
    // Stabilized reference to current date to prevent flickering in useMemo dependencies
@@ -323,6 +330,52 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, setTxFilter,
 
       return { topSpendingData: data, totalCategorySpending: total };
    }, [transactions, categories, reportReferenceDate, reportPeriod, currentMonth, currentYear]);
+
+   const subcategoriesDetail = useMemo(() => {
+      if (!selectedCategoryDetail) return [];
+      
+      const isReportMonthSelected = reportPeriod === 1;
+      const refMonth = isReportMonthSelected ? reportReferenceDate.getUTCMonth() + 1 : currentMonth;
+      const refYear = isReportMonthSelected ? reportReferenceDate.getUTCFullYear() : currentYear;
+
+      const subcats = categories.filter(c => c.parentId === selectedCategoryDetail.id && c.isActive !== false);
+      const spendingBySubcat: Record<string, number> = {};
+      let total = 0;
+
+      transactions.forEach(t => {
+         const d = new Date(t.date);
+         const isCurrentMonth = (d.getUTCMonth() + 1) === refMonth && d.getUTCFullYear() === refYear;
+         if (t.type === 'expense' && isCurrentMonth) {
+            const cat = categories.find(c => c.id === t.categoryId);
+            if (cat?.parentId === selectedCategoryDetail.id) {
+               spendingBySubcat[cat.id] = (spendingBySubcat[cat.id] || 0) + t.amount;
+               total += t.amount;
+            } else if (cat?.id === selectedCategoryDetail.id) {
+               spendingBySubcat['unclassified'] = (spendingBySubcat['unclassified'] || 0) + t.amount;
+               total += t.amount;
+            }
+         }
+      });
+
+      const data = subcats.map(s => ({
+         ...s,
+         total: spendingBySubcat[s.id] || 0
+      }));
+
+      if (spendingBySubcat['unclassified']) {
+         data.push({
+            id: 'unclassified',
+            name: 'Sem Subcategoria',
+            total: spendingBySubcat['unclassified'],
+            icon: selectedCategoryDetail.icon,
+            color: selectedCategoryDetail.color,
+            isActive: true,
+            type: 'expense'
+         } as Category & { total: number });
+      }
+
+      return data.sort((a, b) => b.total - a.total);
+   }, [selectedCategoryDetail, transactions, categories, reportReferenceDate, reportPeriod, currentMonth, currentYear]);
 
    const budgetProgress = useMemo(() => {
       return categories
@@ -920,6 +973,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, setTxFilter,
                               outerRadius={80}
                               paddingAngle={5}
                               dataKey="value"
+                              onClick={(data) => {
+                                 if (data && data.name) {
+                                    const cat = categories.find(c => c.name === data.name);
+                                    if (cat) setSelectedCategoryDetail(cat);
+                                 }
+                              }}
+                              style={{ cursor: 'pointer' }}
                            >
                               {topSpendingData.map((entry, index) => (
                                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
@@ -935,7 +995,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, setTxFilter,
                   <div className="w-1/2 flex flex-col justify-center px-4">
                      <div className="space-y-3">
                         {topSpendingData.map((item, i) => (
-                           <div key={i} className="flex items-center justify-between">
+                           <div 
+                              key={i} 
+                              className="flex items-center justify-between cursor-pointer hover:bg-muted/30 p-1 rounded-lg transition-colors"
+                              onClick={() => {
+                                 const cat = categories.find(c => c.name === item.name);
+                                 if (cat) setSelectedCategoryDetail(cat);
+                              }}
+                           >
                               <div className="flex items-center gap-2 overflow-hidden">
                                  <IconRenderer
                                     icon={categories.find(c => c.name === item.name)?.icon || 'Tag'}
@@ -1479,16 +1546,156 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, setTxFilter,
          </div>
 
          {/* Modular Modal */}
-         <TransactionModal
-            isOpen={modalOpen}
-            onClose={() => setModalOpen(false)}
-            initialType={modalType}
-         />
-
          <PendingTransactionsModal
             isOpen={pendingModalType !== null}
             onClose={() => setPendingModalType(null)}
             type={pendingModalType || 'payable'}
+         />
+
+         {/* Modal de Detalhes da Categoria */}
+         <AnimatePresence>
+            {selectedCategoryDetail && (
+               <div className="fixed inset-0 z-[150] flex items-center justify-center p-4">
+                  <motion.div
+                     initial={{ opacity: 0 }}
+                     animate={{ opacity: 1 }}
+                     exit={{ opacity: 0 }}
+                     onClick={() => setSelectedCategoryDetail(null)}
+                     className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+                  />
+                  <motion.div
+                     initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                     animate={{ scale: 1, opacity: 1, y: 0 }}
+                     exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                     className="relative bg-card w-full max-w-lg rounded-[2.5rem] shadow-2xl border border-border overflow-hidden"
+                  >
+                     <div className="p-8 flex flex-col gap-8">
+                        <div className="flex items-center justify-between">
+                           <div className="flex items-center gap-4">
+                              <div 
+                                 className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg"
+                                 style={{ backgroundColor: selectedCategoryDetail.color + '20' }}
+                              >
+                                 <IconRenderer 
+                                    icon={selectedCategoryDetail.icon} 
+                                    color={selectedCategoryDetail.color} 
+                                    size={24} 
+                                 />
+                              </div>
+                              <div>
+                                 <h2 className="text-xl font-black uppercase tracking-tighter">{selectedCategoryDetail.name}</h2>
+                                 <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-60">Detalhamento de Gastos</p>
+                              </div>
+                           </div>
+                           <button 
+                              onClick={() => setSelectedCategoryDetail(null)}
+                              className="p-3 hover:bg-muted rounded-2xl transition-all"
+                           >
+                              <X size={20} />
+                           </button>
+                        </div>
+
+                        <div className="bg-muted/30 p-6 rounded-[2rem] border border-border/50 text-center">
+                           <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1 block">Total Gasto no Período</span>
+                           <h3 className="text-3xl font-black text-rose-500">
+                              {formatCurrency(topSpendingData.find(d => d.name === selectedCategoryDetail.name)?.value || 0)}
+                           </h3>
+                        </div>
+
+                        <div className="space-y-3">
+                           <h4 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground px-2">Subcategorias</h4>
+                           <div className="max-h-[300px] overflow-y-auto pr-2 space-y-2 custom-scrollbar">
+                              {subcategoriesDetail.length > 0 ? (
+                                 subcategoriesDetail.map((sub, idx) => (
+                                    <div key={idx} className="group flex items-center justify-between p-4 bg-muted/20 rounded-2xl border border-border/30 hover:bg-muted/40 transition-all">
+                                       <div className="flex items-center gap-3">
+                                          <div className="shrink-0">
+                                             <IconRenderer 
+                                                icon={sub.icon || 'Tag'} 
+                                                color={selectedCategoryDetail.color} 
+                                                size={18} 
+                                             />
+                                          </div>
+                                          <div className="flex flex-col">
+                                             <span className="text-[11px] font-bold uppercase tracking-tight">{sub.name}</span>
+                                             {sub.id !== 'unclassified' && (
+                                                <button 
+                                                   onClick={() => {
+                                                      setHistoryCategoryId(sub.id);
+                                                      setIsHistoryOpen(true);
+                                                   }}
+                                                   className="text-[8px] font-black uppercase text-primary hover:underline flex items-center gap-1 mt-0.5 w-fit"
+                                                >
+                                                   <History size={10} /> Ver Lançamentos
+                                                </button>
+                                             )}
+                                          </div>
+                                       </div>
+                                       <span className="text-[11px] font-black">{formatCurrency((sub as any).total || 0)}</span>
+                                    </div>
+                                 ))
+                              ) : (
+                                 <div className="py-8 text-center bg-muted/10 rounded-2xl border border-dashed border-border/50">
+                                    <p className="text-[10px] font-bold text-muted-foreground uppercase italic px-4">Esta categoria não possui subcategorias vinculadas.</p>
+                                 </div>
+                              )}
+                           </div>
+                        </div>
+
+                        <button
+                           onClick={() => {
+                              setHistoryCategoryId(null);
+                              setIsHistoryOpen(true);
+                           }}
+                           className="w-full py-4 bg-primary text-white rounded-2xl text-[11px] font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-primary/20"
+                        >
+                           <History size={16} />
+                           Ver Lançamentos (Total)
+                        </button>
+                     </div>
+                  </motion.div>
+               </div>
+            )}
+         </AnimatePresence>
+
+         {/* Modal de Histórico de Lançamentos */}
+         {selectedCategoryDetail && (
+            <CategoryHistoryModal
+               isOpen={isHistoryOpen}
+               onClose={() => {
+                  setIsHistoryOpen(false);
+                  setHistoryCategoryId(null);
+                  setSelectedCategoryDetail(null);
+               }}
+               onBack={() => {
+                  setIsHistoryOpen(false);
+                  setHistoryCategoryId(null);
+               }}
+               categoryId={historyCategoryId || selectedCategoryDetail.id}
+               categories={categories}
+               transactions={transactions}
+               wallets={wallets}
+               updateTransaction={updateTransaction}
+               deleteTransaction={deleteTransaction}
+               onEditTransaction={(tx) => {
+                  setEditingTransaction(tx);
+                  setModalOpen(true);
+               }}
+               filterMonth={reportPeriod === 1 ? new Date(reportReferenceDate).getUTCMonth() + 1 : currentMonth}
+               filterYear={reportPeriod === 1 ? new Date(reportReferenceDate).getUTCFullYear() : currentYear}
+               paymentFilter="all"
+            />
+         )}
+
+         {/* Ajuste no TransactionModal para suportar edição vinda do histórico */}
+         <TransactionModal
+            isOpen={modalOpen}
+            onClose={() => {
+               setModalOpen(false);
+               setEditingTransaction(null);
+            }}
+            initialType={modalType}
+            editingTransaction={editingTransaction || undefined}
          />
 
       </div>
