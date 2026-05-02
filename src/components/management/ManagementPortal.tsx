@@ -110,6 +110,8 @@ export const ManagementPortal: React.FC<ManagementPortalProps> = ({ activeTab = 
     password: '',
     role: 'user' as UserRole
   });
+  const [selectedEducatorId, setSelectedEducatorId] = useState<string>('');
+  const [createSource, setCreateSource] = useState<'management' | 'clients'>('management');
   const [suspensionReason, setSuspensionReason] = useState('');
 
   const fetchData = async () => {
@@ -217,13 +219,16 @@ export const ManagementPortal: React.FC<ManagementPortalProps> = ({ activeTab = 
       if (error) throw error;
       if (data.error) throw new Error(data.error);
 
-      // Se quem está criando é um educador, vincula o novo cliente automaticamente
-      if (profile?.role === 'educator' && data.data?.user?.id) {
+      // Vincular cliente ao educador selecionado ou ao criador se for pela aba clientes
+      const educatorIdToLink = createSource === 'clients' ? profile?.id : selectedEducatorId;
+      const createdUserId = data.data?.user?.id || data.user?.id;
+
+      if (educatorIdToLink && createdUserId && newUser.role === 'user') {
         const { error: linkError } = await supabase
           .from('educator_clients')
           .insert({
-            educator_id: profile.id,
-            client_id: data.data.user.id,
+            educator_id: educatorIdToLink,
+            client_id: createdUserId,
             status: 'active'
           });
         
@@ -233,6 +238,7 @@ export const ManagementPortal: React.FC<ManagementPortalProps> = ({ activeTab = 
       showAlert('Sucesso', 'Perfil criado com sucesso!', 'success');
       setShowCreateModal(false);
       setNewUser({ full_name: '', email: '', password: '', role: 'user' });
+      setSelectedEducatorId('');
       setRefreshTrigger(prev => prev + 1);
       fetchData();
     } catch (err: any) {
@@ -430,7 +436,11 @@ export const ManagementPortal: React.FC<ManagementPortalProps> = ({ activeTab = 
       case 'clients':
         return (
           <ClientsTab 
-            onAddClient={() => setShowCreateModal(true)} 
+            onAddClient={() => {
+              setCreateSource('clients');
+              setNewUser(prev => ({ ...prev, role: 'user' }));
+              setShowCreateModal(true);
+            }} 
             refreshTrigger={refreshTrigger} 
             initialSearch={clientSearch}
             onSearchClear={() => setClientSearch('')}
@@ -463,7 +473,10 @@ export const ManagementPortal: React.FC<ManagementPortalProps> = ({ activeTab = 
           </h1>
         </div>
         {['admin', 'master_admin', 'secretary'].includes(profile?.role || '') && (
-          <button onClick={() => setShowCreateModal(true)} className="bg-primary hover:scale-[1.02] active:scale-95 text-white px-6 py-3 rounded-2xl flex items-center gap-3 transition-all group shadow-lg shadow-primary/20">
+          <button onClick={() => {
+            setCreateSource('management');
+            setShowCreateModal(true);
+          }} className="bg-primary hover:scale-[1.02] active:scale-95 text-white px-6 py-3 rounded-2xl flex items-center gap-3 transition-all group shadow-lg shadow-primary/20">
             <UserPlus size={18} className="group-hover:rotate-12 transition-transform" />
             <span className="text-[10px] font-black uppercase tracking-widest">Criar Perfil</span>
           </button>
@@ -864,35 +877,113 @@ export const ManagementPortal: React.FC<ManagementPortalProps> = ({ activeTab = 
                  <input required type="email" value={newUser.email} onChange={e => setNewUser(prev => ({ ...prev, email: e.target.value }))} placeholder="E-mail" className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/5 rounded-2xl h-14 px-6 text-sm text-slate-900 dark:text-white outline-none focus:border-primary/50 transition-all" />
                  <input required type="password" value={newUser.password} onChange={e => setNewUser(prev => ({ ...prev, password: e.target.value }))} placeholder="Senha" minLength={6} className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/5 rounded-2xl h-14 px-6 text-sm text-slate-900 dark:text-white outline-none focus:border-primary/50 transition-all" />
                  <div className="space-y-4">
-                   <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-4 block">Nível de Acesso</label>
-                   <div className="grid grid-cols-2 gap-3">
-                     {[
-                       { id: 'user', name: 'Usuário', icon: Users, desc: 'Acesso padrão', color: 'slate' },
-                       { id: 'educator', name: 'Educador', icon: GraduationCap, desc: 'Mentor', color: 'emerald' },
-                       { id: 'secretary', name: 'Secretário', icon: BookOpen, desc: 'Adm ajuda', color: 'purple' },
-                       ...(profile?.role === 'master_admin' ? [{ id: 'admin', name: 'Admin', icon: Shield, desc: 'Completo', color: 'blue' }] : [])
-                     ].filter(role => {
-                        if (profile?.role === 'secretary') {
-                          return role.id !== 'secretary' && role.id !== 'admin';
+                  <AnimatePresence>
+                    {createSource === 'management' && (
+                      <motion.div 
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="space-y-4"
+                      >
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-4 block">Nível de Acesso</label>
+                        <div className="grid grid-cols-2 gap-3">
+                          {[
+                            { id: 'user', name: 'Usuário', icon: Users, desc: 'Acesso padrão', color: 'slate' },
+                            { id: 'educator', name: 'Educador', icon: GraduationCap, desc: 'Mentor', color: 'emerald' },
+                            { id: 'secretary', name: 'Secretário', icon: BookOpen, desc: 'Adm ajuda', color: 'purple' },
+                            ...(profile?.role === 'master_admin' ? [{ id: 'admin', name: 'Admin', icon: Shield, desc: 'Completo', color: 'blue' }] : [])
+                          ].filter(role => {
+                              if (profile?.role === 'secretary') {
+                                return role.id !== 'secretary' && role.id !== 'admin';
+                              }
+                              if (profile?.role === 'educator') {
+                                return role.id === 'user';
+                              }
+                              return true;
+                            }).map((role) => (
+                            <button key={role.id} type="button" onClick={() => setNewUser(prev => ({ ...prev, role: role.id as UserRole }))} className={cn("p-4 rounded-2xl border-2 transition-all flex flex-col gap-2 group relative overflow-hidden", newUser.role === role.id ? "bg-primary/10 border-primary shadow-lg shadow-primary/10" : "bg-slate-50/50 dark:bg-slate-950/50 border-slate-200 dark:border-white/5")}>
+                              <div className={cn("w-8 h-8 rounded-xl flex items-center justify-center transition-colors", newUser.role === role.id ? "bg-primary text-white" : "bg-slate-200 dark:bg-slate-900 text-slate-500")}>
+                                <role.icon size={16} />
+                              </div>
+                              <div className="text-left">
+                                <p className={cn("text-[10px] font-black uppercase tracking-wider", newUser.role === role.id ? "text-slate-900 dark:text-white" : "text-slate-400")}>{role.name}</p>
+                                <p className="text-[8px] font-bold text-slate-500 dark:text-slate-600 uppercase mt-0.5">{role.desc}</p>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                  </div>
+
+                  {/* Seleção de Educador (Apenas para Admins/Secretários criando Usuários na aba de Gestão) */}
+                  {createSource === 'management' && newUser.role === 'user' && ['admin', 'master_admin', 'secretary'].includes(profile?.role || '') && (
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between px-4">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 block">Vincular a um Educador</label>
+                        {selectedEducatorId && (
+                           <button 
+                             type="button"
+                             onClick={() => setSelectedEducatorId('')}
+                             className="text-[8px] font-black uppercase text-rose-500 hover:underline"
+                           >
+                             Limpar Seleção
+                           </button>
+                        )}
+                      </div>
+                      
+                      <div className="space-y-2 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
+                        {allProfiles
+                          .filter(p => ['educator', 'admin', 'master_admin'].includes(p.role))
+                          .sort((a, b) => a.full_name.localeCompare(b.full_name))
+                          .map((educator) => (
+                            <button 
+                              key={educator.id} 
+                              type="button"
+                              onClick={() => setSelectedEducatorId(educator.id)} 
+                              className={cn(
+                                "w-full p-4 rounded-[1.5rem] border transition-all flex items-center justify-between group", 
+                                selectedEducatorId === educator.id 
+                                  ? "bg-primary/10 border-primary text-slate-900 dark:text-white" 
+                                  : "bg-slate-50/50 dark:bg-slate-950/50 border-slate-200 dark:border-white/5 text-slate-500 dark:text-slate-400 hover:border-primary/30"
+                              )}
+                            >
+                              <div className="flex items-center gap-4">
+                                <div className={cn(
+                                  "w-10 h-10 rounded-xl flex items-center justify-center text-[11px] font-black transition-colors",
+                                  selectedEducatorId === educator.id ? "bg-primary text-white" : "bg-slate-200 dark:bg-slate-900"
+                                )}>
+                                  {getInitials(educator.full_name)}
+                                </div>
+                                <div className="text-left">
+                                  <p className="text-sm font-black uppercase tracking-tight leading-none mb-1">{educator.full_name}</p>
+                                  <div className="flex items-center gap-2">
+                                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{educator.email}</p>
+                                     <div className="w-1 h-1 rounded-full bg-slate-500" />
+                                     <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 opacity-60">{getRoleLabel(educator.role)}</span>
+                                  </div>
+                                </div>
+                              </div>
+                              <div className={cn(
+                                "w-6 h-6 rounded-lg border flex items-center justify-center transition-all", 
+                                selectedEducatorId === educator.id 
+                                  ? "bg-primary border-primary text-white" 
+                                  : "border-slate-200 dark:border-white/10 text-transparent group-hover:border-primary/30"
+                              )}>
+                                <Check size={14} strokeWidth={3} />
+                              </div>
+                            </button>
+                          ))
                         }
-                        if (profile?.role === 'educator') {
-                          return role.id === 'user';
-                        }
-                        return true;
-                      }).map((role) => (
-                       <button key={role.id} type="button" onClick={() => setNewUser(prev => ({ ...prev, role: role.id as UserRole }))} className={cn("p-4 rounded-2xl border-2 transition-all flex flex-col gap-2 group relative overflow-hidden", newUser.role === role.id ? "bg-primary/10 border-primary shadow-lg shadow-primary/10" : "bg-slate-50/50 dark:bg-slate-950/50 border-slate-200 dark:border-white/5")}>
-                         <div className={cn("w-8 h-8 rounded-xl flex items-center justify-center transition-colors", newUser.role === role.id ? "bg-primary text-white" : "bg-slate-200 dark:bg-slate-900 text-slate-500")}>
-                           <role.icon size={16} />
-                         </div>
-                         <div className="text-left">
-                           <p className={cn("text-[10px] font-black uppercase tracking-wider", newUser.role === role.id ? "text-slate-900 dark:text-white" : "text-slate-400")}>{role.name}</p>
-                           <p className="text-[8px] font-bold text-slate-500 dark:text-slate-600 uppercase mt-0.5">{role.desc}</p>
-                         </div>
-                       </button>
-                     ))}
-                   </div>
-                 </div>
-                 <button disabled={creatingUser} type="submit" className="w-full h-14 bg-primary text-white rounded-2xl text-xs font-black uppercase tracking-widest">{creatingUser ? 'Criando...' : 'Finalizar Cadastro'}</button>
+                      </div>
+                      <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest ml-4">
+                        O novo cliente aparecerá automaticamente na lista do educador selecionado.
+                      </p>
+                    </div>
+                  )}
+
+                  <button disabled={creatingUser} type="submit" className="w-full h-14 bg-primary text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all mt-4">{creatingUser ? 'Criando...' : 'Finalizar Cadastro'}</button>
                </form>
             </motion.div>
           </div>
