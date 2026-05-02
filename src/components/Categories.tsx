@@ -149,6 +149,22 @@ export const Categories: React.FC = () => {
       .reduce((sum, t) => sum + t.amount, 0);
   };
 
+  const getCategoryEffectiveLimit = (categoryId: string) => {
+    const cat = categories.find(c => c.id === categoryId);
+    if (!cat) return { total: 0, parent: 0, subs: 0, hasSubsWithLimit: false };
+    
+    const subs = categories.filter(s => s.parentId === categoryId && !s.isDeleted && s.isActive !== false);
+    const subsLimit = subs.reduce((sum, s) => sum + (s.limit || 0), 0);
+    const parentLimit = cat.limit || 0;
+    
+    return {
+      total: parentLimit + subsLimit,
+      parent: parentLimit,
+      subs: subsLimit,
+      hasSubsWithLimit: subsLimit > 0
+    };
+  };
+
   const getCategoryBalance = (categoryId: string, month: number | 'all' = filterMonth, year: number = filterYear) => {
     const relevantIds = [categoryId, ...categories.filter(c => c.parentId === categoryId).map(c => c.id)];
 
@@ -369,8 +385,8 @@ export const Categories: React.FC = () => {
     };
   }, [transactions, wallets, filterMonth, filterYear]);
 
-  const totalLimitGlobal = activeCats
-    .filter(c => c.type === 'expense')
+  const totalLimitGlobal = categories
+    .filter(c => c.type === 'expense' && !c.isDeleted && c.isActive !== false)
     .reduce((acc, c) => acc + (c.limit || 0), 0);
 
   const totalSpendGlobal = activeCats
@@ -425,34 +441,53 @@ export const Categories: React.FC = () => {
                     </span>
                   ) : (
                     <div className="flex flex-col gap-1.5 mt-2 max-w-[240px]">
-                      <div className="flex items-center justify-between text-[9px] font-black uppercase tracking-widest leading-none">
-                        <span className="opacity-60 italic font-bold">Uso: {formatCurrency(getCategorySpend(c.id))}</span>
-                        {c.limit ? (
-                          <span className={cn(
-                            (getCategorySpend(c.id) / c.limit) >= 1 ? "text-rose-500" :
-                              (getCategorySpend(c.id) / c.limit) >= 0.75 ? "text-amber-500" :
-                                "text-emerald-500"
-                          )}>
-                            {Math.round((getCategorySpend(c.id) / c.limit) * 100)}%
-                          </span>
-                        ) : (
-                          <span className="opacity-40 italic font-medium">Sem Limite</span>
-                        )}
-                      </div>
-                      <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden shadow-inner border border-border/10">
-                        <motion.div
-                          initial={{ width: 0 }}
-                          animate={{ width: c.limit ? `${Math.min((getCategorySpend(c.id) / c.limit) * 100, 100)}%` : '0%' }}
-                          className={cn(
-                            "h-full rounded-full transition-all",
-                            !c.limit ? "bg-slate-400" :
-                              (getCategorySpend(c.id) / c.limit) > 1 ? "bg-red-800" :
-                                (getCategorySpend(c.id) / c.limit) === 1 ? "bg-rose-500" :
-                                  (getCategorySpend(c.id) / c.limit) >= 0.75 ? "bg-amber-500" :
-                                    "bg-emerald-500"
-                          )}
-                        />
-                      </div>
+                      {(() => {
+                        const effective = getCategoryEffectiveLimit(c.id);
+                        const spend = getCategorySpend(c.id);
+                        return (
+                          <>
+                            <div className="flex flex-col gap-1 text-[11px] font-black uppercase tracking-widest leading-none">
+                              <div className="flex items-center justify-between">
+                                <span className="opacity-80 italic font-bold">Uso: {formatCurrency(spend)}</span>
+                                {effective.total ? (
+                                  <span className={cn(
+                                    "font-black",
+                                    (spend / effective.total) >= 1 ? "text-rose-500 scale-110" :
+                                      (spend / effective.total) >= 0.75 ? "text-amber-500" :
+                                        "text-emerald-500"
+                                  )}>
+                                    {Math.round((spend / effective.total) * 100)}%
+                                  </span>
+                                ) : (
+                                  <span className="opacity-40 italic font-medium">Sem Limite</span>
+                                )}
+                              </div>
+                              {effective.total > 0 && (
+                                <span className="text-[10px] font-bold text-muted-foreground opacity-60 uppercase tracking-tight">
+                                  Limite: {formatCurrency(effective.total)} 
+                                  {effective.hasSubsWithLimit && (
+                                    <> (Cat: {formatCurrency(effective.parent)} + Subs: {formatCurrency(effective.subs)})</>
+                                  )}
+                                </span>
+                              )}
+                            </div>
+                            <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden shadow-inner border border-border/10">
+                              <motion.div
+                                initial={{ width: 0 }}
+                                animate={{ width: effective.total ? `${Math.min((spend / effective.total) * 100, 100)}%` : '0%' }}
+                                className={cn(
+                                  "h-full rounded-full transition-all",
+                                  !effective.total ? "bg-slate-400" :
+                                    (spend / effective.total) > 1 ? "bg-red-800" :
+                                      (spend / effective.total) === 1 ? "bg-rose-500" :
+                                        (spend / effective.total) >= 0.75 ? "bg-amber-500" :
+                                          "bg-emerald-500"
+                                )}
+                              />
+                            </div>
+                          </>
+                        );
+                      })()}
                     </div>
                   )}
                 </div>
@@ -470,21 +505,25 @@ export const Categories: React.FC = () => {
                     </span>
                   </div>
 
-                  {c.limit ? (
-                    <>
-                      <span className="text-[9px] font-black text-muted-foreground uppercase tracking-[0.2em] mb-1 opacity-60">Limite Real (Variável)</span>
-                      <span className={cn(
-                        "text-base font-black tracking-tighter",
-                        (c.limit - getCategoryCommitted(c.id) - (getCategorySpend(c.id) - getCategoryCommitted(c.id))) < 0 ? "text-rose-500" :
-                          "text-emerald-500"
-                      )}>
-                        {formatCurrency(Math.max(0, c.limit - getCategoryCommitted(c.id)))}
-                      </span>
-                      <span className="text-[8px] font-black text-muted-foreground opacity-40 uppercase tracking-widest mt-0.5">de {formatCurrency(c.limit)}</span>
-                    </>
-                  ) : (
-                    <span className="text-[9px] font-black text-muted-foreground/30 uppercase tracking-[0.2em] mt-2">Sem Meta Definida</span>
-                  )}
+                  {(() => {
+                    const effective = getCategoryEffectiveLimit(c.id);
+                    const spend = getCategorySpend(c.id);
+                    const remaining = effective.total - getCategoryCommitted(c.id) - (spend - getCategoryCommitted(c.id));
+                    return effective.total ? (
+                      <>
+                        <span className="text-[9px] font-black text-muted-foreground uppercase tracking-[0.2em] mb-1 opacity-60">Limite Real (Variável)</span>
+                        <span className={cn(
+                          "text-base font-black tracking-tighter",
+                          remaining < 0 ? "text-rose-500" : "text-emerald-500"
+                        )}>
+                          {formatCurrency(remaining)}
+                        </span>
+                        <span className="text-[8px] font-black text-muted-foreground opacity-40 uppercase tracking-widest mt-0.5">de {formatCurrency(effective.total)}</span>
+                      </>
+                    ) : (
+                      <span className="text-[9px] font-black text-muted-foreground/30 uppercase tracking-[0.2em] mt-2">Sem Meta Definida</span>
+                    );
+                  })()}
                 </div>
               )}
 
@@ -577,11 +616,36 @@ export const Categories: React.FC = () => {
                               </span>
                             </div>
                             {sub.limit > 0 && (
-                              <div className="flex flex-col items-end border-l border-border/10 pl-4">
-                                <span className="text-[7px] font-black text-muted-foreground uppercase tracking-widest opacity-40">Limite Real</span>
-                                <span className="text-[10px] font-black text-emerald-500">
-                                  {formatCurrency(Math.max(0, sub.limit - getCategoryCommitted(sub.id)))}
+                              <div className="flex flex-col items-end border-l border-border/10 pl-4 min-w-[100px]">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest opacity-60">Limite Real</span>
+                                  <span className={cn(
+                                    "text-[11px] font-black px-1.5 py-0.5 rounded-full",
+                                    getCategorySpend(sub.id) > sub.limit ? "bg-rose-500 text-white animate-pulse" : "bg-emerald-500/10 text-emerald-500"
+                                  )}>
+                                    {Math.round((getCategorySpend(sub.id) / sub.limit) * 100)}%
+                                  </span>
+                                </div>
+                                <span className={cn(
+                                  "text-[13px] font-black transition-colors leading-none",
+                                  getCategorySpend(sub.id) > sub.limit ? "text-rose-500" : "text-emerald-500"
+                                )}>
+                                  {formatCurrency(sub.limit - getCategorySpend(sub.id))}
                                 </span>
+                                <span className="text-[7px] font-black text-muted-foreground uppercase tracking-widest opacity-40 mt-0.5">
+                                  de {formatCurrency(sub.limit)}
+                                </span>
+                                {/* Mini Barra de Progresso Subcategoria */}
+                                <div className="h-1 w-full bg-muted rounded-full overflow-hidden mt-1 mt-1 border border-border/5">
+                                  <motion.div
+                                    initial={{ width: 0 }}
+                                    animate={{ width: `${Math.min((getCategorySpend(sub.id) / sub.limit) * 100, 100)}%` }}
+                                    className={cn(
+                                      "h-full rounded-full",
+                                      getCategorySpend(sub.id) > sub.limit ? "bg-rose-500" : "bg-emerald-500"
+                                    )}
+                                  />
+                                </div>
                               </div>
                             )}
                           </div>
@@ -1218,7 +1282,7 @@ export const Categories: React.FC = () => {
                     bg: 'bg-emerald-500/10',
                     onClick: () => { toggleExpand(categoryForAction.id); setCategoryForAction(null); }
                   }] : []),
-                  ...(categoryForAction.type === 'expense' && !categoryForAction.parentId ? [{
+                  ...(categoryForAction.type === 'expense' ? [{
                     id: 'budget',
                     label: 'Editar Meta Mensal',
                     description: 'Alterar limite de gastos planejado',

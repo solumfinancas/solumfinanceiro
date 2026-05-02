@@ -13,6 +13,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { useModal } from '../contexts/ModalContext';
 import { cn, formatCurrency } from '../lib/utils';
+import { Check } from 'lucide-react';
 import { Category } from '../types';
 import { Portal } from './ui/Portal';
 import { IconRenderer } from './ui/IconRenderer';
@@ -80,6 +81,7 @@ export const CategoryModal: React.FC<CategoryModalProps> = ({
   });
   const [isSaving, setIsSaving] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
+  const [hasLimit, setHasLimit] = useState(false);
 
   useEffect(() => {
     if (editingCategory) {
@@ -89,8 +91,10 @@ export const CategoryModal: React.FC<CategoryModalProps> = ({
           icon: 'Tag',
           color: parentColor || editingCategory.color
         });
+        setHasLimit((editingCategory.limit || 0) > 0);
       } else {
         setFormData(editingCategory);
+        setHasLimit(true); // Categorias pai sempre mostram o campo, ou baseado em limite > 0
       }
     } else {
       setFormData({
@@ -102,6 +106,7 @@ export const CategoryModal: React.FC<CategoryModalProps> = ({
         parentId: parentId,
         isActive: true
       });
+      setHasLimit(!parentId); // Subcategorias novas começam sem meta (false), categorias novas começam com (true)
     }
   }, [editingCategory, parentId, parentType, parentColor, isOpen]);
 
@@ -164,7 +169,7 @@ export const CategoryModal: React.FC<CategoryModalProps> = ({
                     <ChevronLeft size={24} className="text-muted-foreground" />
                   </button>
                   <h2 className="text-3xl font-black uppercase tracking-tighter text-foreground">
-                    {mode === 'budget' ? 'Meta de Gasto Mensal' : (editingCategory ? (editingCategory.parentId ? 'Editar Subcategoria' : 'Editar Categoria') : parentId ? 'Nova Subcategoria' : 'Nova Categoria')}
+                    {mode === 'budget' ? 'Meta de Gasto Mensal' : (editingCategory ? (editingCategory.parentId ? 'Editar Subcategoria' : 'Editar Categoria') : parentId || formData.parentId ? 'Nova Subcategoria' : 'Nova Categoria')}
                   </h2>
                 </div>
                 <button 
@@ -301,20 +306,71 @@ export const CategoryModal: React.FC<CategoryModalProps> = ({
                   </div>
                 )}
 
-                {formData.type === 'expense' && !formData.parentId && (
-                  <div className="space-y-3">
-                    <label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground ml-1">Meta de Gasto Mensal</label>
-                    <div className="relative group">
-                      <input 
-                        type="text" 
-                        inputMode="numeric"
-                        value={formData.limit === 0 ? "" : formData.limit?.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        onChange={(e) => handleAmountChange(e.target.value)}
-                        className="w-full px-8 py-6 bg-muted/10 border-2 border-border rounded-[2rem] focus:border-primary outline-none shadow-sm font-black text-3xl tracking-tighter text-right pr-20 transition-all font-mono"
-                        placeholder="0,00"
-                      />
-                      <span className="absolute right-8 top-1/2 -translate-y-1/2 text-xs font-black text-muted-foreground opacity-30 uppercase tracking-widest">BRL</span>
-                    </div>
+                {formData.type === 'expense' && (
+                  <div className="space-y-4">
+                    {formData.parentId && (
+                      <div 
+                        className={cn(
+                          "flex items-center justify-between p-4 rounded-2xl border transition-all cursor-pointer",
+                          hasLimit ? "bg-primary/5 border-primary/30" : "bg-muted/10 border-border/50 hover:bg-muted/20"
+                        )}
+                        onClick={() => {
+                          const nextHasLimit = !hasLimit;
+                          setHasLimit(nextHasLimit);
+                          if (!nextHasLimit) setFormData(prev => ({ ...prev, limit: 0 }));
+                        }}
+                      >
+                        <div className="flex flex-col">
+                          <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-0.5">Definir Meta de Gasto?</span>
+                          <span className={cn("text-xs font-bold", hasLimit ? "text-primary" : "text-muted-foreground/60")}>
+                            {hasLimit ? 'Ativado' : 'Não definido'}
+                          </span>
+                        </div>
+                        <div className={cn(
+                          "w-12 h-6 rounded-full relative transition-all duration-300",
+                          hasLimit ? "bg-primary" : "bg-muted-foreground/30"
+                        )}>
+                          <div className={cn(
+                            "absolute top-1 w-4 h-4 bg-white rounded-full transition-all duration-300 shadow-sm",
+                            hasLimit ? "left-7" : "left-1"
+                          )} />
+                        </div>
+                      </div>
+                    )}
+
+                    {!formData.parentId && (
+                      <div className="flex flex-col ml-1">
+                        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Meta de Gasto Mensal</label>
+                      </div>
+                    )}
+                    
+                    <AnimatePresence>
+                      {hasLimit && (
+                        <motion.div 
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          className="overflow-hidden space-y-3"
+                        >
+                          <p className="text-[9px] font-medium text-amber-500/80 uppercase tracking-wider ml-1">
+                            {formData.parentId 
+                              ? "Esta meta será somada ao limite global da categoria principal."
+                              : "Este valor será somado às metas individuais de suas subcategorias."}
+                          </p>
+                          <div className="relative group">
+                            <input 
+                              type="text" 
+                              inputMode="numeric"
+                              value={formData.limit === 0 ? "" : formData.limit?.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              onChange={(e) => handleAmountChange(e.target.value)}
+                              className="w-full px-8 py-6 bg-muted/10 border-2 border-border rounded-[2rem] focus:border-primary outline-none shadow-sm font-black text-3xl tracking-tighter text-right pr-20 transition-all font-mono"
+                              placeholder="0,00"
+                            />
+                            <span className="absolute right-8 top-1/2 -translate-y-1/2 text-xs font-black text-muted-foreground opacity-30 uppercase tracking-widest">BRL</span>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
                 )}
               </form>
@@ -345,7 +401,7 @@ export const CategoryModal: React.FC<CategoryModalProps> = ({
                       Salvando...
                     </>
                   ) : (
-                    <>{editingCategory ? 'Salvar Alterações' : parentId ? 'Criar Subcategoria' : 'Criar Nova Categoria'}</>
+                    <>{editingCategory ? 'Salvar Alterações' : (parentId || formData.parentId) ? 'Criar Subcategoria' : 'Criar Nova Categoria'}</>
                   )}
                 </button>
               </div>
