@@ -184,17 +184,17 @@ export const RefundEditModal: React.FC<RefundEditModalProps> = ({
                 </div>
               </div>
 
-              <div className="flex gap-4 pt-4">
+              <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t shrink-0">
                 <button 
                   type="button" 
                   onClick={onClose} 
-                  className="flex-1 py-5 font-black uppercase text-[10px] tracking-widest text-muted-foreground hover:bg-muted rounded-[1.5rem] transition-all"
+                  className="w-full sm:flex-1 shrink-0 px-4 h-14 sm:h-12 rounded-xl font-black uppercase text-xs tracking-widest border border-border hover:bg-muted transition-all active:scale-95 shadow-sm flex items-center justify-center"
                 >
                   Cancelar
                 </button>
                 <button 
                   type="submit" 
-                  className="flex-1 py-5 bg-primary text-white font-black uppercase text-[10px] tracking-widest rounded-[1.5rem] shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all"
+                  className="w-full sm:flex-1 shrink-0 px-4 h-14 sm:h-12 rounded-xl font-black uppercase text-xs tracking-widest bg-primary text-white shadow-lg shadow-primary/20 transition-all flex items-center justify-center hover:scale-[1.02] active:scale-95"
                 >
                   Salvar
                 </button>

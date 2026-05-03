@@ -41,9 +41,54 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [isMobile, setIsMobile] = useState(false);
   const [buttonRect, setButtonRect] = useState<DOMRect | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 640);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  const dropdownStyle = useMemo(() => {
+    if (!buttonRect) return {};
+
+    if (isMobile) {
+      return {
+        position: 'fixed' as const,
+        top: '50%',
+        left: '50%',
+        width: '90vw',
+        maxWidth: '400px',
+        maxHeight: '80vh',
+        zIndex: 9999,
+      };
+    }
+
+    const openUp = (buttonRect.bottom + 350 > window.innerHeight) || (buttonRect.top > window.innerHeight * 0.6);
+    
+    // Ensure dropdown doesn't go off-screen on the right
+    const dropdownWidth = 400; // Expected max width from maxWidth
+    const left = Math.max(8, Math.min(buttonRect.left, window.innerWidth - dropdownWidth - 16));
+
+    return {
+      position: 'fixed' as const,
+      top: openUp
+        ? Math.max(8, buttonRect.top - Math.min(300, buttonRect.top - 20) - 8)
+        : buttonRect.bottom + 8,
+      left: left,
+      minWidth: buttonRect.width,
+      width: 'max-content',
+      maxWidth: 'min(90vw, 400px)',
+      maxHeight: openUp
+        ? Math.min(300, buttonRect.top - 20)
+        : Math.min(300, window.innerHeight - buttonRect.bottom - 20),
+      zIndex: 9999,
+    };
+  }, [buttonRect, isMobile]);
 
   const selectedOption = useMemo(() => options.find(opt => opt.id === value), [options, value]);
 
@@ -117,91 +162,89 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
   const DropdownContent = (
     <AnimatePresence>
       {isOpen && buttonRect && (
-        <motion.div
-          ref={dropdownRef}
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.95 }}
-          style={{
-            position: 'fixed',
-            top: (buttonRect.bottom + 350 > window.innerHeight) || (buttonRect.top > window.innerHeight * 0.6)
-              ? Math.max(8, buttonRect.top - Math.min(300, buttonRect.top - 20) - 8) // Open Up
-              : buttonRect.bottom + 8, // Open Down
-            left: buttonRect.left,
-            minWidth: buttonRect.width,
-            width: 'max-content',
-            maxWidth: 'min(90vw, 400px)',
-            maxHeight: (buttonRect.bottom + 350 > window.innerHeight) || (buttonRect.top > window.innerHeight * 0.6)
-              ? Math.min(300, buttonRect.top - 20)
-              : Math.min(300, window.innerHeight - buttonRect.bottom - 20),
-            zIndex: 9999,
-          }}
-          className="bg-card border-2 border-primary/20 rounded-2xl shadow-2xl overflow-y-auto custom-scrollbar backdrop-blur-md pointer-events-auto"
-        >
-          {searchable && (
-            <div className="p-4 border-b border-border/10">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/40" size={16} />
-                <input
-                  autoFocus
-                  type="text"
-                  placeholder={searchPlaceholder}
-                  className="w-full pl-10 pr-4 py-2.5 bg-background/50 border border-border/20 rounded-xl text-xs outline-none focus:ring-1 ring-primary/20 transition-all font-bold"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-              </div>
-            </div>
+        <>
+          {isMobile && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsOpen(false)}
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9998] pointer-events-auto"
+            />
           )}
-
-          <div className="p-2 space-y-1">
-            {filteredOptions.length === 0 ? (
-              <div className="py-12 text-center text-muted-foreground/50 text-[10px] font-black uppercase tracking-widest">
-                Nenhum resultado
+          <motion.div
+            ref={dropdownRef}
+            initial={isMobile ? { opacity: 0, scale: 0.9, x: '-50%', y: '-50%' } : { opacity: 0, scale: 0.95 }}
+            animate={isMobile ? { opacity: 1, scale: 1, x: '-50%', y: '-50%' } : { opacity: 1, scale: 1 }}
+            exit={isMobile ? { opacity: 0, scale: 0.9, x: '-50%', y: '-50%' } : { opacity: 0, scale: 0.95 }}
+            style={dropdownStyle}
+            className="bg-card border-2 border-primary/20 rounded-3xl shadow-2xl overflow-y-auto custom-scrollbar backdrop-blur-md pointer-events-auto"
+          >
+            {searchable && (
+              <div className="p-4 border-b border-border/10">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/40" size={16} />
+                  <input
+                    autoFocus
+                    type="text"
+                    placeholder={searchPlaceholder}
+                    className="w-full pl-10 pr-4 py-2.5 bg-background/50 border border-border/20 rounded-xl text-xs outline-none focus:ring-1 ring-primary/20 transition-all font-bold"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </div>
               </div>
-            ) : (
-              filteredOptions.map((option) => {
-                if (option.isHeader) {
-                  return (
-                    <div key={option.id} className="px-4 py-2 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground opacity-40 mt-3 mb-1">
-                      {option.name}
-                    </div>
-                  );
-                }
-
-                const isSelectedOption = isSelected(option.id);
-                const isSub = !!option.parentId;
-
-                return (
-                  <button
-                    key={option.id}
-                    type="button"
-                    onClick={() => {
-                      onChange(option.id);
-                      setIsOpen(false);
-                    }}
-                    className={cn(
-                      "w-full flex items-center gap-4 px-3 py-3 rounded-2xl transition-all text-left group",
-                      isSelectedOption ? "bg-primary text-white shadow-lg shadow-primary/20" : "hover:bg-primary/5 text-foreground",
-                      isSub && "ml-4 border-l-2 border-muted/30 pl-4"
-                    )}
-                  >
-                    {renderIcon(option)}
-                    <div className="flex flex-col min-w-0 flex-1">
-                      <span className={cn(
-                        "text-[11px] font-black uppercase tracking-tight leading-tight",
-                        isSelectedOption ? "text-white" : "group-hover:text-primary"
-                      )}>
-                        {isSub && <span className="mr-1 opacity-50">↳</span>}
-                        {option.name}
-                      </span>
-                    </div>
-                  </button>
-                );
-              })
             )}
-          </div>
-        </motion.div>
+
+            <div className="p-2 space-y-1">
+              {filteredOptions.length === 0 ? (
+                <div className="py-12 text-center text-muted-foreground/50 text-[10px] font-black uppercase tracking-widest">
+                  Nenhum resultado
+                </div>
+              ) : (
+                filteredOptions.map((option) => {
+                  if (option.isHeader) {
+                    return (
+                      <div key={option.id} className="px-4 py-2 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground opacity-40 mt-3 mb-1">
+                        {option.name}
+                      </div>
+                    );
+                  }
+
+                  const isSelectedOption = isSelected(option.id);
+                  const isSub = !!option.parentId;
+
+                  return (
+                    <button
+                      key={option.id}
+                      type="button"
+                      onClick={() => {
+                        onChange(option.id);
+                        setIsOpen(false);
+                      }}
+                      className={cn(
+                        "w-full flex items-center gap-4 px-3 py-3 rounded-2xl transition-all text-left group",
+                        isSelectedOption ? "bg-primary text-white shadow-lg shadow-primary/20" : "hover:bg-primary/5 text-foreground",
+                        isSub && "ml-4 border-l-2 border-muted/30 pl-4"
+                      )}
+                    >
+                      {renderIcon(option)}
+                      <div className="flex flex-col min-w-0 flex-1">
+                        <span className={cn(
+                          "text-[11px] font-black uppercase tracking-tight leading-tight",
+                          isSelectedOption ? "text-white" : "group-hover:text-primary"
+                        )}>
+                          {isSub && <span className="mr-1 opacity-50">↳</span>}
+                          {option.name}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          </motion.div>
+        </>
       )}
     </AnimatePresence>
   );

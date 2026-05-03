@@ -717,13 +717,19 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                   </div>
                 )}
 
-                <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t">
-                  <button type="button" onClick={onClose} className="flex-1 px-4 h-12 rounded-xl font-black uppercase text-[10px] tracking-widest border border-border hover:bg-muted transition-all active:scale-95 shadow-sm">Cancelar</button>
+                <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t shrink-0">
+                  <button 
+                    type="button" 
+                    onClick={onClose} 
+                    className="w-full sm:flex-1 shrink-0 px-4 h-14 sm:h-12 rounded-xl font-black uppercase text-xs tracking-widest border border-border hover:bg-muted transition-all active:scale-95 shadow-sm flex items-center justify-center"
+                  >
+                    Cancelar
+                  </button>
                   <button 
                     type="submit" 
                     disabled={isSubmitting}
                     className={cn(
-                      "flex-1 px-4 h-12 rounded-xl font-black uppercase text-[10px] tracking-widest bg-primary text-white shadow-lg shadow-primary/20 transition-all",
+                      "w-full sm:flex-1 shrink-0 px-4 h-14 sm:h-12 rounded-xl font-black uppercase text-xs tracking-widest bg-primary text-white shadow-lg shadow-primary/20 transition-all flex items-center justify-center",
                       isSubmitting ? "opacity-50 cursor-not-allowed" : "hover:scale-[1.02] active:scale-[0.98]"
                     )}
                   >
