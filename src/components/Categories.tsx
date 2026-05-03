@@ -488,31 +488,29 @@ export const Categories: React.FC = () => {
                         const spend = getCategorySpend(c.id);
                         return (
                           <>
-                            <div className="flex flex-col gap-1 text-[11px] font-black uppercase tracking-widest leading-none">
-                              <div className="flex items-center justify-between">
-                                <span className="opacity-80 italic font-bold">Uso: {formatCurrency(spend)}</span>
-                                {effective.total ? (
-                                  <span className={cn(
-                                    "font-black",
-                                    (spend / effective.total) >= 1 ? "text-rose-500 scale-110" :
-                                      (spend / effective.total) >= 0.75 ? "text-amber-500" :
-                                        "text-emerald-500"
-                                  )}>
-                                    {Math.round((spend / effective.total) * 100)}%
-                                  </span>
-                                ) : (
-                                  <span className="opacity-40 italic font-medium">Sem Limite</span>
-                                )}
-                              </div>
-                              {effective.total > 0 && (
-                                <span className="text-[10px] font-bold text-muted-foreground opacity-60 uppercase tracking-tight">
-                                  Limite: {formatCurrency(effective.total)} 
-                                  {effective.hasSubsWithLimit && (
-                                    <> (Cat: {formatCurrency(effective.parent)} + Subs: {formatCurrency(effective.subs)})</>
-                                  )}
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-[10px] sm:text-[11px] font-black uppercase tracking-widest leading-none">
+                              <span className="opacity-80 italic font-bold whitespace-nowrap">Uso: {formatCurrency(spend)}</span>
+                              {effective.total ? (
+                                <span className={cn(
+                                  "font-black shrink-0",
+                                  (spend / effective.total) >= 1 ? "text-rose-500 scale-105" :
+                                    (spend / effective.total) >= 0.75 ? "text-amber-500" :
+                                      "text-emerald-500"
+                                )}>
+                                  {Math.round((spend / effective.total) * 100)}%
                                 </span>
+                              ) : (
+                                <span className="opacity-40 italic font-medium shrink-0">Sem Limite</span>
                               )}
                             </div>
+                            {effective.total > 0 && (
+                              <span className="text-[10px] font-bold text-muted-foreground opacity-60 uppercase tracking-tight">
+                                Limite: {formatCurrency(effective.total)} 
+                                {effective.hasSubsWithLimit && (
+                                  <> (Cat: {formatCurrency(effective.parent)} + Subs: {formatCurrency(effective.subs)})</>
+                                )}
+                              </span>
+                            )}
                             <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden shadow-inner border border-border/10">
                               <motion.div
                                 initial={{ width: 0 }}
@@ -740,12 +738,12 @@ export const Categories: React.FC = () => {
           </h1>
           <p className="text-muted-foreground text-sm font-medium">Controle seus orçamentos e organize seus gastos</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
           <div className="flex items-center p-1 bg-muted/50 rounded-2xl border border-border/30 h-14">
             <button
               onClick={() => setViewMode('budget')}
               className={cn(
-                "flex items-center gap-2 px-6 h-full rounded-xl transition-all text-[10px] font-black uppercase tracking-widest",
+                "flex-1 md:flex-none flex items-center justify-center gap-2 px-4 md:px-6 h-full rounded-xl transition-all text-[10px] font-black uppercase tracking-widest",
                 viewMode === 'budget' ? "bg-background text-primary shadow-sm" : "text-muted-foreground hover:bg-muted"
               )}
             >
@@ -754,7 +752,7 @@ export const Categories: React.FC = () => {
             <button
               onClick={() => setViewMode('balance')}
               className={cn(
-                "flex items-center gap-2 px-6 h-full rounded-xl transition-all text-[10px] font-black uppercase tracking-widest",
+                "flex-1 md:flex-none flex items-center justify-center gap-2 px-4 md:px-6 h-full rounded-xl transition-all text-[10px] font-black uppercase tracking-widest",
                 viewMode === 'balance' ? "bg-background text-primary shadow-sm" : "text-muted-foreground hover:bg-muted"
               )}
             >
@@ -763,7 +761,7 @@ export const Categories: React.FC = () => {
           </div>
           <button
             onClick={() => handleOpenModal()}
-            className="flex items-center gap-2 px-8 h-14 rounded-2xl bg-primary text-white hover:scale-105 transition-all shadow-lg shadow-primary/25 text-xs font-black uppercase tracking-widest active:scale-95"
+            className="flex items-center justify-center gap-2 px-8 h-14 rounded-2xl bg-primary text-white hover:scale-105 transition-all shadow-lg shadow-primary/25 text-xs font-black uppercase tracking-widest active:scale-95"
           >
             <Plus size={16} /> Nova
           </button>

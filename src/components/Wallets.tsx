@@ -581,19 +581,23 @@ export const Wallets: React.FC = () => {
 
       {/* SEÇÃO: CARTÕES DE CRÉDITO */}
       <section className="space-y-6">
-        <div className="flex items-center gap-4 px-1">
-          <div className="flex items-center gap-2 text-muted-foreground group">
-            <CardIcon size={18} />
-            <h2 className="font-black text-xs uppercase tracking-[0.2em] opacity-70">Meus Cartões</h2>
-            <span className="text-[10px] font-black text-red-500 bg-red-500/10 px-2 py-0.5 rounded-full border border-red-500/20">
-              Total de Faturas Fechadas à Pagar: {formatCurrency(totalCreditInvoices)}
-            </span>
+        <div className="flex flex-col gap-4 px-1">
+          <div className="flex flex-wrap items-center gap-2 text-muted-foreground group">
+            <div className="flex items-center gap-2">
+              <CardIcon size={18} />
+              <h2 className="font-black text-xs uppercase tracking-[0.2em] opacity-70">Meus Cartões</h2>
+            </div>
+            <div className="bg-rose-500/10 text-rose-500 px-3 py-1.5 rounded-xl border border-rose-500/20 shadow-sm">
+              <span className="text-[9px] font-black uppercase tracking-wider block leading-tight opacity-70">Total Faturas Fechadas</span>
+              <span className="text-xs font-black leading-tight">{formatCurrency(totalCreditInvoices)}</span>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
+          
+          <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={() => setShowInactiveCards(!showInactiveCards)}
               className={cn(
-                "text-[10px] font-black uppercase tracking-widest transition-all px-3 py-1.5 rounded-lg border",
+                "text-[10px] font-black uppercase tracking-widest transition-all px-3 py-2 rounded-lg border flex-1 sm:flex-none",
                 showInactiveCards ? "bg-orange-500/10 border-orange-500/30 text-orange-500" : "bg-muted/50 text-muted-foreground border-transparent hover:bg-muted"
               )}
             >
@@ -608,15 +612,15 @@ export const Wallets: React.FC = () => {
                   setOrganizeTab('credit_card');
                   setIsOrganizeModalOpen(true);
                 }}
-                className="text-[10px] font-black uppercase tracking-widest transition-all px-3 py-1.5 rounded-lg border bg-primary/10 text-primary border-primary/20 hover:bg-primary/20 flex items-center gap-2"
+                className="text-[10px] font-black uppercase tracking-widest transition-all px-3 py-2 rounded-lg border bg-primary/10 text-primary border-primary/20 hover:bg-primary/20 flex items-center gap-2 flex-1 sm:flex-none justify-center"
               >
-                Organizar Cartões <LayoutGrid size={14} />
+                Organizar <LayoutGrid size={14} />
               </button>
             )}
 
             <button
               onClick={() => { setWalletModalType('credit_card'); setIsWalletModalOpen(true); }}
-              className="text-[10px] font-black uppercase tracking-widest text-blue-500 hover:text-blue-500/60 transition-all bg-blue-500/10 px-3 py-1.5 rounded-lg border border-blue-500/20 flex items-center gap-2"
+              className="text-[10px] font-black uppercase tracking-widest text-blue-500 hover:text-blue-500/60 transition-all bg-blue-500/10 px-3 py-2 rounded-lg border border-blue-500/20 flex items-center gap-2 flex-1 sm:flex-none justify-center"
             >
               <Plus size={14} /> Novo Cartão
             </button>
@@ -682,19 +686,22 @@ export const Wallets: React.FC = () => {
 
       {/* SEÇÃO: CONTAS E CARTEIRAS */}
       <section className="space-y-6">
-        <div className="flex items-center gap-4 px-1">
-          <div className="flex items-center gap-2 text-muted-foreground group">
-            <Building2 size={18} />
-            <h2 className="font-black text-xs uppercase tracking-[0.2em] opacity-70">Minhas Contas</h2>
-            <span className="text-[10px] font-black text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
-              Saldo Total: {formatCurrency(totalAccountsBalance)}
-            </span>
+        <div className="flex flex-col gap-4 px-1">
+          <div className="flex flex-wrap items-center gap-2 text-muted-foreground group">
+            <div className="flex items-center gap-2">
+              <Building2 size={18} />
+              <h2 className="font-black text-xs uppercase tracking-[0.2em] opacity-70">Minhas Contas</h2>
+            </div>
+            <div className="bg-emerald-500/10 text-emerald-500 px-3 py-1.5 rounded-xl border border-emerald-500/20 shadow-sm">
+              <span className="text-[9px] font-black uppercase tracking-wider block leading-tight opacity-70">Saldo Total</span>
+              <span className="text-xs font-black leading-tight">{formatCurrency(totalAccountsBalance)}</span>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={() => setShowInactiveBanks(!showInactiveBanks)}
               className={cn(
-                "text-[10px] font-black uppercase tracking-widest transition-all px-3 py-1.5 rounded-lg border",
+                "text-[10px] font-black uppercase tracking-widest transition-all px-3 py-2 rounded-lg border flex-1 sm:flex-none",
                 showInactiveBanks ? "bg-orange-500/10 border-orange-500/30 text-orange-500" : "bg-muted/50 text-muted-foreground border-transparent hover:bg-muted"
               )}
             >
@@ -709,15 +716,15 @@ export const Wallets: React.FC = () => {
                   setOrganizeTab('checking');
                   setIsOrganizeModalOpen(true);
                 }}
-                className="text-[10px] font-black uppercase tracking-widest transition-all px-3 py-1.5 rounded-lg border bg-primary/10 text-primary border-primary/20 hover:bg-primary/20 flex items-center gap-2"
+                className="text-[10px] font-black uppercase tracking-widest transition-all px-3 py-2 rounded-lg border bg-primary/10 text-primary border-primary/20 hover:bg-primary/20 flex items-center gap-2 flex-1 sm:flex-none justify-center"
               >
-                Organizar Contas <LayoutGrid size={14} />
+                Organizar <LayoutGrid size={14} />
               </button>
             )}
 
             <button
               onClick={() => { setWalletModalType('bank'); setIsWalletModalOpen(true); }}
-              className="text-[10px] font-black uppercase tracking-widest text-blue-500 hover:text-blue-500/60 transition-all bg-blue-500/10 px-3 py-1.5 rounded-lg border border-blue-500/20 flex items-center gap-2"
+              className="text-[10px] font-black uppercase tracking-widest text-blue-500 hover:text-blue-500/60 transition-all bg-blue-500/10 px-3 py-2 rounded-lg border border-blue-500/20 flex items-center gap-2 flex-1 sm:flex-none justify-center"
             >
               <Plus size={14} /> Nova Carteira
             </button>
@@ -1614,7 +1621,7 @@ const CreditCardItem: React.FC<{
       {/* Glossy Overlay */}
       <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent pointer-events-none" />
 
-      <div className="h-full flex flex-col p-10 justify-between relative z-10">
+      <div className="h-full flex flex-col p-6 lg:p-10 justify-between relative z-10">
         {/* Top Section */}
         <div className="flex items-start justify-between">
           <div className="space-y-4 flex-1 mr-4">
@@ -1623,7 +1630,7 @@ const CreditCardItem: React.FC<{
                 <div className="w-6 h-4 bg-yellow-500/80 rounded-[2px]" />
               </div>
               <div className="flex flex-col">
-                <span className="text-white font-black text-lg uppercase italic tracking-tighter opacity-90" title={wallet.name}>{wallet.name}</span>
+                <span className="text-white font-black text-sm lg:text-lg uppercase italic tracking-tighter opacity-90 truncate max-w-[150px] lg:max-w-none" title={wallet.name}>{wallet.name}</span>
                 {wallet.isActive === false && (
                   <div className="flex mt-0.5">
                     <span className="text-[7px] font-black bg-rose-500 text-white px-1.5 py-0.5 rounded shadow-sm uppercase tracking-wider">INATIVO</span>
@@ -1634,7 +1641,7 @@ const CreditCardItem: React.FC<{
 
             {wallet.observation && (
               <div className="flex">
-                <span className="inline-block px-2 py-0.5 bg-white/10 rounded text-[7.5px] font-black uppercase tracking-wider text-white/60 whitespace-normal leading-relaxed break-words" title={wallet.observation}>
+                <span className="inline-block px-2 py-0.5 bg-white/10 rounded text-[7.5px] font-black uppercase tracking-wider text-white/60 whitespace-normal leading-relaxed break-words line-clamp-2" title={wallet.observation}>
                   {wallet.observation}
                 </span>
               </div>
@@ -1649,17 +1656,17 @@ const CreditCardItem: React.FC<{
             )}
 
             <div className="space-y-0.5" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.3)' }}>
-              <span className="text-white/60 text-[10px] font-black uppercase tracking-widest">Fatura Atual</span>
-              <h4 className="text-white text-3xl font-black tracking-tight">{formatCurrency(openInvoiceAmount)}</h4>
+              <span className="text-white/60 text-[9px] lg:text-[10px] font-black uppercase tracking-widest">Fatura Atual</span>
+              <h4 className="text-white text-xl lg:text-3xl font-black tracking-tight">{formatCurrency(openInvoiceAmount)}</h4>
             </div>
           </div>
 
           <div className="text-right flex flex-col items-center gap-1.5 shrink-0">
-            <div className="relative group-hover:scale-110 transition-transform rounded-full overflow-hidden w-12 h-12 bg-white flex items-center justify-center shadow-lg border border-white/20 shrink-0">
+            <div className="relative group-hover:scale-110 transition-transform rounded-full overflow-hidden w-10 h-10 lg:w-12 lg:h-12 bg-white flex items-center justify-center shadow-lg border border-white/20 shrink-0">
               <IconRenderer
                 icon={wallet.logoUrl || wallet.icon || 'credit_card'}
                 color={wallet.color}
-                size={48}
+                size={40}
                 className="w-full h-full object-cover"
               />
             </div>
@@ -1668,23 +1675,23 @@ const CreditCardItem: React.FC<{
 
         {/* Bottom Section */}
         <div className="space-y-4">
-          <div className="flex items-end justify-between">
-            <div className="flex gap-10 text-white">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div className="flex justify-between lg:justify-start lg:gap-10 text-white">
               <div className="flex flex-col gap-1.5">
-                <span className="text-[9px] font-black uppercase flex items-center gap-1.5 opacity-60 tracking-wider">
-                  <CalendarCheck size={13} className="text-white/80" /> Fechamento
+                <span className="text-[8px] lg:text-[9px] font-black uppercase flex items-center gap-1.5 opacity-60 tracking-wider">
+                  <CalendarCheck size={12} className="text-white/80" /> Fechamento
                 </span>
-                <span className="text-2xl font-black leading-none">{wallet.closingDay || '--'}</span>
+                <span className="text-xl lg:text-2xl font-black leading-none">{wallet.closingDay || '--'}</span>
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <span className="text-[9px] font-black uppercase flex items-center gap-1.5 opacity-60 tracking-wider">
-                  <CalendarDays size={13} className="text-rose-300" /> Vencimento
+                <span className="text-[8px] lg:text-[9px] font-black uppercase flex items-center gap-1.5 opacity-60 tracking-wider">
+                  <CalendarDays size={12} className="text-rose-300" /> Vencimento
                 </span>
-                <div className="flex items-center gap-3">
-                  <span className="text-2xl font-black text-rose-300 leading-none">{wallet.dueDay || '--'}</span>
+                <div className="flex items-center gap-2 lg:gap-3">
+                  <span className="text-xl lg:text-2xl font-black text-rose-300 leading-none">{wallet.dueDay || '--'}</span>
                   {daysToDue !== null && daysToDue >= 0 && (
-                    <span className="text-[9px] font-black uppercase bg-white/10 px-2 py-1 rounded text-white/90 whitespace-nowrap">
+                    <span className="text-[8px] font-black uppercase bg-white/10 px-1.5 py-0.5 rounded text-white/90 whitespace-nowrap">
                       vence em {daysToDue} d
                     </span>
                   )}
@@ -1692,14 +1699,14 @@ const CreditCardItem: React.FC<{
               </div>
             </div>
 
-            <div className="text-right space-y-1.5" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.3)' }}>
-              <div className="flex flex-col items-end gap-0.5">
-                <span className="text-[9px] font-black uppercase text-white/50 leading-none">Utilizado</span>
-                <span className="font-black text-white/80 text-lg leading-none">{formatCurrency(usedAmount)}</span>
+            <div className="flex lg:flex-col justify-between lg:justify-end lg:items-end gap-1.5 lg:text-right" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.3)' }}>
+              <div className="flex flex-col lg:items-end gap-0.5">
+                <span className="text-[8px] lg:text-[9px] font-black uppercase text-white/50 leading-none">Utilizado</span>
+                <span className="font-black text-white/80 text-sm lg:text-lg leading-none">{formatCurrency(usedAmount)}</span>
               </div>
-              <div className="flex flex-col items-end gap-0.5">
-                <span className="text-[11px] font-black uppercase text-white/50 block leading-none">Disponível</span>
-                <span className="font-black text-white text-3xl leading-none">{formatCurrency(availableLimit)}</span>
+              <div className="flex flex-col lg:items-end gap-0.5">
+                <span className="text-[9px] lg:text-[11px] font-black uppercase text-white/50 block leading-none">Disponível</span>
+                <span className="font-black text-white text-xl lg:text-3xl leading-none">{formatCurrency(availableLimit)}</span>
               </div>
             </div>
           </div>

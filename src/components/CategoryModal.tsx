@@ -160,7 +160,7 @@ export const CategoryModal: React.FC<CategoryModalProps> = ({
               onClick={(e) => e.stopPropagation()}
             >
               {/* Header Fixo */}
-              <div className="p-8 border-b border-border flex items-center justify-between shrink-0 bg-background/50 backdrop-blur-md">
+              <div className="p-6 md:p-8 border-b border-border flex items-center justify-between shrink-0 bg-background/50 backdrop-blur-md">
                 <div className="flex items-center gap-4">
                   <button 
                     onClick={onClose}
@@ -181,7 +181,7 @@ export const CategoryModal: React.FC<CategoryModalProps> = ({
               </div>
 
               {/* Corpo Scrollável */}
-              <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-8 space-y-8 custom-scrollbar">
+              <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 md:p-8 space-y-8 custom-scrollbar">
                 {mode === 'full' && (
                   <div className="space-y-3">
                     <label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground ml-1">
@@ -376,11 +376,11 @@ export const CategoryModal: React.FC<CategoryModalProps> = ({
               </form>
 
               {/* Footer Fixo */}
-              <div className="p-8 border-t border-border bg-background/50 backdrop-blur-md flex gap-4 shrink-0">
+              <div className="p-6 md:p-8 border-t border-border bg-background/50 backdrop-blur-md flex flex-col sm:flex-row gap-3 sm:gap-4 shrink-0">
                 <button 
                   type="button" 
                   onClick={onClose} 
-                  className="flex-1 px-8 py-5 rounded-2xl border-2 border-border font-black uppercase tracking-[0.2em] text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-all active:scale-95"
+                  className="w-full sm:flex-1 px-4 sm:px-8 py-4 sm:py-5 rounded-2xl border-2 border-border font-black uppercase tracking-[0.2em] text-[10px] sm:text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-all active:scale-95"
                 >
                   Cancelar
                 </button>
@@ -389,7 +389,7 @@ export const CategoryModal: React.FC<CategoryModalProps> = ({
                   onClick={handleSubmit}
                   disabled={isSaving}
                   className={cn(
-                    "flex-[2] px-8 py-5 rounded-2xl font-black uppercase tracking-[0.2em] text-xs transition-all shadow-xl flex items-center justify-center gap-3",
+                    "w-full sm:flex-[2] px-4 sm:px-8 py-4 sm:py-5 rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] sm:text-xs transition-all shadow-xl flex items-center justify-center gap-3",
                     isSaving 
                       ? "bg-primary/70 text-white/50 cursor-not-allowed" 
                       : "bg-primary text-white hover:scale-[1.02] active:scale-95 shadow-primary/30"
@@ -401,7 +401,9 @@ export const CategoryModal: React.FC<CategoryModalProps> = ({
                       Salvando...
                     </>
                   ) : (
-                    <>{editingCategory ? 'Salvar Alterações' : (parentId || formData.parentId) ? 'Criar Subcategoria' : 'Criar Nova Categoria'}</>
+                    <span className="truncate">
+                      {editingCategory ? 'Salvar Alterações' : (parentId || formData.parentId) ? 'Criar Subcategoria' : 'Criar Nova Categoria'}
+                    </span>
                   )}
                 </button>
               </div>
