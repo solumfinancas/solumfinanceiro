@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { Mail, Lock, User as UserIcon, Loader2, ArrowRight } from 'lucide-react';
+import { Mail, Lock, User as UserIcon, Loader2, ArrowRight, GraduationCap } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export const Auth: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [role, setRole] = useState<'user' | 'educator'>('user');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -21,6 +23,12 @@ export const Auth: React.FC = () => {
         const { error: signUpError } = await supabase.auth.signUp({
           email,
           password,
+          options: {
+            data: {
+              full_name: fullName,
+              role: role
+            }
+          }
         });
         if (signUpError) throw signUpError;
         setSuccess(true);
@@ -108,37 +116,108 @@ export const Auth: React.FC = () => {
           </div>
 
           <form onSubmit={handleAuth} className="space-y-6">
-            <div className="space-y-2">
-              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Seu E-mail</label>
-              <div className="relative group">
-                <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none text-slate-600 group-focus-within:text-primary transition-colors">
-                  <Mail size={18} />
-                </div>
-                <input 
-                  type="email" 
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="exemplo@email.com"
-                  className="w-full bg-slate-950 border border-white/5 rounded-2xl h-14 pl-12 pr-5 text-sm text-white placeholder:text-slate-700 outline-none focus:border-primary/50 focus:ring-4 focus:ring-primary/5 transition-all"
-                  required
-                />
-              </div>
-            </div>
+            <AnimatePresence mode="wait">
+              {isSignUp && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="space-y-6 overflow-hidden"
+                >
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Nome Completo</label>
+                    <div className="relative group">
+                      <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none text-slate-600 group-focus-within:text-primary transition-colors">
+                        <UserIcon size={18} />
+                      </div>
+                      <input 
+                        type="text" 
+                        value={fullName}
+                        onChange={(e) => setFullName(e.target.value)}
+                        placeholder="Seu nome aqui"
+                        className="w-full bg-slate-950 border border-white/5 rounded-2xl h-14 pl-12 pr-5 text-sm text-white placeholder:text-slate-700 outline-none focus:border-primary/50 focus:ring-4 focus:ring-primary/5 transition-all"
+                        required={isSignUp}
+                      />
+                    </div>
+                  </div>
 
-            <div className="space-y-2">
-              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Sua Senha</label>
-              <div className="relative group">
-                <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none text-slate-600 group-focus-within:text-primary transition-colors">
-                  <Lock size={18} />
+                  <div className="space-y-3">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Tipo de Perfil</label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setRole('user')}
+                        className={`p-4 rounded-2xl border transition-all text-left group ${
+                          role === 'user' 
+                            ? 'bg-primary/10 border-primary text-white shadow-lg shadow-primary/5' 
+                            : 'bg-slate-950/50 border-white/5 text-slate-500 hover:border-white/10'
+                        }`}
+                      >
+                        <div className={`w-10 h-10 rounded-xl mb-3 flex items-center justify-center transition-colors ${
+                          role === 'user' ? 'bg-primary text-white' : 'bg-slate-900 text-slate-600'
+                        }`}>
+                          <UserIcon size={20} />
+                        </div>
+                        <p className="text-[11px] font-black uppercase tracking-wider">Apenas Uso</p>
+                        <p className="text-[9px] font-medium text-slate-500 mt-1">Gestão pessoal</p>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setRole('educator')}
+                        className={`p-4 rounded-2xl border transition-all text-left group ${
+                          role === 'educator' 
+                            ? 'bg-emerald-500/10 border-emerald-500 text-white shadow-lg shadow-emerald-500/5' 
+                            : 'bg-slate-950/50 border-white/5 text-slate-500 hover:border-white/10'
+                        }`}
+                      >
+                        <div className={`w-10 h-10 rounded-xl mb-3 flex items-center justify-center transition-colors ${
+                          role === 'educator' ? 'bg-emerald-500 text-white' : 'bg-slate-900 text-slate-600'
+                        }`}>
+                          <GraduationCap size={20} />
+                        </div>
+                        <p className="text-[11px] font-black uppercase tracking-wider">Educador</p>
+                        <p className="text-[9px] font-medium text-slate-500 mt-1">Gestão de clientes</p>
+                      </button>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Seu E-mail</label>
+                <div className="relative group">
+                  <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none text-slate-600 group-focus-within:text-primary transition-colors">
+                    <Mail size={18} />
+                  </div>
+                  <input 
+                    type="email" 
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="exemplo@email.com"
+                    className="w-full bg-slate-950 border border-white/5 rounded-2xl h-14 pl-12 pr-5 text-sm text-white placeholder:text-slate-700 outline-none focus:border-primary/50 focus:ring-4 focus:ring-primary/5 transition-all"
+                    required
+                  />
                 </div>
-                <input 
-                  type="password" 
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full bg-slate-950 border border-white/5 rounded-2xl h-14 pl-12 pr-5 text-sm text-white placeholder:text-slate-700 outline-none focus:border-primary/50 focus:ring-4 focus:ring-primary/5 transition-all"
-                  required
-                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Sua Senha</label>
+                <div className="relative group">
+                  <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none text-slate-600 group-focus-within:text-primary transition-colors">
+                    <Lock size={18} />
+                  </div>
+                  <input 
+                    type="password" 
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full bg-slate-950 border border-white/5 rounded-2xl h-14 pl-12 pr-5 text-sm text-white placeholder:text-slate-700 outline-none focus:border-primary/50 focus:ring-4 focus:ring-primary/5 transition-all"
+                    required
+                  />
+                </div>
               </div>
             </div>
 
@@ -158,7 +237,11 @@ export const Auth: React.FC = () => {
             <button 
               type="submit" 
               disabled={loading}
-              className="w-full bg-primary h-14 rounded-2xl flex items-center justify-center gap-3 text-white font-black uppercase tracking-widest text-[11px] shadow-2xl shadow-primary/30 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:pointer-events-none"
+              className={`w-full h-14 rounded-2xl flex items-center justify-center gap-3 text-white font-black uppercase tracking-widest text-[11px] shadow-2xl transition-all disabled:opacity-50 disabled:pointer-events-none hover:scale-[1.02] active:scale-[0.98] ${
+                isSignUp && role === 'educator' 
+                  ? 'bg-emerald-500 shadow-emerald-500/30' 
+                  : 'bg-primary shadow-primary/30'
+              }`}
             >
               {loading ? (
                 <Loader2 size={18} className="animate-spin" />

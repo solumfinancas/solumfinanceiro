@@ -82,11 +82,13 @@ export const ClientsTab: React.FC<ClientsTabProps> = ({
 
       if (error) throw error;
 
-      const formattedClients: ClientProfile[] = (data || []).map(item => ({
-        ...(item.profiles as any),
-        link_status: item.status,
-        linked_at: item.created_at
-      }));
+      const formattedClients: ClientProfile[] = (data || [])
+        .filter(item => (item.profiles as any)?.id !== profile.id)
+        .map(item => ({
+          ...(item.profiles as any),
+          link_status: item.status,
+          linked_at: item.created_at
+        }));
 
       setClients(formattedClients);
     } catch (err: any) {

@@ -136,7 +136,14 @@ export const ManagementPortal: React.FC<ManagementPortalProps> = ({ activeTab = 
 
       const { data: profilesData, error: pError } = await pQuery;
       if (pError) throw pError;
-      setProfiles(profilesData || []);
+      
+      // Para educadores, filtramos o próprio perfil (auto-vínculo) para não aparecer como cliente
+      // Para Admins e outros cargos de gestão, mostramos todos para fins de contagem e auditoria
+      const finalProfiles = (profilesData || []).filter(p => {
+        if (profile?.role === 'educator') return p.id !== profile?.id;
+        return true;
+      });
+      setProfiles(finalProfiles);
       
       // Fetch all profiles for reference (names in tags)
       const { data: allP } = await supabase.from('profiles').select('*');
