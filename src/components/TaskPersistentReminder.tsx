@@ -6,9 +6,10 @@ import { isPast, parseISO, isToday } from 'date-fns';
 
 interface TaskPersistentReminderProps {
   onViewTasks: () => void;
+  isTasksTab?: boolean;
 }
 
-export const TaskPersistentReminder: React.FC<TaskPersistentReminderProps> = ({ onViewTasks }) => {
+export const TaskPersistentReminder: React.FC<TaskPersistentReminderProps> = ({ onViewTasks, isTasksTab }) => {
   const { tasks } = useFinance();
 
   const pendingTasks = tasks.filter(t => !t.completed);
@@ -82,17 +83,19 @@ export const TaskPersistentReminder: React.FC<TaskPersistentReminderProps> = ({ 
                   </span>
                </div>
 
-               <button 
-                onClick={onViewTasks}
-                className={`flex items-center gap-2 px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-95 shadow-lg ${
-                  hasOverdueTasks 
-                    ? 'bg-destructive text-white shadow-destructive/20' 
-                    : 'bg-amber-500 text-white shadow-amber-500/20'
-                }`}
-               >
-                 Ver Tarefas
-                 <ArrowRight size={16} />
-               </button>
+               {!isTasksTab && (
+                 <button 
+                  onClick={onViewTasks}
+                  className={`flex items-center gap-2 px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-95 shadow-lg ${
+                    hasOverdueTasks 
+                      ? 'bg-destructive text-white shadow-destructive/20' 
+                      : 'bg-amber-500 text-white shadow-amber-500/20'
+                  }`}
+                 >
+                   Ver Tarefas
+                   <ArrowRight size={16} />
+                 </button>
+               )}
             </div>
           </div>
         </div>

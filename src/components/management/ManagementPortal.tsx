@@ -708,7 +708,7 @@ export const ManagementPortal: React.FC<ManagementPortalProps> = ({ activeTab = 
                                         </button>
                                       )}
 
-                                      {p.role === 'user' && ['admin', 'master_admin', 'secretary'].includes(profile?.role || '') && (
+                                      {['user', 'educator', 'admin', 'master_admin'].includes(p.role) && ['admin', 'master_admin', 'secretary'].includes(profile?.role || '') && (
                                         <button 
                                           onClick={() => {
                                             setEducatorToLink(p);
@@ -1103,7 +1103,6 @@ export const ManagementPortal: React.FC<ManagementPortalProps> = ({ activeTab = 
                </div>
                <div className="flex-1 overflow-y-auto pr-2 space-y-3 mb-8 custom-scrollbar">
                   {availableUsers
-                    .filter(u => u.id !== educatorToLink?.id) // Prevent linking to self
                     .map((u) => (
                     <button key={u.id} onClick={() => {
                       if (linkMode === 'client_to_educator') {

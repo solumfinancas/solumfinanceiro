@@ -66,6 +66,7 @@ export const Tasks: React.FC = () => {
 
   const effectiveUserId = viewingUserId || user?.id;
   const isImpersonating = !!viewingUserId;
+  const canManage = isImpersonating || (profile?.role !== 'user' && educatorId === user?.id);
 
   const [newTask, setNewTask] = useState({
     title: '',
@@ -550,7 +551,7 @@ export const Tasks: React.FC = () => {
                          )}
                        </button>
 
-                       {isImpersonating && !task.archived && (
+                       {canManage && !task.archived && (
                          <>
                            <button 
                              onClick={(e) => {
@@ -577,7 +578,7 @@ export const Tasks: React.FC = () => {
                          </>
                        )}
 
-                       {isImpersonating && (task.completed || task.archived) && (
+                       {canManage && (task.completed || task.archived) && (
                          <button 
                            onClick={(e) => {
                              e.stopPropagation();
@@ -825,7 +826,7 @@ export const Tasks: React.FC = () => {
                          Chat {(selectedTask as any).commentCount > 0 ? `(${(selectedTask as any).commentCount})` : ''}
                        </button>
 
-                       {isImpersonating && !selectedTask.archived && (
+                       {canManage && !selectedTask.archived && (
                          <>
                            <button 
                              onClick={() => {
@@ -852,7 +853,7 @@ export const Tasks: React.FC = () => {
                          </>
                        )}
 
-                       {isImpersonating && (selectedTask.completed || selectedTask.archived) && (
+                       {canManage && (selectedTask.completed || selectedTask.archived) && (
                          <button 
                            onClick={() => archiveTask(selectedTask.id, !selectedTask.archived)}
                            className={cn(

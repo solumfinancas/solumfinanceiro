@@ -251,7 +251,10 @@ const AppContent = () => {
         {/* Lembretes e Avisos Globais */}
         <div className="max-w-[1600px] mx-auto space-y-4 mb-6">
           <OverduePersistentReminder />
-          <TaskPersistentReminder onViewTasks={() => setActiveTab('tasks')} />
+          <TaskPersistentReminder 
+            onViewTasks={() => setActiveTab('tasks')} 
+            isTasksTab={!viewingManagement && activeTab === 'tasks'}
+          />
         </div>
 
         {/* Impersonation Banner */}
