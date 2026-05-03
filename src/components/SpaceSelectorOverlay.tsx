@@ -37,15 +37,15 @@ export const SpaceSelectorOverlay: React.FC<SpaceSelectorOverlayProps> = ({ isOp
   };
 
   return (
-    <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-[#020617] overflow-hidden">
+    <div className="fixed inset-0 z-[1000] bg-[#020617] overflow-y-auto custom-scrollbar">
       {/* Background Effects */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/20 rounded-full blur-[120px] animate-pulse" />
         <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-500/10 rounded-full blur-[120px] animate-pulse" />
         <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-[0.03] mix-blend-overlay" />
       </div>
 
-      <div className="relative w-full max-w-6xl px-6 py-12 flex flex-col items-center text-center">
+      <div className="relative w-full max-w-6xl mx-auto px-6 py-12 min-h-full flex flex-col items-center justify-center text-center">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
