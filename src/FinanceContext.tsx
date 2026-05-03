@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { Transaction, Category, Wallet, ProfileType } from './types';
 import { supabase } from './lib/supabase';
 import { useAuth } from './contexts/AuthContext';
@@ -29,7 +29,7 @@ interface FinanceContextType {
   updateActivity: (type: 'access' | 'update') => Promise<void>;
   includeCategoryLimits: boolean;
   setIncludeCategoryLimits: (v: boolean) => void;
-  seedCategories: (space: 'personal' | 'business') => Promise<void>;
+  seedCategories: (space: 'personal' | 'business', targetUserId?: string) => Promise<void>;
   orderedCards: string[];
   orderedAccounts: string[];
   saveWalletOrder: (cards: string[], accounts: string[]) => Promise<void>;
@@ -79,7 +79,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [wallets, setWallets] = useState<Wallet[]>([]);
+  const [rawWallets, setRawWallets] = useState<Wallet[]>([]);
   const [activeSpace, setActiveSpace] = useState<'personal' | 'business'>('personal');
   const [isSpaceInitialized, setIsSpaceInitialized] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
@@ -139,7 +139,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         .order('created_at');
       if (walErr) throw walErr;
       const fetchedWallets = wals || [];
-      setWallets(fetchedWallets);
+      setRawWallets(fetchedWallets);
 
       // 3. Carregar Ordenação do user_metadata
       if (user.user_metadata) {
@@ -238,6 +238,70 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   }, [fetchData, isSpaceInitialized]);
 
+  // Realtime Sync for Wallets, Categories and Transactions
+  useEffect(() => {
+    if (!effectiveUserId || !isSpaceInitialized) return;
+
+    const channel = supabase
+      .channel(`finance_sync_${effectiveUserId}_${activeSpace}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'wallets',
+        filter: `userId=eq.${effectiveUserId}`
+      }, (payload) => {
+        if (payload.eventType === 'INSERT') {
+          setRawWallets(prev => {
+            if (prev.some(w => w.id === payload.new.id)) return prev;
+            return [...prev, payload.new as Wallet];
+          });
+        } else if (payload.eventType === 'UPDATE') {
+          setRawWallets(prev => prev.map(w => w.id === payload.new.id ? { ...w, ...payload.new } : w));
+        } else if (payload.eventType === 'DELETE') {
+          setRawWallets(prev => prev.filter(w => w.id !== payload.old.id));
+        }
+      })
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'categories',
+        filter: `userId=eq.${effectiveUserId}`
+      }, (payload) => {
+        if (payload.eventType === 'INSERT') {
+          setCategories(prev => {
+            if (prev.some(c => c.id === payload.new.id)) return prev;
+            return [...prev, payload.new as Category];
+          });
+        } else if (payload.eventType === 'UPDATE') {
+          setCategories(prev => prev.map(c => c.id === payload.new.id ? { ...c, ...payload.new } : c));
+        } else if (payload.eventType === 'DELETE') {
+          setCategories(prev => prev.filter(c => c.id !== payload.old.id));
+        }
+      })
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'transactions',
+        filter: `userId=eq.${effectiveUserId}`
+      }, (payload) => {
+        if (payload.eventType === 'INSERT') {
+          setTransactions(prev => {
+            if (prev.some(t => t.id === payload.new.id)) return prev;
+            return [payload.new as Transaction, ...prev];
+          });
+        } else if (payload.eventType === 'UPDATE') {
+          setTransactions(prev => prev.map(t => t.id === payload.new.id ? { ...t, ...payload.new } : t));
+        } else if (payload.eventType === 'DELETE') {
+          setTransactions(prev => prev.filter(t => t.id !== payload.old.id));
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [effectiveUserId, activeSpace, isSpaceInitialized]);
+
   useEffect(() => {
     if (theme === 'dark') {
       document.documentElement.classList.add('dark');
@@ -250,44 +314,35 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     localStorage.setItem('includeCategoryLimits', JSON.stringify(includeCategoryLimits));
   }, [includeCategoryLimits]);
 
-  useEffect(() => {
-    setWallets(prevWallets => {
-      let changed = false;
-      const newWallets = prevWallets.map(w => {
-        const txSum = transactions.reduce((sum, t) => {
-          let balanceChange = 0;
-          const isCreditCard = w.type === 'credit_card';
-          
-          const isExpenseType = t.type === 'expense' || t.type === 'planned' || t.type === 'provision';
-          const isIncomeType = t.type === 'income';
-
-          const shouldCountExpense = isCreditCard ? isExpenseType : (t.isPaid !== false && isExpenseType);
-          const shouldCountIncome = isCreditCard ? isIncomeType : (t.isPaid !== false && isIncomeType);
-
-          if (t.walletId === w.id) {
-            if (shouldCountIncome) balanceChange += t.amount;
-            if (shouldCountExpense) balanceChange -= t.amount;
-            if (t.type === 'transfer') balanceChange -= t.amount;
-          }
-
-          const isInvoicePayment = t.description.toLowerCase().includes('pagamento de fatura');
-          if ((t.type === 'transfer' || t.type === 'provision' || (isCreditCard && isInvoicePayment)) && t.toWalletId === w.id) {
-            balanceChange += t.amount;
-          }
-
-          return sum + balanceChange;
-        }, 0);
+  const wallets = useMemo(() => {
+    return rawWallets.map(w => {
+      const txSum = transactions.reduce((sum, t) => {
+        let balanceChange = 0;
+        const isCreditCard = w.type === 'credit_card';
         
-        const calculatedBalance = (w.initialBalance || 0) + txSum;
-        if (w.balance !== calculatedBalance) {
-          changed = true;
-          return { ...w, balance: calculatedBalance };
+        const isExpenseType = t.type === 'expense' || t.type === 'planned' || t.type === 'provision';
+        const isIncomeType = t.type === 'income';
+
+        const shouldCountExpense = isCreditCard ? isExpenseType : (t.isPaid !== false && isExpenseType);
+        const shouldCountIncome = isCreditCard ? isIncomeType : (t.isPaid !== false && isIncomeType);
+
+        if (t.walletId === w.id) {
+          if (shouldCountIncome) balanceChange += t.amount;
+          if (shouldCountExpense) balanceChange -= t.amount;
+          if (t.type === 'transfer') balanceChange -= t.amount;
         }
-        return w;
-      });
-      return changed ? newWallets : prevWallets;
+
+        const isInvoicePayment = t.description.toLowerCase().includes('pagamento de fatura');
+        if ((t.type === 'transfer' || t.type === 'provision' || (isCreditCard && isInvoicePayment)) && t.toWalletId === w.id) {
+          balanceChange += t.amount;
+        }
+
+        return sum + balanceChange;
+      }, 0);
+      
+      return { ...w, balance: (w.initialBalance || 0) + txSum };
     });
-  }, [transactions, wallets]);
+  }, [transactions, rawWallets]);
 
   const toggleTheme = () => setTheme(prev => prev === 'light' ? 'dark' : 'light');
 
@@ -373,7 +428,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         created_at: new Date(baseTime + (txs.length - index)).toISOString()
       } as any;
 
-      const wallet = wallets.find(w => w.id === tx.walletId);
+      const wallet = rawWallets.find(w => w.id === tx.walletId);
       
       if (wallet?.type === 'credit_card') {
         tx.isPaid = true;
@@ -446,7 +501,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       const walletId = txToUpdate.walletId || currentTx?.walletId;
       const date = txToUpdate.date || currentTx?.date;
       
-      const wallet = wallets.find(w => w.id === walletId);
+      const wallet = rawWallets.find(w => w.id === walletId);
       if (wallet?.type === 'credit_card') {
         txToUpdate.isPaid = true;
         if (!txToUpdate.invoiceMonth && date) {
@@ -488,15 +543,25 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const addCategory = async (c: Omit<Category, 'id'>) => {
     if (!effectiveUserId) return;
-    const { data, error } = await supabase
-      .from('categories')
-      .insert([{ ...c, userId: effectiveUserId, space: activeSpace, isActive: true }])
-      .select()
-      .single();
     
-    if (error) throw error;
-    setCategories(prev => [...prev, data]);
-    updateActivity('update');
+    const tempId = 'temp-' + Date.now();
+    const optimisticCat = { ...c, id: tempId, userId: effectiveUserId, space: activeSpace, isActive: true } as Category;
+    setCategories(prev => [...prev, optimisticCat]);
+
+    try {
+      const { data, error } = await supabase
+        .from('categories')
+        .insert([{ ...c, userId: effectiveUserId, space: activeSpace, isActive: true }])
+        .select()
+        .single();
+      
+      if (error) throw error;
+      setCategories(prev => prev.map(cat => cat.id === tempId ? data : cat));
+      updateActivity('update');
+    } catch (err) {
+      setCategories(prev => prev.filter(cat => cat.id !== tempId));
+      throw err;
+    }
   };
 
   const toggleCategoryActive = async (id: string) => {
@@ -571,18 +636,30 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const addWallet = async (w: Omit<Wallet, 'id'>) => {
     if (!effectiveUserId) return;
-    const { data, error } = await supabase
-      .from('wallets')
-      .insert([{ ...w, userId: effectiveUserId, space: activeSpace }])
-      .select()
-      .single();
     
-    if (error) throw error;
-    setWallets(prev => [...prev, data]);
-    updateActivity('update');
+    const tempId = 'temp-' + Date.now();
+    const optimisticWallet = { ...w, id: tempId, userId: effectiveUserId, space: activeSpace, balance: w.initialBalance || 0 } as Wallet;
+    setRawWallets(prev => [...prev, optimisticWallet]);
+
+    try {
+      const { data, error } = await supabase
+        .from('wallets')
+        .insert([{ ...w, userId: effectiveUserId, space: activeSpace }])
+        .select()
+        .single();
+      
+      if (error) throw error;
+      setRawWallets(prev => prev.map(wal => wal.id === tempId ? data : wal));
+      updateActivity('update');
+    } catch (err) {
+      setRawWallets(prev => prev.filter(wal => wal.id !== tempId));
+      throw err;
+    }
   };
 
   const updateWallet = async (id: string, updatedWallet: Partial<Wallet>) => {
+    setRawWallets(prev => prev.map(w => w.id === id ? { ...w, ...updatedWallet } as Wallet : w));
+
     const { data, error } = await supabase
       .from('wallets')
       .update(updatedWallet)
@@ -591,13 +668,16 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       .single();
     
     if (error) throw error;
-    setWallets(prev => prev.map(w => w.id === id ? data : w));
+    setRawWallets(prev => prev.map(w => w.id === id ? data : w));
     updateActivity('update');
   };
 
    const toggleWalletActive = async (id: string) => {
-     const wal = wallets.find(w => w.id === id);
+     const wal = rawWallets.find(w => w.id === id);
      if (!wal) return;
+
+     setRawWallets(prev => prev.map(w => w.id === id ? { ...w, isActive: !w.isActive } : w));
+
      const { data, error } = await supabase
        .from('wallets')
        .update({ isActive: !wal.isActive })
@@ -606,7 +686,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
        .single();
      
      if (error) throw error;
-     setWallets(prev => prev.map(w => w.id === id ? data : w));
+     setRawWallets(prev => prev.map(w => w.id === id ? data : w));
      updateActivity('update');
    };
  
@@ -621,7 +701,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
        if (error) throw error;
 
        // ATUALIZAÇÃO: Mantemos no estado com isDeleted para preservar histórico
-       setWallets(prev => prev.map(w => w.id === id ? { ...w, isDeleted: true, isActive: false } : w));
+       setRawWallets(prev => prev.map(w => w.id === id ? { ...w, isDeleted: true, isActive: false } : w));
      } else {
        const { error } = await supabase
          .from('wallets')
@@ -629,7 +709,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
          .eq('id', id);
        if (error) throw error;
 
-       setWallets(prev => prev.filter(w => w.id !== id));
+       setRawWallets(prev => prev.filter(w => w.id !== id));
      }
      
      updateActivity('update');
@@ -655,12 +735,13 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   };
 
-  const seedCategories = async (space: 'personal' | 'business') => {
-    if (!effectiveUserId) return;
+  const seedCategories = async (space: 'personal' | 'business', targetUserId?: string) => {
+    const userId = targetUserId || effectiveUserId;
+    if (!userId) return;
     try {
       const seedData = INITIAL_CATEGORIES_TEMPLATE.map(c => ({ 
         ...c, 
-        userId: effectiveUserId, 
+        userId: userId, 
         space: space 
       }));
 
@@ -672,8 +753,8 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       
       if (error) throw error;
       
-      // Se o espaço semeado for o ativo, atualiza o estado local
-      if (space === activeSpace) {
+      // Se o espaço semeado for o ativo e for para o próprio usuário, atualiza o estado local
+      if (!targetUserId && space === activeSpace) {
         setCategories(data || []);
       }
     } catch (err) {

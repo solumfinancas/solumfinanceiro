@@ -41,7 +41,7 @@ export const SpaceActivationModal: React.FC<SpaceActivationModalProps> = ({
     try {
       // 1. Semear categorias se solicitado
       if (seedOption === 'yes') {
-        await seedCategories(spaceType);
+        await seedCategories(spaceType, targetUserId);
       }
 
       // 2. Marcar espaço como inicializado no metadata do usuário

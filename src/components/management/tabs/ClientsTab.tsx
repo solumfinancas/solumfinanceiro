@@ -33,6 +33,8 @@ import { SpaceActivationModal } from '../../SpaceActivationModal';
 interface ClientProfile extends Profile {
   link_status: 'active' | 'inactive' | 'archived';
   linked_at: string;
+  inactivated_at?: string;
+  archived_at?: string;
 }
 
 interface ClientsTabProps {
@@ -82,6 +84,8 @@ export const ClientsTab: React.FC<ClientsTabProps> = ({
         .select(`
           status,
           created_at,
+          inactivated_at,
+          archived_at,
           profiles:client_id (*)
         `)
         .eq('educator_id', profile.id);
@@ -93,10 +97,15 @@ export const ClientsTab: React.FC<ClientsTabProps> = ({
         .map(item => ({
           ...(item.profiles as any),
           link_status: item.status,
-          linked_at: item.created_at
+          linked_at: item.created_at,
+          inactivated_at: item.inactivated_at,
+          archived_at: item.archived_at
         }));
 
       setClients(formattedClients);
+      
+      // Executar automações de arquivamento e reset
+      processAutomations(formattedClients);
     } catch (err: any) {
       console.error('Erro ao buscar clientes:', err);
       showAlert('Erro', 'Não foi possível carregar seus clientes.', 'danger');
@@ -169,6 +178,14 @@ export const ClientsTab: React.FC<ClientsTabProps> = ({
     setUpdatingId(clientId);
     setIsSyncing(true);
     try {
+      const updateData: any = { status: newStatus };
+      if (newStatus === 'inactive') updateData.inactivated_at = new Date().toISOString();
+      if (newStatus === 'archived') updateData.archived_at = new Date().toISOString();
+      if (newStatus === 'active') {
+        updateData.inactivated_at = null;
+        updateData.archived_at = null;
+      }
+
       // 1. Chamar Edge Function para suspensão global e sincronização automática
       if (newStatus === 'inactive' || newStatus === 'active') {
         const isSuspending = newStatus === 'inactive';
@@ -183,11 +200,20 @@ export const ClientsTab: React.FC<ClientsTabProps> = ({
         });
         
         if (funcError || funcData?.error) throw new Error(funcError?.message || funcData?.error);
+        
+        // Sincronizar timestamps localmente no educator_clients
+        const { error: timeError } = await supabase
+          .from('educator_clients')
+          .update(updateData)
+          .eq('educator_id', profile?.id)
+          .eq('client_id', clientId);
+          
+        if (timeError) throw timeError;
       } else {
         // Se for arquivamento ou algo que não afeta a suspensão global
         const { error: linkError } = await supabase
           .from('educator_clients')
-          .update({ status: newStatus })
+          .update(updateData)
           .eq('educator_id', profile?.id)
           .eq('client_id', clientId);
 
@@ -195,7 +221,7 @@ export const ClientsTab: React.FC<ClientsTabProps> = ({
       }
 
       setClients(prev => prev.map(c => 
-        c.id === clientId ? { ...c, link_status: newStatus } : c
+        c.id === clientId ? { ...c, ...updateData, link_status: newStatus } : c
       ));
       
       showAlert('Sucesso', 'Status do cliente atualizado e sincronizado.', 'success');
@@ -208,6 +234,55 @@ export const ClientsTab: React.FC<ClientsTabProps> = ({
       setUpdatingId(null);
       setActiveMenuId(null);
       setIsSyncing(false);
+    }
+  };
+
+  const handleResetUserData = async (clientId: string) => {
+    try {
+      const { error } = await supabase.rpc('reset_user_data', { target_user_id: clientId });
+      if (error) throw error;
+      
+      // Atualizar o timestamp de arquivamento para o momento do reset
+      await supabase
+        .from('educator_clients')
+        .update({ archived_at: new Date().toISOString() })
+        .eq('client_id', clientId);
+
+      showAlert('Limpeza Automática', 'Os dados de um cliente arquivado há mais de 30 dias foram resetados.', 'success');
+      fetchClients();
+    } catch (err) {
+      console.error('Erro ao resetar dados:', err);
+    }
+  };
+
+  const processAutomations = async (clientsToProcess: ClientProfile[]) => {
+    const thirtyDays = 30 * 24 * 60 * 60 * 1000;
+    const now = new Date();
+
+    for (const client of clientsToProcess) {
+      // 1. Inativos > 30 dias -> Arquivar
+      if (client.link_status === 'inactive' && client.inactivated_at) {
+        const inactiveTime = now.getTime() - new Date(client.inactivated_at).getTime();
+        if (inactiveTime > thirtyDays) {
+          console.log(`Auto-arquivando cliente: ${client.full_name}`);
+          await handleUpdateStatus(client.id, 'archived');
+          return; // Processar um por vez para evitar sobrecarga
+        }
+      }
+
+      // 2. Arquivados > 30 dias -> Reset
+      if (client.link_status === 'archived' && client.archived_at) {
+        // Verificar se já foi resetado verificando se ainda tem espaços inicializados
+        const hasSpaces = (client.user_metadata?.initialized_spaces || []).length > 0;
+        if (hasSpaces) {
+          const archivedTime = now.getTime() - new Date(client.archived_at).getTime();
+          if (archivedTime > thirtyDays) {
+            console.log(`Auto-resetando dados do cliente: ${client.full_name}`);
+            await handleResetUserData(client.id);
+            return;
+          }
+        }
+      }
     }
   };
 
@@ -529,6 +604,22 @@ export const ClientsTab: React.FC<ClientsTabProps> = ({
                       {client.link_status === 'active' ? 'Ativo' : client.link_status === 'inactive' ? 'Inativo' : 'Arquivado'}
                     </div>
                   </div>
+
+                  {/* Timestamps de Inatividade/Arquivamento */}
+                  {(client.link_status === 'inactive' || client.link_status === 'archived') && (
+                    <div className="px-4 py-2 bg-muted/20 rounded-xl border border-border/50 flex items-center gap-2">
+                      <div className={cn(
+                        "w-1.5 h-1.5 rounded-full animate-pulse",
+                        client.link_status === 'inactive' ? "bg-amber-500" : "bg-slate-500"
+                      )} />
+                      <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">
+                        {client.link_status === 'inactive' ? 'Inativo há ' : 'Arquivado há '}
+                        <span className="text-foreground">
+                          {Math.floor((new Date().getTime() - new Date(client.link_status === 'inactive' ? client.inactivated_at! : client.archived_at!).getTime()) / (1000 * 60 * 60 * 24))} dias
+                        </span>
+                      </p>
+                    </div>
+                  )}
 
                   <button 
                     onClick={() => handleManageWallet(client)}
