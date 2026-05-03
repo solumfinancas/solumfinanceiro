@@ -631,12 +631,12 @@ export const Transactions: React.FC<TransactionsProps> = ({
           </h1>
           <p className="text-muted-foreground text-sm font-medium leading-none mt-1">Gerencie suas receitas, despesas e transferências financeiros</p>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="flex items-center p-1 bg-muted/50 rounded-2xl border border-border/30 h-14 shadow-inner">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
+          <div className="flex items-center p-1 bg-muted/50 rounded-2xl border border-border/30 h-14 shadow-inner w-full sm:w-auto">
             <button
                onClick={() => { setViewModeContas('contas'); setViewMode('combined'); }}
                className={cn(
-                 "flex items-center gap-2 px-6 h-full rounded-xl transition-all text-[10px] font-black uppercase tracking-widest whitespace-nowrap",
+                 "flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 sm:px-6 h-full rounded-xl transition-all text-[10px] font-black uppercase tracking-widest whitespace-nowrap",
                  viewModeContas === 'contas' ? "bg-background text-primary shadow-sm" : "text-muted-foreground hover:bg-muted"
                )}
             >
@@ -645,7 +645,7 @@ export const Transactions: React.FC<TransactionsProps> = ({
             <button
                onClick={() => { setViewModeContas('cartoes'); setViewMode('combined'); }}
                className={cn(
-                 "flex items-center gap-2 px-6 h-full rounded-xl transition-all text-[10px] font-black uppercase tracking-widest whitespace-nowrap",
+                 "flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 sm:px-6 h-full rounded-xl transition-all text-[10px] font-black uppercase tracking-widest whitespace-nowrap",
                  viewModeContas === 'cartoes' ? "bg-background text-primary shadow-sm" : "text-muted-foreground hover:bg-muted"
                )}
             >
@@ -657,7 +657,7 @@ export const Transactions: React.FC<TransactionsProps> = ({
               setEditingId(null);
               setIsModalOpen(true);
             }}
-            className="flex items-center gap-2 px-8 h-14 rounded-2xl bg-primary text-white hover:scale-105 transition-all shadow-lg shadow-primary/25 text-xs font-black uppercase tracking-widest active:scale-95 whitespace-nowrap"
+            className="flex items-center justify-center gap-2 w-full sm:w-auto px-6 sm:px-8 h-14 rounded-2xl bg-primary text-white hover:scale-105 transition-all shadow-lg shadow-primary/25 text-xs font-black uppercase tracking-widest active:scale-95 whitespace-nowrap"
           >
             <Plus size={18} />
             Novo Lançamento
@@ -737,8 +737,8 @@ export const Transactions: React.FC<TransactionsProps> = ({
             className="w-full pl-10 pr-4 py-2.5 bg-muted/20 border border-border/30 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all text-sm font-medium"
           />
         </div>
-        <div className="flex flex-wrap gap-2 items-center">
-          <div className="flex gap-1 bg-muted/40 p-1 border border-border/30 rounded-2xl overflow-x-auto max-w-full shadow-inner">
+        <div className="flex items-center w-full md:w-auto">
+          <div className="flex gap-1 bg-muted/40 p-1 border border-border/30 rounded-2xl overflow-x-auto w-full md:max-w-full shadow-inner scrollbar-hide">
             {(['all', 'income', 'expense', 'transfer', 'provision', 'planned'] as const).map((f) => (
               <button
                 key={f}
@@ -762,8 +762,8 @@ export const Transactions: React.FC<TransactionsProps> = ({
         </div>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-4 items-center justify-between bg-card border rounded-2xl p-4 shadow-sm">
-        <div className="flex items-center gap-3 w-full sm:w-auto">
+      <div className="flex flex-col lg:flex-row gap-4 items-center justify-between bg-card border rounded-2xl p-4 shadow-sm">
+        <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
           {viewModeContas === 'contas' && (
             <div className="flex bg-muted/50 border rounded-lg p-0.5">
               <button
@@ -788,7 +788,7 @@ export const Transactions: React.FC<TransactionsProps> = ({
               </button>
             </div>
           )}
-          <div className="flex-1 sm:flex-none min-w-[200px]">
+          <div className="flex-1 sm:flex-none min-w-[140px] sm:min-w-[200px]">
             <CustomSelect 
               options={[
                 { id: 'all', name: viewModeContas === 'cartoes' ? 'Todos os Cartões' : 'Geral (Contas)', icon: 'Layers' },
@@ -806,7 +806,7 @@ export const Transactions: React.FC<TransactionsProps> = ({
               placeholder={viewModeContas === 'cartoes' ? "Selecionar Cartão" : "Selecionar Conta"}
             />
           </div>
-          <div className="flex-1 sm:flex-none min-w-[120px]">
+          <div className="flex-1 sm:flex-none min-w-[80px] sm:min-w-[120px]">
             <CustomSelect 
               options={availableYears.map(year => ({ id: year.toString(), name: year.toString() }))}
               value={filterYear.toString()}
@@ -814,7 +814,7 @@ export const Transactions: React.FC<TransactionsProps> = ({
               placeholder="Ano"
             />
           </div>
-          <div className="flex-1 sm:flex-none min-w-[150px]">
+          <div className="flex-1 sm:flex-none min-w-[100px] sm:min-w-[150px]">
             <CustomSelect 
               options={[
                 { id: 'all', name: 'Ano Todo' },
@@ -828,7 +828,7 @@ export const Transactions: React.FC<TransactionsProps> = ({
               placeholder="Mês"
             />
           </div>
-          <div className="flex-1 sm:flex-none min-w-[180px]">
+          <div className="flex-1 sm:flex-none min-w-[140px] sm:min-w-[180px]">
             <CustomSelect 
               options={[
                 { id: 'all', name: 'Todas Classificações', icon: 'Layers' },

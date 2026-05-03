@@ -367,7 +367,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
               initial={{ scale: 0.95, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.95, opacity: 0, y: 20 }}
-              className="relative bg-card w-full max-w-lg rounded-3xl shadow-2xl border p-8 max-h-[90vh] overflow-y-auto"
+              className="relative bg-card w-full max-w-lg rounded-3xl shadow-2xl border p-5 sm:p-8 max-h-[90vh] overflow-y-auto"
             >
               <div className="flex items-center justify-between mb-6">
                   <h2 className="text-2xl font-bold">{isInvoicePayment ? 'Editar Pagamento de Fatura' : (editingTransaction ? 'Editar Lançamento' : 'Novo Lançamento')}</h2>
@@ -717,13 +717,13 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                   </div>
                 )}
 
-                <div className="grid grid-cols-2 gap-4 pt-4 border-t">
-                  <button type="button" onClick={onClose} className="px-4 h-12 rounded-xl font-black uppercase text-[10px] tracking-widest border border-border hover:bg-muted transition-all active:scale-95 shadow-sm">Cancelar</button>
+                <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t">
+                  <button type="button" onClick={onClose} className="flex-1 px-4 h-12 rounded-xl font-black uppercase text-[10px] tracking-widest border border-border hover:bg-muted transition-all active:scale-95 shadow-sm">Cancelar</button>
                   <button 
                     type="submit" 
                     disabled={isSubmitting}
                     className={cn(
-                      "px-4 h-12 rounded-xl font-black uppercase text-[10px] tracking-widest bg-primary text-white shadow-lg shadow-primary/20 transition-all",
+                      "flex-1 px-4 h-12 rounded-xl font-black uppercase text-[10px] tracking-widest bg-primary text-white shadow-lg shadow-primary/20 transition-all",
                       isSubmitting ? "opacity-50 cursor-not-allowed" : "hover:scale-[1.02] active:scale-[0.98]"
                     )}
                   >
