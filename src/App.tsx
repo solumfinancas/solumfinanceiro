@@ -39,6 +39,14 @@ const AppContent = () => {
     return sessionStorage.getItem('solum_session_view') as 'finance' | 'management' | null;
   });
 
+  // Reset scroll to top on tab change
+  React.useEffect(() => {
+    const mainElement = document.querySelector('main');
+    if (mainElement) {
+      mainElement.scrollTo(0, 0);
+    }
+  }, [activeTab, managementTab, viewingManagement]);
+
 
   // Check setup status and set initial view
   React.useEffect(() => {
