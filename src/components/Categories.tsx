@@ -1280,6 +1280,18 @@ export const Categories: React.FC = () => {
                             </div>
                             <div className="flex items-center gap-1.5 flex-wrap overflow-hidden">
                               <span className="font-bold text-[11px] uppercase tracking-tight truncate max-w-[200px]">{t.description}</span>
+                              {(() => {
+                                const wallet = wallets.find(w => w.id === t.walletId);
+                                const isInvoicePayment = (t.description?.toLowerCase() || '').includes('pagamento de fatura');
+                                const isRefund = t.type === 'income' && wallet?.type === 'credit_card';
+                                if (isInvoicePayment || isRefund) {
+                                  return <span className="text-[7px] bg-rose-500/10 text-rose-500 px-1 py-0.5 rounded uppercase font-black border border-rose-500/20 shrink-0">Fatura</span>;
+                                }
+                                if (t.type === 'planned') {
+                                  return <span className="text-[7px] bg-yellow-500/10 text-yellow-500 px-1 py-0.5 rounded uppercase font-black border border-yellow-500/20 shrink-0">Planejada</span>;
+                                }
+                                return null;
+                              })()}
                             </div>
                             {t.groupId && t.type === 'expense' && (
                               <div className={cn(
@@ -1358,11 +1370,33 @@ export const Categories: React.FC = () => {
                              <span className={cn("font-black text-sm tracking-tighter", t.type === 'income' ? "text-emerald-500" : "text-rose-500")}>
                                {t.type === 'income' ? '+' : '-'} {formatCurrency(t.amount)}
                              </span>
+                             {t.recurrenceNumber && (
+                               <span className="text-[7px] font-bold text-orange-500 uppercase tracking-tighter">
+                                 {t.recurrenceNumber.current} de {t.recurrenceNumber.total}
+                               </span>
+                             )}
+                             {t.isContinuous && (
+                               <span className="text-[7px] font-bold text-slate-500 uppercase tracking-tighter flex items-center gap-1">
+                                 <RefreshCw size={7} /> Ciclo
+                               </span>
+                             )}
                              {t.isPaid === false && wallets.find(w => w.id === t.walletId)?.type !== 'credit_card' && <span className="text-[7px] font-black uppercase text-amber-500 tracking-tighter">Pendente</span>}
                           </div>
-                          <span className={cn("hidden md:block font-black text-base tracking-tighter", t.type === 'income' ? "text-emerald-500" : "text-rose-500")}>
-                            {formatCurrency(t.amount)}
-                          </span>
+                          <div className="hidden md:flex flex-col items-end">
+                            <span className={cn("font-black text-base tracking-tighter", t.type === 'income' ? "text-emerald-500" : "text-rose-500")}>
+                              {formatCurrency(t.amount)}
+                            </span>
+                            {t.recurrenceNumber && (
+                              <span className="text-[9px] font-bold text-orange-500 uppercase tracking-tighter">
+                                {t.recurrenceNumber.current} de {t.recurrenceNumber.total}
+                              </span>
+                            )}
+                            {t.isContinuous && (
+                              <span className="text-[9px] font-bold text-slate-500 uppercase tracking-tighter flex items-center gap-1">
+                                <RefreshCw size={8} /> Ciclo
+                              </span>
+                            )}
+                          </div>
                           <div className="flex gap-1">
                             {(() => {
                               const wallet = wallets.find(w => w.id === t.walletId);

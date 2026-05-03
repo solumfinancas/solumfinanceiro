@@ -265,6 +265,54 @@ export const Transactions: React.FC<TransactionsProps> = ({
     setIsSelectionMode(!isSelectionMode);
   };
 
+  const handleRenewUntilDecember = async (tx: Transaction) => {
+    const confirmed = await showConfirm(
+      'Renovar Lançamento',
+      'Deseja renovar este lançamento mensal até Dezembro do ANO SEGUINTE?',
+      { variant: 'info', confirmText: 'Renovar' }
+    );
+    
+    if (confirmed) {
+      const [y, m, d] = tx.date.split('-').map(Number);
+      const startYear = y;
+      
+      let currentY = startYear;
+      let currentM = m + 1;
+      
+      // Criar lançamentos do mês seguinte até Dezembro do ano seguinte
+      while (currentY <= startYear + 1) {
+        if (currentM > 12) {
+          currentM = 1;
+          currentY++;
+        }
+        
+        if (currentY > startYear + 1) break;
+        if (currentY === startYear + 1 && currentM > 12) break;
+
+        const lastDayOfMonth = new Date(currentY, currentM, 0).getDate();
+        const effectiveDay = Math.min(d, lastDayOfMonth);
+        const newDate = `${currentY}-${String(currentM).padStart(2, '0')}-${String(effectiveDay).padStart(2, '0')}`;
+        
+        const isLastOne = (currentY === startYear + 1 && currentM === 12);
+        
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { id, ...txData } = tx;
+        addTransaction({
+          ...txData,
+          date: newDate,
+          isPaid: false,
+          paidDate: null,
+          requiresRenewal: isLastOne,
+          created_at: new Date().toISOString()
+        });
+        
+        currentM++;
+      }
+      
+      updateTransaction(tx.id, { ...tx, requiresRenewal: false });
+    }
+  };
+
   const handleRenewContinuous = async (tx: Transaction) => {
     const confirmed = await showConfirm(
       'Renovar Lançamento Contínuo',
@@ -277,13 +325,16 @@ export const Transactions: React.FC<TransactionsProps> = ({
       for(let i = 1; i <= 12; i++) {
           const currDate = new Date(baseDate);
           currDate.setUTCMonth(currDate.getUTCMonth() + i);
-          const txToSave: any = {
-            ...tx,
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          const { id, ...txData } = tx;
+          addTransaction({
+            ...txData,
             date: currDate.toISOString().split('T')[0],
-            requiresRenewal: i === 12, // The next december
-          };
-          delete (txToSave as any).id;
-          addTransaction(txToSave);
+            isPaid: false,
+            paidDate: null,
+            requiresRenewal: i === 12, // The next renewal point
+            created_at: new Date().toISOString()
+          });
       }
       updateTransaction(tx.id, { ...tx, requiresRenewal: false });
     }
@@ -375,22 +426,20 @@ export const Transactions: React.FC<TransactionsProps> = ({
                           Pago: {new Date(t.paidDate + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
                         </span>
                       )}
-                      {t.isContinuous && (
-                        <span className="text-[8px] sm:text-[9px] font-black text-slate-500 uppercase tracking-widest ml-4 sm:ml-5 items-center flex gap-1">
-                          <RefreshCw size={8} /> Ciclo
-                        </span>
-                      )}
-                      {t.recurrenceNumber && (
-                        <span className="text-[8px] sm:text-[9px] font-black text-primary uppercase tracking-widest ml-4 sm:ml-5">
-                          {t.recurrenceNumber.current}/{t.recurrenceNumber.total}
-                        </span>
-                      )}
                     </div>
                   </div>
                 </td>
                 <td className="px-2 sm:px-6 py-2 sm:py-4 text-xs sm:text-sm font-medium">
                   <div className="flex flex-col">
-                    <span className="leading-tight sm:leading-normal">{t.description}</span>
+                    <div className="flex items-center flex-wrap gap-2">
+                      <span className="leading-tight sm:leading-normal">{t.description}</span>
+                      {(isInvoicePayment || isRefund) && (
+                        <span className="text-[8px] bg-rose-500/10 text-rose-500 px-1.5 py-0.5 rounded-md uppercase font-black border border-rose-500/20 shrink-0">Fatura</span>
+                      )}
+                      {t.type === 'planned' && (
+                        <span className="text-[8px] bg-yellow-500/10 text-yellow-500 px-1.5 py-0.5 rounded-md uppercase font-black border border-yellow-500/20 shrink-0">Planejada</span>
+                      )}
+                    </div>
                     
                     {/* Mobile consolidated info */}
                     <div className="flex flex-wrap gap-x-2 gap-y-1 mt-1 md:hidden">
@@ -545,6 +594,16 @@ export const Transactions: React.FC<TransactionsProps> = ({
                       {isInvoicePayment ? '-' : (t.type === 'income' || (t.toWalletId && wallets.find(w => w.id === t.toWalletId)?.type === 'credit_card')) ? '+' : ["expense", "provision", "planned"].includes(t.type) ? '-' : ''}
                       {formatCurrency(t.amount)}
                     </span>
+                    {t.recurrenceNumber && (
+                      <span className="text-[8px] sm:text-[9px] font-bold text-orange-500 uppercase tracking-tighter">
+                        {t.recurrenceNumber.current} de {t.recurrenceNumber.total}
+                      </span>
+                    )}
+                    {t.isContinuous && (
+                      <span className="text-[8px] sm:text-[9px] font-bold text-slate-500 uppercase tracking-tighter flex items-center gap-1">
+                        <RefreshCw size={8} /> Ciclo
+                      </span>
+                    )}
                     {t.isPaid === false && <span className="text-[7px] font-black uppercase text-amber-500 md:hidden tracking-tighter">Pendente</span>}
                   </div>
                 </td>
@@ -564,6 +623,27 @@ export const Transactions: React.FC<TransactionsProps> = ({
                             {t.isPaid === false ? <ThumbsDown size={14} className="sm:w-[18px] sm:h-[18px]" /> : <ThumbsUp size={14} className="sm:w-[18px] sm:h-[18px]" />}
                           </button>
                         );
+                    })()}
+                    {(() => {
+                      const isLastInCycle = t.isContinuous && !transactions.some(other => 
+                        other.description === t.description && 
+                        other.categoryId === t.categoryId &&
+                        other.date > t.date &&
+                        other.isContinuous
+                      );
+
+                      if (isLastInCycle) {
+                        return (
+                          <button 
+                            onClick={() => handleRenewUntilDecember(t)}
+                            className="p-1.5 sm:p-2 text-red-500 hover:bg-red-500/10 rounded-lg transition-all"
+                            title="Renovar até Dezembro do ano seguinte"
+                          >
+                            <RefreshCw size={14} className="sm:w-[18px] sm:h-[18px]" />
+                          </button>
+                        );
+                      }
+                      return null;
                     })()}
                     <button 
                       onClick={() => handleEditTransaction(t)}
