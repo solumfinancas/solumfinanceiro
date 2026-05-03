@@ -21,12 +21,14 @@ import {
   User,
   Building2,
   ArrowRight,
-  Briefcase
+  Briefcase,
+  Rocket
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../../../lib/utils';
 import { useModal } from '../../../contexts/ModalContext';
 import { useFinance } from '../../../FinanceContext';
+import { SpaceActivationModal } from '../../SpaceActivationModal';
 
 interface ClientProfile extends Profile {
   link_status: 'active' | 'inactive' | 'archived';
@@ -64,6 +66,10 @@ export const ClientsTab: React.FC<ClientsTabProps> = ({
   const [suspensionReason, setSuspensionReason] = useState('');
   const [isSyncing, setIsSyncing] = useState(false);
   const [spaceSelectionClient, setSpaceSelectionClient] = useState<ClientProfile | null>(null);
+  const [noSpaceClient, setNoSpaceClient] = useState<ClientProfile | null>(null);
+  const [showActivationSelector, setShowActivationSelector] = useState(false);
+  const [activatingSpaceType, setActivatingSpaceType] = useState<'personal' | 'business' | null>(null);
+  const [showActivationModal, setShowActivationModal] = useState(false);
 
   const CLIENT_LIMIT = 10;
 
@@ -219,10 +225,8 @@ export const ClientsTab: React.FC<ClientsTabProps> = ({
       impersonateUser(client.id);
       showAlert('Modo Gestão', `Acessando Espaço ${spaces[0] === 'personal' ? 'Pessoal' : 'Empresarial'} de ${client.full_name}`, 'success');
     } else {
-      // Fallback: Default to personal if somehow no spaces are initialized in metadata
-      setActiveSpace('personal');
-      impersonateUser(client.id);
-      showAlert('Modo Gestão', `Acessando finanças de ${client.full_name}`, 'success');
+      // Caso não tenha espaços ativos, mostrar aviso
+      setNoSpaceClient(client);
     }
   };
 
@@ -713,6 +717,171 @@ export const ClientsTab: React.FC<ClientsTabProps> = ({
           </div>
         )}
       </AnimatePresence>
+      
+      {/* No Space Warning Modal */}
+      <AnimatePresence>
+        {noSpaceClient && !showActivationSelector && !showActivationModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm"
+              onClick={() => setNoSpaceClient(null)}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-md bg-card border border-border rounded-[3rem] p-8 shadow-2xl overflow-hidden"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 rounded-full blur-3xl -mr-16 -mt-16" />
+              
+              <div className="relative space-y-8 text-center">
+                <div className="flex flex-col items-center gap-4">
+                  <div className="w-20 h-20 rounded-[2rem] bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500 shadow-xl shadow-amber-500/5">
+                    <ShieldAlert size={40} />
+                  </div>
+                  <div className="space-y-1">
+                    <h2 className="text-2xl font-black uppercase tracking-tighter text-foreground">
+                      Espaço Não Ativo
+                    </h2>
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest leading-relaxed">
+                      O cliente <span className="text-foreground">{noSpaceClient.full_name}</span> ainda não possui nenhum espaço financeiro ativado.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-3">
+                  <button 
+                    onClick={() => setShowActivationSelector(true)}
+                    className="w-full h-16 rounded-2xl bg-primary text-white text-[11px] font-black uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-95 shadow-lg shadow-primary/20 flex items-center justify-center gap-3"
+                  >
+                    Ativar Espaço Agora
+                    <ArrowRight size={18} />
+                  </button>
+                  <button 
+                    onClick={() => setNoSpaceClient(null)}
+                    className="w-full h-14 rounded-2xl bg-muted text-muted-foreground text-[10px] font-black uppercase tracking-widest transition-all hover:bg-muted/80"
+                  >
+                    Voltar
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Activation Type Selector Modal */}
+      <AnimatePresence>
+        {showActivationSelector && noSpaceClient && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-slate-950/60 backdrop-blur-md"
+              onClick={() => setShowActivationSelector(false)}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-lg bg-card border border-border rounded-[3rem] p-8 shadow-2xl overflow-hidden"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-3xl -mr-16 -mt-16" />
+              
+              <div className="relative space-y-8">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <Rocket className="text-primary" size={20} />
+                      <span className="text-[10px] font-black uppercase tracking-[0.3em] text-primary">Ativação de Espaço</span>
+                    </div>
+                    <h2 className="text-2xl font-black uppercase tracking-tighter text-foreground">
+                      Qual espaço ativar?
+                    </h2>
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest leading-relaxed">
+                      Selecione o tipo de espaço que deseja inicializar para <span className="text-foreground">{noSpaceClient.full_name}</span>.
+                    </p>
+                  </div>
+                  <button 
+                    onClick={() => setShowActivationSelector(false)}
+                    className="w-10 h-10 rounded-xl bg-muted border border-border flex items-center justify-center text-muted-foreground hover:text-rose-500 transition-all"
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <button
+                    onClick={() => {
+                      setActivatingSpaceType('personal');
+                      setShowActivationModal(true);
+                      setShowActivationSelector(false);
+                    }}
+                    className={cn(
+                      "group relative p-6 rounded-[2rem] border transition-all duration-300 text-left overflow-hidden",
+                      noSpaceClient.user_metadata?.gender === 'female'
+                        ? "bg-pink-500/5 border-pink-500/20 hover:border-pink-500/50 hover:bg-pink-500/10"
+                        : "bg-blue-500/5 border-blue-500/20 hover:border-blue-500/50 hover:bg-blue-500/10"
+                    )}
+                  >
+                    <div className={cn(
+                      "w-12 h-12 rounded-2xl flex items-center justify-center mb-4 transition-all group-hover:scale-110 shadow-lg",
+                      noSpaceClient.user_metadata?.gender === 'female' ? "bg-pink-500/10 text-pink-500" : "bg-blue-500/10 text-blue-500"
+                    )}>
+                      <User size={24} />
+                    </div>
+                    <h4 className="text-sm font-black uppercase tracking-tighter text-foreground mb-1">Pessoal</h4>
+                    <p className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest">Contas individuais</p>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setActivatingSpaceType('business');
+                      setShowActivationModal(true);
+                      setShowActivationSelector(false);
+                    }}
+                    className="group relative p-6 rounded-[2rem] border border-slate-900/20 bg-slate-900/5 hover:border-slate-900/50 hover:bg-slate-900/10 dark:border-white/20 dark:bg-white/5 dark:hover:border-white/50 dark:hover:bg-white/10 transition-all duration-300 text-left overflow-hidden"
+                  >
+                    <div className="w-12 h-12 rounded-2xl bg-slate-900/10 dark:bg-white/10 text-slate-900 dark:text-white flex items-center justify-center mb-4 transition-all group-hover:scale-110 shadow-lg">
+                      <Building2 size={24} />
+                    </div>
+                    <h4 className="text-sm font-black uppercase tracking-tighter text-foreground mb-1">Empresarial</h4>
+                    <p className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest">Contas de negócio</p>
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Actual Space Activation Modal */}
+      {showActivationModal && activatingSpaceType && noSpaceClient && (
+        <SpaceActivationModal
+          isOpen={showActivationModal}
+          onClose={() => {
+            setShowActivationModal(false);
+            setNoSpaceClient(null);
+            setActivatingSpaceType(null);
+          }}
+          spaceType={activatingSpaceType}
+          targetUserId={noSpaceClient.id}
+          targetUserMetadata={noSpaceClient.user_metadata}
+          onConfirm={() => {
+            setShowActivationModal(false);
+            setNoSpaceClient(null);
+            setActivatingSpaceType(null);
+            fetchClients(); // Atualiza a lista para mostrar o novo espaço
+            showAlert('Sucesso', 'Espaço ativado com sucesso para o cliente.', 'success');
+          }}
+        />
+      )}
     </div>
   );
 };
