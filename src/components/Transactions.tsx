@@ -47,8 +47,8 @@ export const Transactions: React.FC<TransactionsProps> = ({
   initialFilter, setInitialFilter, 
   initialTypeFilter, setInitialTypeFilter 
 }) => {
-  const { transactions, categories, wallets, addTransaction, deleteTransaction, updateTransaction } = useFinance();
-  const { showConfirm } = useModal();
+  const { transactions, categories, wallets, addTransaction, addTransactions, deleteTransaction, updateTransaction } = useFinance();
+  const { showConfirm, showAlert } = useModal();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [filter, setFilter] = useState<TransactionType | 'all'>('all');
   const [filterMonth, setFilterMonth] = useState<number | 'all'>(new Date().getMonth() + 1);
@@ -107,6 +107,7 @@ export const Transactions: React.FC<TransactionsProps> = ({
   // Edit State
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingRefund, setEditingRefund] = useState<Transaction | null>(null);
+  const [isRenewing, setIsRenewing] = useState(false);
 
   // Initial Filter Listener
   useEffect(() => {
@@ -122,6 +123,12 @@ export const Transactions: React.FC<TransactionsProps> = ({
       if (setInitialFilter) setInitialFilter('all');
     }
   }, [initialFilter, setInitialFilter, initialTypeFilter, setInitialTypeFilter]);
+
+  // Reset selection when filters change to prevent ghosting/stale selections
+  useEffect(() => {
+    setSelectedIds([]);
+    setIsSelectionMode(false);
+  }, [filterYear, filterMonth, filter, selectedWalletId, viewModeContas, isFilteringPastPending, necessityFilter, searchTerm]);
 
   const availableYears = useMemo(() => getAvailableYears(transactions), [transactions]);
 
@@ -157,14 +164,28 @@ export const Transactions: React.FC<TransactionsProps> = ({
       let effectiveMonth: number | 'all' = 0;
       let effectiveYear = 0;
 
-      effectiveMonth = Number(tm_str);
-      effectiveYear = Number(ty_str);
+      const isCardTx = wallet?.type === 'credit_card' && !isInvoicePayment;
+
+      if (isCardTx && wallet?.closingDay && wallet?.dueDay) {
+        // Para cartões, usamos a competência da fatura (invoiceMonth/Year se houver, ou calculamos)
+        if (t.invoiceMonth && t.invoiceYear) {
+          effectiveMonth = t.invoiceMonth;
+          effectiveYear = t.invoiceYear;
+        } else {
+          const period = getInvoicePeriod(wallet.closingDay, wallet.dueDay, new Date(t.date + 'T12:00:00'));
+          effectiveMonth = period.due.getUTCMonth() + 1;
+          effectiveYear = period.due.getUTCFullYear();
+        }
+      } else {
+        // Para contas normais, usamos a data do lançamento
+        effectiveMonth = Number(tm_str);
+        effectiveYear = Number(ty_str);
+      }
       
       const matchesYear = effectiveYear === filterYear;
       const matchesMonth = filterMonth === 'all' || effectiveMonth === filterMonth;
       const matchesStatus = (showPaid && t.isPaid) || (showPending && !t.isPaid);
       
-      const isCardTx = wallet?.type === 'credit_card' && !isInvoicePayment;
       const isBankTx = wallet?.type !== 'credit_card' || isInvoicePayment;
 
       const matchesWallet = selectedWalletId === 'all' || t.walletId === selectedWalletId || (t.toWalletId && t.toWalletId === selectedWalletId);
@@ -266,50 +287,71 @@ export const Transactions: React.FC<TransactionsProps> = ({
   };
 
   const handleRenewUntilDecember = async (tx: Transaction) => {
+    if (isRenewing) return;
+
+    const [y, , d] = tx.date.split('-').map(Number);
+    const targetYear = y + 1;
+
     const confirmed = await showConfirm(
       'Renovar Lançamento',
-      'Deseja renovar este lançamento mensal até Dezembro do ANO SEGUINTE?',
-      { variant: 'info', confirmText: 'Renovar' }
+      `Deseja renovar este lançamento mensal para TODO O ANO de ${targetYear} (Janeiro a Dezembro)?`,
+      { variant: 'info', confirmText: 'Renovar Ciclo' }
     );
     
     if (confirmed) {
-      const [y, m, d] = tx.date.split('-').map(Number);
-      const startYear = y;
-      
-      let currentY = startYear;
-      let currentM = m + 1;
-      
-      // Criar lançamentos do mês seguinte até Dezembro do ano seguinte
-      while (currentY <= startYear + 1) {
-        if (currentM > 12) {
-          currentM = 1;
-          currentY++;
+      setIsRenewing(true);
+      try {
+        const toAdd: any[] = [];
+        
+        // Sempre gera 12 meses para o ano seguinte
+        for (let m = 1; m <= 12; m++) {
+          const monthStr = String(m).padStart(2, '0');
+          const monthKey = `${targetYear}-${monthStr}`;
+          
+          // Verificação de segurança robusta
+          const alreadyExists = transactions.some(other => 
+            other.description === tx.description && 
+            other.walletId === tx.walletId &&
+            Math.abs(other.amount - tx.amount) < 0.01 && // Compare numbers precisely
+            other.date.startsWith(monthKey) &&
+            !other.isDeleted
+          );
+
+          if (!alreadyExists) {
+            const lastDay = new Date(targetYear, m, 0).getDate();
+            const day = Math.min(d, lastDay);
+            const newDate = `${targetYear}-${monthStr}-${String(day).padStart(2, '0')}`;
+            
+            const isLast = (m === 12);
+            
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            const { id, created_at, category, wallet, ...txData } = tx as any;
+            toAdd.push({
+              ...txData,
+              date: newDate,
+              isPaid: false,
+              paidDate: null,
+              requiresRenewal: isLast,
+              isContinuous: true // Mark as continuous if it's a cycle
+            });
+          }
         }
         
-        if (currentY > startYear + 1) break;
-        if (currentY === startYear + 1 && currentM > 12) break;
-
-        const lastDayOfMonth = new Date(currentY, currentM, 0).getDate();
-        const effectiveDay = Math.min(d, lastDayOfMonth);
-        const newDate = `${currentY}-${String(currentM).padStart(2, '0')}-${String(effectiveDay).padStart(2, '0')}`;
-        
-        const isLastOne = (currentY === startYear + 1 && currentM === 12);
-        
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const { id, ...txData } = tx;
-        addTransaction({
-          ...txData,
-          date: newDate,
-          isPaid: false,
-          paidDate: null,
-          requiresRenewal: isLastOne,
-          created_at: new Date().toISOString()
-        });
-        
-        currentM++;
+        if (toAdd.length > 0) {
+          await addTransactions(toAdd);
+          showAlert('Sucesso', `${toAdd.length} lançamentos criados com sucesso para o ano de ${targetYear}.`, 'success');
+          // Desativar o botão de renovação no item original para evitar cliques extras
+          await updateTransaction(tx.id, { ...tx, requiresRenewal: false });
+        } else {
+          showAlert('Aviso', `Os lançamentos para o ano de ${targetYear} já existem.`, 'info');
+          await updateTransaction(tx.id, { ...tx, requiresRenewal: false });
+        }
+      } catch (err: any) {
+        console.error('Erro detalhado na renovação:', err);
+        showAlert('Erro', `Erro ao processar renovação: ${err.message || 'Erro desconhecido'}. Tente novamente.`, 'danger');
+      } finally {
+        setIsRenewing(false);
       }
-      
-      updateTransaction(tx.id, { ...tx, requiresRenewal: false });
     }
   };
 
@@ -321,22 +363,32 @@ export const Transactions: React.FC<TransactionsProps> = ({
     );
     
     if (confirmed) {
-      const baseDate = new Date(tx.date);
+      const baseDate = new Date(tx.date + 'T12:00:00');
+      const toAdd: any[] = [];
+
       for(let i = 1; i <= 12; i++) {
           const currDate = new Date(baseDate);
           currDate.setUTCMonth(currDate.getUTCMonth() + i);
+          
           // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          const { id, ...txData } = tx;
-          addTransaction({
+          const { id, created_at, category, wallet, ...txData } = tx as any;
+          toAdd.push({
             ...txData,
             date: currDate.toISOString().split('T')[0],
             isPaid: false,
             paidDate: null,
-            requiresRenewal: i === 12, // The next renewal point
-            created_at: new Date().toISOString()
+            requiresRenewal: i === 12
           });
       }
-      updateTransaction(tx.id, { ...tx, requiresRenewal: false });
+
+      try {
+        await addTransactions(toAdd);
+        await updateTransaction(tx.id, { ...tx, requiresRenewal: false });
+        showAlert('Sucesso', 'Lançamento contínuo renovado com sucesso.', 'success');
+      } catch (err) {
+        console.error('Erro ao renovar lançamento contínuo:', err);
+        showAlert('Erro', 'Erro ao renovar. Tente novamente.', 'danger');
+      }
     }
   };
   
@@ -418,7 +470,7 @@ export const Transactions: React.FC<TransactionsProps> = ({
                   <div className="flex flex-col gap-0.5">
                     <div className="flex items-center gap-1 sm:gap-2">
                       <Calendar size={12} className="text-muted-foreground shrink-0 hidden sm:block" />
-                      <span className="font-bold sm:font-normal text-[10px] sm:text-sm">{formatDate(t.date).split('/')[0]}/{formatDate(t.date).split('/')[1]}</span>
+                      <span className="font-bold sm:font-normal text-[10px] sm:text-sm">{formatDate(t.date)}</span>
                     </div>
                     <div className="hidden sm:flex flex-col gap-0.5">
                       {t.isPaid && t.paidDate && wallets.find(w => w.id === t.walletId)?.type !== 'credit_card' && (
@@ -594,6 +646,11 @@ export const Transactions: React.FC<TransactionsProps> = ({
                       {isInvoicePayment ? '-' : (t.type === 'income' || (t.toWalletId && wallets.find(w => w.id === t.toWalletId)?.type === 'credit_card')) ? '+' : ["expense", "provision", "planned"].includes(t.type) ? '-' : ''}
                       {formatCurrency(t.amount)}
                     </span>
+                    {t.type === 'planned' && (
+                      <span className="text-[8px] sm:text-[9px] font-bold text-yellow-500 uppercase tracking-tighter">
+                        Planejada
+                      </span>
+                    )}
                     {t.recurrenceNumber && (
                       <span className="text-[8px] sm:text-[9px] font-bold text-orange-500 uppercase tracking-tighter">
                         {t.recurrenceNumber.current} de {t.recurrenceNumber.total}
@@ -625,19 +682,15 @@ export const Transactions: React.FC<TransactionsProps> = ({
                         );
                     })()}
                     {(() => {
-                      const isLastInCycle = t.isContinuous && !transactions.some(other => 
-                        other.description === t.description && 
-                        other.categoryId === t.categoryId &&
-                        other.date > t.date &&
-                        other.isContinuous
-                      );
-
-                      if (isLastInCycle) {
+                      const isDecember = t.date.split('-')[1] === '12';
+                      
+                      // O botão aparece apenas em lançamentos de Dezembro que fazem parte de um ciclo
+                      if (t.isContinuous && isDecember) {
                         return (
                           <button 
                             onClick={() => handleRenewUntilDecember(t)}
                             className="p-1.5 sm:p-2 text-red-500 hover:bg-red-500/10 rounded-lg transition-all"
-                            title="Renovar até Dezembro do ano seguinte"
+                            title="Renovar Ciclo (Próximo Ano)"
                           >
                             <RefreshCw size={14} className="sm:w-[18px] sm:h-[18px]" />
                           </button>
@@ -971,8 +1024,11 @@ export const Transactions: React.FC<TransactionsProps> = ({
         </div>
       )}
 
-      {/* Transactions Lists */}
-      <div className="space-y-4">
+      {/* Transactions Lists - Key forces re-mount on filter change to prevent DOM ghosting */}
+      <div 
+        key={`${filterYear}-${filterMonth}-${viewModeContas}-${selectedWalletId}-${isFilteringPastPending}-${necessityFilter}`}
+        className="space-y-4"
+      >
         {viewMode === 'separated' ? (
           <>
             <div>

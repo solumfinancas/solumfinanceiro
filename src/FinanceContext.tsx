@@ -291,17 +291,19 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const toggleTheme = () => setTheme(prev => prev === 'light' ? 'dark' : 'light');
 
-  const addTransaction = async (t: Omit<Transaction, 'id'>) => {
+  const addTransaction = async (tx: any) => {
     if (!user) return;
     
-    let txToInsert = { ...t };
-    
-    const wallet = wallets.find(w => w.id === txToInsert.walletId);
-    if (wallet?.type === 'credit_card') {
+    // Clean joined fields that shouldn't be inserted
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { id, category, wallet, created_at: _ca, ...txToInsert } = tx;
+
+    const walletData = wallets.find(w => w.id === txToInsert.walletId);
+    if (walletData?.type === 'credit_card') {
       txToInsert.isPaid = true; 
       
       if (!txToInsert.invoiceMonth || !txToInsert.invoiceYear) {
-        const period = getInvoicePeriod(wallet.closingDay || 5, wallet.dueDay || 15, new Date(txToInsert.date + 'T12:00:00'));
+        const period = getInvoicePeriod(walletData.closingDay || 5, walletData.dueDay || 15, new Date(txToInsert.date + 'T12:00:00'));
         txToInsert.invoiceMonth = period.due.getUTCMonth() + 1;
         txToInsert.invoiceYear = period.due.getUTCFullYear();
       }
@@ -309,6 +311,16 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     if (txToInsert.isPaid && !txToInsert.paidDate) {
       txToInsert.paidDate = new Date().toISOString().split('T')[0];
     }
+
+    // Prevent duplicates
+    const alreadyExists = transactions.some(t => 
+      t.description === txToInsert.description && 
+      t.date === txToInsert.date && 
+      t.walletId === txToInsert.walletId && 
+      t.amount === txToInsert.amount &&
+      !t.isDeleted
+    );
+    if (alreadyExists) return;
 
     const tempId = 'temp-' + Date.now();
     const optimisticTx = { 
@@ -341,7 +353,19 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     if (!user) return;
     
     const baseTime = Date.now();
-    const txsToInsert = txs.map((t, index) => {
+    
+    // Filter out transactions that already exist in the local state
+    const uniqueTxs = txs.filter(newTx => !transactions.some(t => 
+      t.description === newTx.description && 
+      t.date === newTx.date && 
+      t.walletId === newTx.walletId && 
+      t.amount === newTx.amount &&
+      !t.isDeleted
+    ));
+
+    if (uniqueTxs.length === 0) return;
+
+    const txsToInsert = uniqueTxs.map((t, index) => {
       const tx = { 
         ...t, 
         userId: effectiveUserId, 
@@ -364,6 +388,8 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         tx.paidDate = new Date().toISOString().split('T')[0];
       }
       delete tx.id;
+      delete tx.category;
+      delete tx.wallet;
       return tx;
     });
 
