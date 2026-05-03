@@ -681,27 +681,27 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, setTxFilter,
 
                 {/* Monthly Budget Vision */}
                <div className="mt-8 p-6 bg-muted/20 border border-border/40 rounded-[2rem] flex flex-col gap-8 shadow-inner">
-                  <div className="flex items-center justify-between border-b border-border/40 pb-4">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-border/40 pb-6 gap-6">
                      <div className="flex flex-col gap-1">
                         <span className="text-[10px] font-black uppercase tracking-widest opacity-40 italic">Orçamento Mensal</span>
-                        <div className="flex items-center gap-2">
-                           <span className="text-xs font-black uppercase text-primary">{budgetVision.monthName}</span>
+                        <div className="flex flex-wrap items-center gap-3">
+                           <span className="text-sm font-black uppercase text-primary shrink-0">{budgetVision.monthName}</span>
                            <div className="flex items-center gap-2">
                               <button 
                                  type="button"
                                  onClick={() => setBudgetOffset(prev => Math.max(0, prev - 1))}
                                  disabled={budgetOffset === 0}
-                                 className="p-2.5 hover:bg-muted bg-muted/30 rounded-xl transition-all disabled:opacity-30 border border-border/20 shadow-sm"
+                                 className="p-2 hover:bg-muted bg-muted/30 rounded-xl transition-all disabled:opacity-30 border border-border/20 shadow-sm"
                                  title="Mês Anterior"
                               >
-                                 <ChevronLeft size={20} />
+                                 <ChevronLeft size={18} />
                               </button>
                               
                               <button 
                                  type="button"
                                  onClick={() => setBudgetOffset(0)}
                                  className={cn(
-                                    "px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border shadow-sm",
+                                    "px-3 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border shadow-sm",
                                     budgetOffset === 0 
                                        ? "bg-primary text-white border-primary" 
                                        : "bg-muted/30 text-muted-foreground border-border/20 hover:bg-muted"
@@ -709,22 +709,22 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, setTxFilter,
                               >
                                  Hoje
                               </button>
-
+ 
                               <button 
                                  type="button"
                                  onClick={() => setBudgetOffset(prev => Math.min(11, prev + 1))}
                                  disabled={budgetOffset === 11}
-                                 className="p-2.5 hover:bg-muted bg-muted/30 rounded-xl transition-all disabled:opacity-30 border border-border/20 shadow-sm"
+                                 className="p-2 hover:bg-muted bg-muted/30 rounded-xl transition-all disabled:opacity-30 border border-border/20 shadow-sm"
                                  title="Próximo Mês"
                               >
-                                 <ChevronRight size={20} />
+                                 <ChevronRight size={18} />
                               </button>
                            </div>
                         </div>
                      </div>
-                     <div className="text-right">
+                     <div className="text-left md:text-right border-t md:border-t-0 border-border/10 pt-4 md:pt-0">
                         <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 block mb-1">Total que vai precisar</span>
-                        <span className="text-2xl font-black tracking-tighter text-primary">
+                        <span className="text-2xl md:text-3xl font-black tracking-tighter text-primary">
                            {formatCurrency(budgetVision.totalNeeded)}
                         </span>
                      </div>
@@ -961,8 +961,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, setTxFilter,
                   <button onClick={() => setActiveTab('categories')} className="text-[10px] font-black uppercase tracking-widest text-primary hover:underline">Ver Categorias</button>
                </div>
 
-               <div className="h-[240px] w-full flex items-center">
-                  <div className="w-1/2 h-full">
+               <div className="min-h-[240px] w-full flex flex-col md:flex-row items-center gap-6 md:gap-0">
+                  <div className="w-full md:w-1/2 h-[240px]">
                      <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
                            <Pie
@@ -992,26 +992,26 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, setTxFilter,
                         </PieChart>
                      </ResponsiveContainer>
                   </div>
-                  <div className="w-1/2 flex flex-col justify-center px-4">
+                  <div className="w-full md:w-1/2 flex flex-col justify-center px-0 md:px-4">
                      <div className="space-y-3">
                         {topSpendingData.map((item, i) => (
                            <div 
                               key={i} 
-                              className="flex items-center justify-between cursor-pointer hover:bg-muted/30 p-1 rounded-lg transition-colors"
+                              className="flex items-center justify-between cursor-pointer hover:bg-muted/30 p-1.5 rounded-lg transition-colors"
                               onClick={() => {
                                  const cat = categories.find(c => c.name === item.name);
                                  if (cat) setSelectedCategoryDetail(cat);
                               }}
                            >
-                              <div className="flex items-center gap-2 overflow-hidden">
+                              <div className="flex items-center gap-2 overflow-hidden flex-1">
                                  <IconRenderer
                                     icon={categories.find(c => c.name === item.name)?.icon || 'Tag'}
                                     color={COLORS[i % COLORS.length]}
-                                    size={20}
+                                    size={18}
                                  />
-                                 <span className="text-[10px] font-bold truncate uppercase">{item.name}</span>
+                                 <span className="text-[10px] font-bold truncate md:whitespace-normal uppercase flex-1">{item.name}</span>
                               </div>
-                              <span className="text-[10px] font-black">{formatCurrency(item.value)}</span>
+                              <span className="text-[10px] font-black ml-2 shrink-0">{formatCurrency(item.value)}</span>
                            </div>
                         ))}
                         {topSpendingData.length === 0 && (
@@ -1087,19 +1087,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, setTxFilter,
                   </p>
                </div>
 
-               <div className="flex flex-wrap items-center gap-3">
+               <div className="flex flex-wrap items-center gap-3 max-w-full">
                   {/* Back Button (If viewing specific account) */}
                   {reportType === 'conta' && reportWalletId && (
                      <button
                         onClick={() => setReportWalletId(null)}
-                        className="flex items-center gap-2 px-4 h-11 bg-primary text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-lg shadow-primary/20"
+                        className="flex items-center gap-2 px-4 h-11 bg-primary text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-lg shadow-primary/20 shrink-0"
                      >
                         <ArrowRightLeft size={16} /> Trocar Conta
                      </button>
                   )}
 
                   {/* Report Type Toggle */}
-                  <div className="flex bg-muted/50 p-1 rounded-2xl border border-border/30 h-11 shadow-sm">
+                  <div className="flex bg-muted/50 p-1 rounded-2xl border border-border/30 h-11 shadow-sm overflow-x-auto no-scrollbar max-w-full">
                      <button
                         onClick={() => {
                            setReportType('fluxo');
@@ -1139,9 +1139,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, setTxFilter,
 
                   {/* Month/Year Navigation (Only for Single Month view) */}
                   {reportPeriod === 1 && (
-                     <>
+                     <div className="flex flex-wrap items-center gap-3 max-w-full">
                         {reportType !== 'categoria' && (
-                           <div className="flex bg-muted/50 p-1 rounded-2xl border border-border/30 h-11 shadow-sm">
+                           <div className="flex bg-muted/50 p-1 rounded-2xl border border-border/30 h-11 shadow-sm overflow-x-auto no-scrollbar max-w-full">
                            {(['daily', 'weekly', 'monthly'] as const).map(g => (
                               <button
                                  key={g}
@@ -1157,7 +1157,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, setTxFilter,
                            </div>
                         )}
 
-                        <div className="flex items-center bg-muted/50 p-1 rounded-2xl border border-border/30 h-11 shadow-sm">
+                        <div className="flex items-center bg-muted/50 p-1 rounded-2xl border border-border/30 h-11 shadow-sm shrink-0">
                            <button
                               onClick={() => {
                                  const d = new Date(reportReferenceDate);
@@ -1182,12 +1182,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, setTxFilter,
                               <ChevronRight size={16} />
                            </button>
                         </div>
-                     </>
+                     </div>
                   )}
 
                   {/* Period Buttons */}
                   {reportType !== 'categoria' && (
-                     <div className="flex bg-muted/50 p-1 rounded-2xl border border-border/30 h-11 shadow-sm">
+                     <div className="flex bg-muted/50 p-1 rounded-2xl border border-border/30 h-11 shadow-sm overflow-x-auto no-scrollbar max-w-full">
                      <button
                         onClick={() => setReportPeriod(1)}
                         className={cn(
@@ -1459,37 +1459,37 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, setTxFilter,
                               </span>
                            </div>
 
-                           <div className="overflow-hidden rounded-[2rem] border border-border/50 bg-muted/10 backdrop-blur-sm shadow-sm">
-                              <table className="w-full text-left border-collapse">
+                           <div className="overflow-x-auto custom-scrollbar rounded-[2rem] border border-border/50 bg-muted/10 backdrop-blur-sm shadow-sm">
+                              <table className="w-full text-left border-collapse min-w-[600px]">
                                  <thead>
                                     <tr className="bg-muted/30">
-                                       <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                                       <th className="px-4 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground w-20">
                                           {reportGranularity === 'daily' ? 'Dia' : 'Semana'}
                                        </th>
-                                       <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground text-right">Entradas</th>
-                                       <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground text-right">Saídas</th>
-                                       <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground text-right">Resultado</th>
+                                       <th className="px-4 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground text-right">Entradas</th>
+                                       <th className="px-4 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground text-right">Saídas</th>
+                                       <th className="px-4 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground text-right">Resultado</th>
                                     </tr>
                                  </thead>
                                  <tbody className="divide-y divide-border/30">
                                     {(isPeriodExpanded ? chartData : chartData.slice(0, 5)).map((row, idx) => (
                                        <tr key={idx} className="hover:bg-primary/5 transition-colors group">
-                                          <td className="px-6 py-4">
+                                          <td className="px-4 py-4">
                                              <span className="text-[10px] font-black uppercase tracking-tighter text-foreground group-hover:text-primary transition-colors">
                                                 {row.label}
                                              </span>
                                           </td>
-                                          <td className="px-6 py-4 text-right">
+                                          <td className="px-4 py-4 text-right">
                                              <span className="text-[11px] font-extrabold text-emerald-500">
                                                 {row.income > 0 ? formatCurrency(row.income) : '-'}
                                              </span>
                                           </td>
-                                          <td className="px-6 py-4 text-right">
+                                          <td className="px-4 py-4 text-right">
                                              <span className="text-[11px] font-extrabold text-rose-500">
                                                 {row.expense + row.planned > 0 ? formatCurrency(row.expense + row.planned) : '-'}
                                              </span>
                                           </td>
-                                          <td className="px-6 py-4 text-right">
+                                          <td className="px-4 py-4 text-right">
                                              <div className={cn(
                                                 "inline-flex px-3 py-1 rounded-full text-[10px] font-black uppercase shadow-sm",
                                                 row.balance > 0 ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20" :
@@ -1504,14 +1504,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, setTxFilter,
                                  </tbody>
                                  <tfoot>
                                     <tr className="bg-muted/20 border-t border-border/50">
-                                       <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-foreground">Total Líquido</th>
-                                       <th className="px-6 py-4 text-right text-[11px] font-black text-emerald-600">
+                                       <th className="px-4 py-4 text-[10px] font-black uppercase tracking-widest text-foreground">Total Líquido</th>
+                                       <th className="px-4 py-4 text-right text-[11px] font-black text-emerald-600">
                                           {formatCurrency(chartData.reduce((acc, curr) => acc + curr.income, 0))}
                                        </th>
-                                       <th className="px-6 py-4 text-right text-[11px] font-black text-rose-600">
+                                       <th className="px-4 py-4 text-right text-[11px] font-black text-rose-600">
                                           {formatCurrency(chartData.reduce((acc, curr) => acc + curr.expense + curr.planned, 0))}
                                        </th>
-                                       <th className="px-6 py-4 text-right">
+                                       <th className="px-4 py-4 text-right">
                                           <span className={cn(
                                              "text-sm font-black italic",
                                              chartData[chartData.length - 1].accumulated >= 0 ? "text-emerald-500" : "text-rose-500"
