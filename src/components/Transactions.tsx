@@ -25,7 +25,8 @@ import {
   BellRing, 
   Info, 
   XCircle,
-  X
+  X,
+  ArrowRight
 } from 'lucide-react';
 import { TransactionModal } from './TransactionModal';
 import { RefundEditModal } from './RefundEditModal';
@@ -303,9 +304,9 @@ export const Transactions: React.FC<TransactionsProps> = ({
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="bg-muted/50 text-muted-foreground text-xs uppercase tracking-wider">
+            <tr className="bg-muted/50 text-muted-foreground text-[10px] sm:text-xs uppercase tracking-wider">
               {isSelectionMode && (
-                <th className="px-6 py-4 font-semibold w-12 text-center">
+                <th className="px-2 sm:px-6 py-3 font-semibold w-10 sm:w-12 text-center">
                   <div className="flex items-center justify-center">
                     <input 
                       title="Selecionar todos"
@@ -317,12 +318,12 @@ export const Transactions: React.FC<TransactionsProps> = ({
                   </div>
                 </th>
               )}
-              <th className="px-6 py-4 font-semibold">Data</th>
-              <th className="px-6 py-4 font-semibold">Descrição</th>
-              <th className="px-6 py-4 font-semibold">Categoria</th>
-              <th className="px-6 py-4 font-semibold">Carteira</th>
-              <th className="px-6 py-4 font-semibold text-right">Valor</th>
-              <th className="px-6 py-4 font-semibold text-center">Ações</th>
+              <th className="px-2 sm:px-6 py-3 font-semibold w-12 sm:w-auto"><span className="md:inline hidden">Data</span><span className="md:hidden">Dt.</span></th>
+              <th className="px-2 sm:px-6 py-3 font-semibold">Descrição</th>
+              <th className="px-6 py-3 font-semibold hidden md:table-cell">Categoria</th>
+              <th className="px-6 py-3 font-semibold hidden lg:table-cell">Carteira</th>
+              <th className="px-2 sm:px-6 py-3 font-semibold text-right">Valor</th>
+              <th className="px-2 sm:px-6 py-3 font-semibold text-center w-20 sm:w-auto">Ações</th>
             </tr>
           </thead>
           <tbody className="divide-y">
@@ -351,7 +352,7 @@ export const Transactions: React.FC<TransactionsProps> = ({
                   )}
                 >
                 {isSelectionMode && (
-                  <td className="px-6 py-4 text-center">
+                  <td className="px-2 sm:px-6 py-2 sm:py-4 text-center">
                     <div className="flex items-center justify-center">
                       <input 
                         type="checkbox"
@@ -362,189 +363,176 @@ export const Transactions: React.FC<TransactionsProps> = ({
                     </div>
                   </td>
                 )}
-                <td className="px-6 py-4 text-sm whitespace-nowrap">
+                <td className="px-2 sm:px-6 py-2 sm:py-4 text-xs sm:text-sm whitespace-nowrap">
                   <div className="flex flex-col gap-0.5">
-                    <div className="flex items-center gap-2">
-                      <Calendar size={14} className="text-muted-foreground" />
-                      {formatDate(t.date)}
+                    <div className="flex items-center gap-1 sm:gap-2">
+                      <Calendar size={12} className="text-muted-foreground shrink-0 hidden sm:block" />
+                      <span className="font-bold sm:font-normal text-[10px] sm:text-sm">{formatDate(t.date).split('/')[0]}/{formatDate(t.date).split('/')[1]}</span>
                     </div>
-                    {t.isPaid && t.paidDate && wallets.find(w => w.id === t.walletId)?.type !== 'credit_card' && (
-                      <span className="text-[9px] font-black text-emerald-500 uppercase tracking-widest ml-5">
-                        Pago: {new Date(t.paidDate + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
-                      </span>
-                    )}
-                    {t.isContinuous && (
-                      <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-5 items-center flex gap-1">
-                        <RefreshCw size={8} /> Ciclo
-                      </span>
-                    )}
-                    {t.recurrenceNumber && (
-                      <span className="text-[9px] font-black text-primary uppercase tracking-widest ml-5">
-                        Parcela {t.recurrenceNumber.current} de {t.recurrenceNumber.total}
-                      </span>
-                    )}
+                    <div className="hidden sm:flex flex-col gap-0.5">
+                      {t.isPaid && t.paidDate && wallets.find(w => w.id === t.walletId)?.type !== 'credit_card' && (
+                        <span className="text-[8px] sm:text-[9px] font-black text-emerald-500 uppercase tracking-widest ml-4 sm:ml-5">
+                          Pago: {new Date(t.paidDate + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+                        </span>
+                      )}
+                      {t.isContinuous && (
+                        <span className="text-[8px] sm:text-[9px] font-black text-slate-500 uppercase tracking-widest ml-4 sm:ml-5 items-center flex gap-1">
+                          <RefreshCw size={8} /> Ciclo
+                        </span>
+                      )}
+                      {t.recurrenceNumber && (
+                        <span className="text-[8px] sm:text-[9px] font-black text-primary uppercase tracking-widest ml-4 sm:ml-5">
+                          {t.recurrenceNumber.current}/{t.recurrenceNumber.total}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </td>
-                <td className="px-6 py-4 text-sm font-medium">
+                <td className="px-2 sm:px-6 py-2 sm:py-4 text-xs sm:text-sm font-medium">
                   <div className="flex flex-col">
-                    <span>{t.description}</span>
-                    <div className="flex flex-wrap gap-2 mt-1">
+                    <span className="leading-tight sm:leading-normal">{t.description}</span>
+                    
+                    {/* Mobile consolidated info */}
+                    <div className="flex flex-wrap gap-x-2 gap-y-1 mt-1 md:hidden">
+                       {(() => {
+                          const category = categories.find(c => c.id === t.categoryId);
+                          
+                          return (
+                            <>
+                              {category && (
+                                <div className="flex items-center gap-1 bg-muted/50 px-1 py-0.5 rounded border border-border/20">
+                                  <IconRenderer 
+                                    icon={category.parentId ? (typeof category.parentId === 'object' ? (category.parentId as any).icon : categories.find(p => p.id === category.parentId)?.icon) || category.icon : category.icon} 
+                                    color={category.color} 
+                                    size={10} 
+                                    className="shrink-0"
+                                  />
+                                  <span className="text-[8px] font-black uppercase text-muted-foreground/80">{category.name}</span>
+                                </div>
+                              )}
+                              {(() => {
+                                 const showDouble = isInvoicePayment || t.type === 'transfer' || t.type === 'provision';
+                                 if (!showDouble) {
+                                   const w = wallets.find(item => item.id === t.walletId);
+                                   if (!w) return null;
+                                   return (
+                                     <div className="flex items-center gap-1 bg-muted/50 px-1 py-0.5 rounded border border-border/20">
+                                       <IconRenderer icon={w.logoUrl || w.icon || 'wallet'} color={w.color} size={10} className="shrink-0" />
+                                       <span className="text-[8px] font-black uppercase text-primary/80">{w.name}</span>
+                                     </div>
+                                   );
+                                 }
+
+                                 const sourceW = wallets.find(item => item.id === t.walletId);
+                                 const destW = wallets.find(item => item.id === t.toWalletId);
+
+                                 return (
+                                   <div className="flex items-center gap-1 flex-wrap">
+                                      {sourceW && (
+                                        <div className="flex items-center gap-1 bg-muted/50 px-1 py-0.5 rounded border border-border/20">
+                                          <IconRenderer icon={sourceW.logoUrl || sourceW.icon || 'wallet'} color={sourceW.color} size={10} className="shrink-0" />
+                                          <span className="text-[8px] font-black uppercase text-primary/80">{sourceW.name}</span>
+                                        </div>
+                                      )}
+                                      {(sourceW && destW) && <ArrowRight size={8} className="text-muted-foreground" />}
+                                      {destW && (
+                                        <div className="flex items-center gap-1 bg-muted/50 px-1 py-0.5 rounded border border-border/20">
+                                          <IconRenderer icon={destW.logoUrl || destW.icon || 'wallet'} color={destW.color} size={10} className="shrink-0" />
+                                          <span className="text-[8px] font-black uppercase text-primary/80">{destW.name}</span>
+                                        </div>
+                                      )}
+                                   </div>
+                                 );
+                               })()}
+                            </>
+                          );
+                       })()}
+                    </div>
+
+                    <div className="flex flex-wrap gap-1 mt-1">
                       {filter === 'all' && (
                         <>
-                          {t.type === 'income' && <span className="text-[9px] bg-green-500/10 text-green-500 px-1.5 py-0.5 rounded uppercase font-black border border-green-500/20">Receita</span>}
-                          {t.type === 'expense' && <span className="text-[9px] bg-red-500/10 text-red-500 px-1.5 py-0.5 rounded uppercase font-black border border-red-500/20">Despesa</span>}
-                          {t.type === 'transfer' && <span className="text-[9px] bg-blue-500/10 text-blue-500 px-1.5 py-0.5 rounded uppercase font-black border border-blue-500/20">Transferência</span>}
-                          {t.type === 'provision' && <span className="text-[9px] bg-orange-500/10 text-orange-500 px-1.5 py-0.5 rounded uppercase font-black border border-orange-500/20">Provisão</span>}
-                          {t.type === 'planned' && <span className="text-[9px] bg-yellow-500/10 text-yellow-500 px-1.5 py-0.5 rounded uppercase font-black border border-yellow-500/20">Planejado</span>}
+                          {t.type === 'income' && <span className="text-[8px] sm:text-[9px] bg-green-500/10 text-green-500 px-1 py-0.5 rounded uppercase font-black border border-green-500/20">Rec.</span>}
+                          {t.type === 'expense' && <span className="text-[8px] sm:text-[9px] bg-red-500/10 text-red-500 px-1 py-0.5 rounded uppercase font-black border border-red-500/20">Desp.</span>}
+                          {t.type === 'transfer' && <span className="text-[8px] sm:text-[9px] bg-blue-500/10 text-blue-500 px-1 py-0.5 rounded uppercase font-black border border-blue-500/20">Transf.</span>}
                         </>
                       )}
-                      {t.requiresRenewal && <span className="text-[9px] bg-rose-500/10 text-rose-500 px-1.5 py-0.5 rounded uppercase font-black border border-rose-500/20">Vencendo (Anual)</span>}
+                      {t.requiresRenewal && <span className="text-[8px] sm:text-[9px] bg-rose-500/10 text-rose-500 px-1 py-0.5 rounded uppercase font-black border border-rose-500/20">Anual</span>}
                       {t.groupId && t.type === 'expense' && !isInvoicePayment && (
                         <span className={cn(
-                          "text-[9px] px-1.5 py-0.5 rounded uppercase font-black border",
+                          "text-[8px] sm:text-[9px] px-1 py-0.5 rounded uppercase font-black border",
                           t.necessity === 'necessary' 
                             ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" 
                             : "bg-amber-500/10 text-amber-500 border-amber-500/20"
                         )}>
-                          {t.necessity === 'necessary' ? 'Nec. Recorrente' : 'Desnec. Recorrente'}
+                          {t.necessity === 'necessary' ? 'Nec.' : 'Desnec.'}
                         </span>
                       )}
-                      {!t.groupId && t.type === 'expense' && !isInvoicePayment && (
-                        <span className="text-[9px] bg-slate-500/10 text-slate-500 px-1.5 py-0.5 rounded uppercase font-black border border-slate-500/20">
-                          Variável
-                        </span>
-                      )}
-                      {(isInvoicePayment || isRefund) && (
-                        <span className="text-[9px] bg-pink-500/10 text-pink-500 px-1.5 py-0.5 rounded uppercase font-black border border-pink-500/20">
-                          FATURA
-                        </span>
-                      )}
-                      {showStatusBadge && t.isPaid === false && <span className="text-[9px] bg-amber-500/20 text-amber-500 px-1.5 py-0.5 rounded uppercase font-black border border-amber-500/20">Aguardando {t.type === 'income' ? 'Recebimento' : 'Pagamento'}</span>}
                     </div>
                   </div>
                 </td>
-                <td className="px-6 py-4 text-sm">
+                <td className="px-6 py-4 text-sm hidden md:table-cell">
                   {!['transfer', 'provision'].includes(t.type) && !isInvoicePayment ? (
                     <div className="flex items-center gap-2">
                       {(() => {
                         const category = categories.find(c => c.id === t.categoryId);
                         if (!category) return <span className="text-muted-foreground italic text-[10px] opacity-40">Sem categoria</span>;
-
                         const parentCategory = category.parentId ? (typeof category.parentId === 'object' ? category.parentId : categories.find(p => p.id === category.parentId)) : null;
                         const icon = parentCategory?.icon || category.icon;
-
                         return (
                           <div className="flex items-center gap-2">
-                             <IconRenderer 
-                               icon={icon} 
-                               color={category.color} 
-                               size={24} 
-                               className="rounded-lg shadow-sm border border-border/30" 
-                             />
+                             <IconRenderer icon={icon} color={category.color} size={20} className="rounded-lg shadow-sm border border-border/30" />
                              <div className="flex flex-col">
-                               {category.parentId ? (
-                                 <>
-                                   <span className="text-[8px] font-black uppercase text-muted-foreground/60 -mb-0.5 tracking-wider">
-                                     {parentCategory?.name}
-                                   </span>
-                                   <span className="text-xs font-black uppercase tracking-tighter opacity-80 flex items-center gap-1.5">
-                                     {category.name}
-                                     {category.isDeleted && <span className="text-[8px] text-red-500 font-black px-1.5 py-0 bg-red-500/10 rounded-full border border-red-500/20">EXCLUÍDA</span>}
-                                   </span>
-                                 </>
-                               ) : (
-                                 <span className="text-xs font-black uppercase tracking-tighter opacity-80 flex items-center gap-1.5">
-                                   {category.name}
-                                   {category.isDeleted && <span className="text-[8px] text-red-500 font-black px-1.5 py-0 bg-red-500/10 rounded-full border border-red-500/20">EXCLUÍDA</span>}
-                                 </span>
-                               )}
+                               <span className="text-xs font-black uppercase tracking-tighter opacity-80">{category.name}</span>
                              </div>
                           </div>
                         );
                       })()}
                     </div>
                   ) : (
-                      <div className="flex items-center gap-2">
-                        <span className="text-muted-foreground italic text-[11px] opacity-60">
-                          {t.type === 'transfer' ? 'Sem categoria' : t.description}
-                        </span>
-                        {isRefund && (
-                          <span className="px-2 py-0.5 bg-pink-500/10 text-pink-500 text-[8px] font-black uppercase tracking-widest rounded-full border border-pink-500/20 shadow-sm whitespace-nowrap">
-                            FATURA
-                          </span>
-                        )}
-                      </div>
+                    <span className="text-muted-foreground italic text-[11px] opacity-60">Automático</span>
                   )}
                 </td>
-                <td className="px-6 py-4 text-sm">
-                  <div className="flex flex-col gap-0.5">
-                    <div className="flex items-center gap-2">
-                       {(() => {
-                          const wId = isInvoicePayment ? t.toWalletId : t.walletId;
-                          const w = wallets.find(item => item.id === wId);
-                          if (!w) return null;
-                           return (
-                             <IconRenderer 
-                               icon={w.logoUrl || w.icon || (w.type === 'credit_card' ? 'CreditCard' : 'Wallet')} 
-                               color={w.color} 
-                               size={24} 
-                               className="shrink-0 shadow-sm border border-border/10" 
-                             />
-                           );
-                       })()}
-                       <span className="font-bold flex items-center gap-1.5">
-                         {(() => {
-                            const wId = isInvoicePayment ? t.toWalletId : t.walletId;
-                            const w = wallets.find(item => item.id === wId);
-                            if (!w) return 'Conta Excluída';
-                            const name = w.type === 'credit_card' ? `(CARTÃO) ${w.name}` : w.name;
-                            return (
-                              <>
-                                {name}
-                                {w.isDeleted && <span className="text-[8px] text-red-500 font-black px-1.5 py-0 bg-red-500/10 rounded-full border border-red-500/20">EXCLUÍDA</span>}
-                              </>
-                            );
-                         })()}
-                       </span>
-                    </div>
-                    {/* Invoice ref under card name */}
+                <td className="px-6 py-4 text-sm hidden lg:table-cell">
+                  <div className="flex flex-col gap-1">
                     {(() => {
-                       const wallet = wallets.find(w => w.id === t.walletId);
-                       if (wallet?.type === 'credit_card' && t.invoiceMonth && t.invoiceYear) {
-                         const monthName = new Date(2000, t.invoiceMonth - 1).toLocaleDateString('pt-BR', { month: 'long' });
-                         return (
-                           <div className="flex items-center gap-2 ml-5">
-                             <span className="text-[10px] text-primary font-black uppercase tracking-widest mt-0.5">
-                               Fatura: {monthName}/{t.invoiceYear}
-                             </span>
-                           </div>
-                         );
-                       }
-                       return null;
+                      const showDouble = isInvoicePayment || t.type === 'transfer' || t.type === 'provision';
+                      if (!showDouble) {
+                        const w = wallets.find(item => item.id === t.walletId);
+                        if (!w) return <span className="text-muted-foreground italic text-xs">Carteira Excluída</span>;
+                        return (
+                          <div className="flex items-center gap-2">
+                            <IconRenderer icon={w.logoUrl || w.icon || 'wallet'} color={w.color} size={20} className="shrink-0 border border-border/10 shadow-sm rounded-md" />
+                            <span className="font-bold text-xs uppercase tracking-tight">{w.name}</span>
+                          </div>
+                        );
+                      }
+
+                      const sourceW = wallets.find(item => item.id === t.walletId);
+                      const destW = wallets.find(item => item.id === t.toWalletId);
+
+                      return (
+                        <div className="flex flex-col gap-1.5">
+                          {sourceW && (
+                            <div className="flex items-center gap-2">
+                              <IconRenderer icon={sourceW.logoUrl || sourceW.icon || 'wallet'} color={sourceW.color} size={16} className="shrink-0 border border-border/10 rounded-md" />
+                              <span className="font-bold text-[10px] uppercase tracking-tight opacity-80">{sourceW.name}</span>
+                            </div>
+                          )}
+                          {(sourceW && destW) && <ArrowRight size={10} className="text-muted-foreground ml-1" />}
+                          {destW && (
+                            <div className="flex items-center gap-2">
+                              <IconRenderer icon={destW.logoUrl || destW.icon || 'wallet'} color={destW.color} size={16} className="shrink-0 border border-border/10 rounded-md" />
+                              <span className="font-bold text-[10px] uppercase tracking-tight opacity-80">{destW.name}</span>
+                            </div>
+                          )}
+                        </div>
+                      );
                     })()}
-                    {(t.type === 'transfer' || t.type === 'provision' || isInvoicePayment) && (
-                      <div className="flex items-center gap-2 ml-5">
-                         <ArrowLeftRight size={10} className="text-primary opacity-50" />
-                          <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
-                            {(() => {
-                               const wId = isInvoicePayment ? t.walletId : t.toWalletId;
-                               const w = wallets.find(item => item.id === wId);
-                               if (!w) return 'Conta Excluída';
-                               const name = w.type === 'credit_card' ? `(CARTÃO) ${w.name}` : w.name;
-                               return (
-                                 <>
-                                   {name}
-                                   {w.isDeleted && <span className="text-[8px] text-red-500 font-black px-1.5 py-0 bg-red-500/10 rounded-full border border-red-500/20">EXCLUÍDA</span>}
-                                 </>
-                               );
-                            })()}
-                          </span>
-                      </div>
-                    )}
                   </div>
                 </td>
                 <td className={cn(
-                  "px-6 py-4 text-sm font-bold text-right whitespace-nowrap",
+                  "px-2 sm:px-6 py-2 sm:py-4 text-[11px] sm:text-sm font-black text-right whitespace-nowrap",
                   isInvoicePayment ? "text-red-500" :
                   (t.type === 'income' || (t.toWalletId && wallets.find(w => w.id === t.toWalletId)?.type === 'credit_card')) ? "text-green-500" : 
                   t.type === 'expense' ? "text-red-500" : 
@@ -552,56 +540,49 @@ export const Transactions: React.FC<TransactionsProps> = ({
                   t.type === 'provision' ? "text-orange-500" :
                   "text-yellow-500"
                 )}>
-                   {isInvoicePayment ? '-' : (t.type === 'income' || (t.toWalletId && wallets.find(w => w.id === t.toWalletId)?.type === 'credit_card')) ? '+' : ["expense", "provision", "planned"].includes(t.type) ? '-' : ''}
-                  {formatCurrency(t.amount)}
+                  <div className="flex flex-col items-end leading-tight">
+                    <span>
+                      {isInvoicePayment ? '-' : (t.type === 'income' || (t.toWalletId && wallets.find(w => w.id === t.toWalletId)?.type === 'credit_card')) ? '+' : ["expense", "provision", "planned"].includes(t.type) ? '-' : ''}
+                      {formatCurrency(t.amount)}
+                    </span>
+                    {t.isPaid === false && <span className="text-[7px] font-black uppercase text-amber-500 md:hidden tracking-tighter">Pendente</span>}
+                  </div>
                 </td>
-                <td className="px-6 py-4 text-center">
-                  <div className="flex justify-center gap-2 transition-all">
+                <td className="px-2 sm:px-6 py-2 sm:py-4 text-center">
+                  <div className="flex justify-center gap-1 sm:gap-2">
                     {(() => {
                         const wallet = wallets.find(w => w.id === t.walletId);
                         if (wallet?.type === 'credit_card') return null;
                         return (
                           <button
                             onClick={() => updateTransaction(t.id, { ...t, isPaid: t.isPaid === false ? true : false })}
-                            title={t.isPaid === false ? "Marcar como Pago" : "Desmarcar Pagamento"}
                             className={cn(
-                              "p-2 rounded-lg transition-all",
+                              "p-1.5 sm:p-2 rounded-lg transition-all",
                               t.isPaid === false ? "text-amber-500 hover:bg-amber-500/10" : "text-green-500 hover:bg-green-500/10"
                             )}
                           >
-                            {t.isPaid === false ? <ThumbsDown size={18} /> : <ThumbsUp size={18} />}
+                            {t.isPaid === false ? <ThumbsDown size={14} className="sm:w-[18px] sm:h-[18px]" /> : <ThumbsUp size={14} className="sm:w-[18px] sm:h-[18px]" />}
                           </button>
                         );
                     })()}
-                    {t.requiresRenewal && (
-                      <button
-                        onClick={() => handleRenewContinuous(t)}
-                        title="Lembrete de Renovação do Contínuo"
-                        className="p-2 text-rose-500 hover:bg-rose-500/10 rounded-lg transition-all"
-                      >
-                        <RefreshCw size={18} />
-                      </button>
-                    )}
                     <button 
                       onClick={() => handleEditTransaction(t)}
-                      className="p-2 text-muted-foreground hover:text-blue-500 hover:bg-blue-500/10 rounded-lg transition-all"
-                      title="Editar"
+                      className="p-1.5 sm:p-2 text-muted-foreground hover:text-blue-500 hover:bg-blue-500/10 rounded-lg transition-all"
                     >
-                      <Edit size={18} />
+                      <Edit size={14} className="sm:w-[18px] sm:h-[18px]" />
                     </button>
                     <button 
                       onClick={async () => {
                         const confirmed = await showConfirm(
                           'Excluir Lançamento',
-                          'Tem certeza que deseja excluir este lançamento? Esta ação não poderá ser desfeita e afetará seus saldos.',
-                          { variant: 'danger', confirmText: 'Excluir Agora' }
+                          'Tem certeza que deseja excluir este lançamento?',
+                          { variant: 'danger', confirmText: 'Excluir' }
                         );
                         if (confirmed) deleteTransaction(t.id);
                       }}
-                      className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-all"
-                      title="Excluir"
+                      className="p-1.5 sm:p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-all"
                     >
-                      <Trash2 size={18} />
+                      <Trash2 size={14} className="sm:w-[18px] sm:h-[18px]" />
                     </button>
                   </div>
                 </td>

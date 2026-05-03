@@ -939,9 +939,9 @@ export const Wallets: React.FC = () => {
               className="relative bg-card border shadow-2xl rounded-[2.5rem] w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col"
             >
               {/* Modal Header */}
-              <div className="p-8 border-b bg-muted/30">
-                <div className="flex items-start justify-between mb-8">
-                  <div className="flex items-center gap-6">
+              <div className="p-5 md:p-8 border-b bg-muted/30">
+                <div className="flex items-start justify-between mb-6 md:mb-8">
+                  <div className="flex items-center gap-3 md:gap-6">
                     {previousActioningWalletId === viewingWallet.id && (
                       <button
                         onClick={() => {
@@ -949,27 +949,27 @@ export const Wallets: React.FC = () => {
                           setSelectedWalletForAction(viewingWallet);
                           setIsActionsModalOpen(true);
                         }}
-                        className="w-12 h-12 rounded-2xl hover:bg-muted flex items-center justify-center transition-all bg-background border shadow-sm group"
+                        className="w-10 h-10 md:w-12 md:h-12 rounded-2xl hover:bg-muted flex items-center justify-center transition-all bg-background border shadow-sm group"
                         title="Voltar ao menu anterior"
                       >
-                        <ChevronLeft className="group-hover:-translate-x-1 transition-transform" />
+                        <ChevronLeft className="group-hover:-translate-x-1 transition-transform" size={18} />
                       </button>
                     )}
 
-                    <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center shadow-lg border border-primary/20 overflow-hidden shrink-0">
+                    <div className="w-12 h-12 md:w-16 md:h-16 rounded-full bg-primary/10 flex items-center justify-center shadow-lg border border-primary/20 overflow-hidden shrink-0">
                       <IconRenderer
                         icon={viewingWallet.logoUrl || viewingWallet.icon || 'wallet'}
                         color={viewingWallet.color}
-                        size={viewingWallet.logoUrl ? 64 : 32}
+                        size={viewingWallet.logoUrl ? (window.innerWidth < 768 ? 48 : 64) : (window.innerWidth < 768 ? 24 : 32)}
                         className="w-full h-full object-cover"
                       />
                     </div>
-                    <div>
-                      <h2 className="text-3xl font-black tracking-tight leading-none">{viewingWallet.name}</h2>
-                      <div className="flex items-center gap-2 mt-2">
-                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">{viewingWallet.type === 'credit_card' ? 'Cartão de Crédito' : 'Conta / Carteira'}</span>
+                    <div className="overflow-hidden">
+                      <h2 className="text-xl md:text-3xl font-black tracking-tight leading-none truncate">{viewingWallet.name}</h2>
+                      <div className="flex items-center gap-2 mt-1 md:mt-2">
+                        <span className="text-[8px] md:text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">{viewingWallet.type === 'credit_card' ? 'Cartão' : 'Carteira'}</span>
                         {viewingWallet.observation && (
-                          <span className="px-2 py-0.5 bg-primary/10 text-primary text-[8px] font-black uppercase rounded tracking-wider">
+                          <span className="px-1.5 py-0.5 bg-primary/10 text-primary text-[7px] md:text-[8px] font-black uppercase rounded tracking-wider truncate max-w-[100px] md:max-w-none">
                             {viewingWallet.observation}
                           </span>
                         )}
@@ -979,52 +979,52 @@ export const Wallets: React.FC = () => {
 
                   <button
                     onClick={() => { setViewingTransactionsId(null); setActiveTxTypeFilter('all'); setPaymentFilter('all'); setSelectedTxIds([]); }}
-                    className="w-12 h-12 rounded-full hover:bg-muted flex items-center justify-center transition-colors group"
+                    className="w-10 h-10 md:w-12 md:h-12 rounded-full hover:bg-muted flex items-center justify-center transition-colors group"
                   >
-                    <X className="group-hover:rotate-90 transition-transform" />
+                    <X className="group-hover:rotate-90 transition-transform" size={20} />
                   </button>
                 </div>
 
                 {/* Summary Bar */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-                  <div className="space-y-1">
-                    <span className="text-[10px] font-black uppercase tracking-widest opacity-40">Saldo Atual</span>
-                    <p className={cn("text-2xl font-black", viewingWallet.balance < -0.01 && "text-rose-500")}>{formatCurrency(viewingWallet.balance)}</p>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-8">
+                  <div className="space-y-0.5 md:space-y-1">
+                    <span className="text-[8px] md:text-[10px] font-black uppercase tracking-widest opacity-40">Saldo Atual</span>
+                    <p className={cn("text-lg md:text-2xl font-black", viewingWallet.balance < -0.01 && "text-rose-500")}>{formatCurrency(viewingWallet.balance)}</p>
                   </div>
                   {viewingWallet.type === 'credit_card' && (
                     <>
-                      <div className="space-y-1">
-                        <span className="text-[10px] font-black uppercase tracking-widest opacity-40">Limite Total</span>
-                        <p className="text-2xl font-black">{formatCurrency(viewingWallet.limit || 0)}</p>
+                      <div className="space-y-0.5 md:space-y-1">
+                        <span className="text-[8px] md:text-[10px] font-black uppercase tracking-widest opacity-40">Limite Total</span>
+                        <p className="text-lg md:text-2xl font-black">{formatCurrency(viewingWallet.limit || 0)}</p>
                       </div>
-                      <div className="space-y-1">
-                        <span className="text-[10px] font-black uppercase tracking-widest opacity-40">Disponível</span>
-                        <p className="text-2xl font-black text-emerald-500">{formatCurrency((viewingWallet.limit || 0) + (viewingWallet.balance))}</p>
+                      <div className="space-y-0.5 md:space-y-1">
+                        <span className="text-[8px] md:text-[10px] font-black uppercase tracking-widest opacity-40">Disponível</span>
+                        <p className="text-lg md:text-2xl font-black text-emerald-500">{formatCurrency((viewingWallet.limit || 0) + (viewingWallet.balance))}</p>
                       </div>
                     </>
                   )}
                   {viewingWallet.type === 'credit_card' && invoiceBalance !== null && (
-                    <div className="space-y-1">
-                      <span className="text-[10px] font-black uppercase tracking-widest text-primary font-bold">Saldo da Fatura</span>
+                    <div className="space-y-0.5 md:space-y-1">
+                      <span className="text-[8px] md:text-[10px] font-black uppercase tracking-widest text-primary font-bold">Fatura</span>
                       <p className={cn(
-                        "text-2xl font-black tracking-tighter",
+                        "text-lg md:text-2xl font-black tracking-tighter",
                         invoiceBalance >= 0 ? "text-emerald-500" : "text-rose-500"
                       )}>
                         {formatCurrency(invoiceBalance)}
                       </p>
                     </div>
                   )}
-                  <div className="space-y-1">
-                    <span className="text-[10px] font-black uppercase tracking-widest opacity-40">Lançamentos</span>
-                    <p className="text-2xl font-black">{walletTransactions.length}</p>
+                  <div className="space-y-0.5 md:space-y-1">
+                    <span className="text-[8px] md:text-[10px] font-black uppercase tracking-widest opacity-40">Lançamentos</span>
+                    <p className="text-lg md:text-2xl font-black">{walletTransactions.length}</p>
                   </div>
                 </div>
               </div>
 
               {/* Filters Row */}
-              <div className="px-8 py-5 border-b bg-muted/10 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-6">
-                <div className="flex flex-col md:flex-row items-stretch md:items-center gap-6 flex-1">
-                  <div className="w-full md:w-auto min-w-[200px]">
+              <div className="px-5 py-4 md:px-8 md:py-5 border-b bg-muted/10 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 md:gap-6 overflow-x-auto hidden-scrollbar">
+                <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3 md:gap-6 flex-1">
+                  <div className="w-full md:w-auto min-w-0 md:min-w-[200px]">
                     <CustomSelect
                       label="Tipo de Lançamento"
                       value={activeTxTypeFilter}
@@ -1043,14 +1043,14 @@ export const Wallets: React.FC = () => {
                         { id: 'provision', name: 'Provisões', icon: 'Clock', color: '#6366f1' },
                         { id: 'planned', name: 'Planejados', icon: 'CalendarClock', color: '#8b5cf6' }
                       ]}
-                      className="w-full"
+                      className="w-full h-11 md:h-auto"
                     />
                   </div>
 
                   {viewingWallet.type !== 'credit_card' && (
-                    <div className="w-full md:w-auto min-w-[180px]">
+                    <div className="w-full md:w-auto min-w-0 md:min-w-[180px]">
                       <CustomSelect
-                        label="Status do Pagamento"
+                        label="Status"
                         value={paymentFilter}
                         onChange={(val: any) => setPaymentFilter(val)}
                         options={[
@@ -1058,16 +1058,16 @@ export const Wallets: React.FC = () => {
                           { id: 'paid', name: 'Liquidados', icon: 'ThumbsUp', color: '#10b981' },
                           { id: 'pending', name: 'Pendentes', icon: 'ThumbsDown', color: '#fbbf24' }
                         ]}
-                        className="w-full"
+                        className="w-full h-11 md:h-auto"
                       />
                     </div>
                   )}
 
                   {viewingWallet.type === 'credit_card' ? (
-                    <div className="w-full md:w-auto min-w-[240px]">
+                    <div className="w-full md:w-auto min-w-0 md:min-w-[240px]">
                       {availableInvoices.length > 0 ? (
                         <CustomSelect
-                          label="Período da Fatura"
+                          label="Fatura"
                           value={`${invoiceMonthFilter}-${invoiceYearFilter}`}
                           onChange={(val: string) => {
                             const [m, y] = val.split('-').map(Number);
@@ -1075,32 +1075,32 @@ export const Wallets: React.FC = () => {
                             setInvoiceYearFilter(y);
                           }}
                           options={availableInvoices}
-                          className="w-full"
+                          className="w-full h-11 md:h-auto"
                         />
                       ) : (
-                        <div className="px-4 py-8 bg-muted/20 border border-dashed border-border/40 rounded-2xl flex items-center justify-center">
-                          <span className="text-[10px] font-black uppercase text-muted-foreground/60 tracking-widest italic">Nenhuma fatura encontrada</span>
+                        <div className="px-3 py-4 md:px-4 md:py-8 bg-muted/20 border border-dashed border-border/40 rounded-2xl flex items-center justify-center">
+                          <span className="text-[8px] md:text-[10px] font-black uppercase text-muted-foreground/60 tracking-widest italic">Sem faturas</span>
                         </div>
                       )}
                     </div>
                   ) : (
-                    <div className="flex items-center gap-3 w-full md:w-auto">
-                      <div className="w-1/3 md:w-[120px]">
+                    <div className="flex items-center gap-2 w-full md:w-auto">
+                      <div className="w-1/3 md:w-[100px]">
                         <CustomSelect
                           label="Ano"
                           value={String(yearFilter)}
                           onChange={(val: any) => setYearFilter(Number(val))}
                           options={getAvailableYears(transactions).map(y => ({ id: String(y), name: String(y) }))}
-                          className="w-full"
+                          className="w-full h-11 md:h-auto"
                         />
                       </div>
-                      <div className="flex-1 md:w-[180px]">
+                      <div className="flex-1 md:w-[150px]">
                         <CustomSelect
-                          label="Mês de Referência"
+                          label="Mês"
                           value={String(monthFilter)}
                           onChange={(val: any) => setMonthFilter(Number(val))}
                           options={[{ id: '0', name: 'ANO TODO' }, ...months.map((m, i) => ({ id: String(i + 1), name: m }))]}
-                          className="w-full"
+                          className="w-full h-11 md:h-auto"
                         />
                       </div>
                     </div>
@@ -1136,7 +1136,7 @@ export const Wallets: React.FC = () => {
                 )}
               </div>
 
-              <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
+              <div className="flex-1 overflow-y-auto p-5 md:p-8 custom-scrollbar">
                 {walletTransactions.length > 0 ? (
                   <div className="space-y-8">
                     {/* Grouping by Date */}
@@ -1159,7 +1159,7 @@ export const Wallets: React.FC = () => {
                                     prev.includes(t.id) ? prev.filter(id => id !== t.id) : [...prev, t.id]
                                   )}
                                   className={cn(
-                                    "group flex items-center justify-between p-4 rounded-2xl border transition-all cursor-pointer",
+                                    "group flex items-center justify-between p-3 md:p-4 rounded-2xl border transition-all cursor-pointer",
                                     selectedTxIds.includes(t.id) ? "bg-primary/5 border-primary shadow-sm" : "bg-card border-border/40 hover:bg-muted/30"
                                   )}
                                 >

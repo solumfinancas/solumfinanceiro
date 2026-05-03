@@ -3,7 +3,7 @@ import {
   Tag, Plus, Edit, Trash2, ChevronDown, ChevronRight, ArrowUpCircle,
   ArrowDownCircle, Search, Eye, EyeOff, LayoutDashboard, Clock,
   CheckCircle2, X, History as HistoryIcon, Layers, Calendar, CreditCard, ThumbsUp, ThumbsDown,
-  TrendingUp, Check, ChevronLeft, Target, RefreshCw, PieChart as PieIcon
+  TrendingUp, Check, ChevronLeft, Target, RefreshCw, PieChart as PieIcon, ArrowRight
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -489,7 +489,7 @@ export const Categories: React.FC = () => {
                         return (
                           <>
                             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-[10px] sm:text-[11px] font-black uppercase tracking-widest leading-none">
-                              <span className="opacity-80 italic font-bold whitespace-nowrap">Uso: {formatCurrency(spend)}</span>
+                              <span className="opacity-80 italic font-bold">Uso: {formatCurrency(spend)}</span>
                               {effective.total ? (
                                 <span className={cn(
                                   "font-black shrink-0",
@@ -1208,10 +1208,10 @@ export const Categories: React.FC = () => {
 
                     return relevantTransactions.map(t => (
                       <div key={t.id} className={cn(
-                        "group p-4 md:p-5 bg-card hover:bg-muted/10 rounded-2xl md:rounded-3xl border border-border flex flex-col md:grid md:grid-cols-[auto_1fr_auto_auto_auto] items-center gap-4 md:gap-6 transition-all",
+                        "group p-3 md:p-5 bg-card hover:bg-muted/10 rounded-2xl md:rounded-3xl border border-border flex flex-col md:grid md:grid-cols-[auto_1fr_auto_auto_auto] items-center gap-3 md:gap-6 transition-all",
                         selectedTxIds.includes(t.id) && "border-primary bg-primary/5"
                       )}>
-                        <div className="px-6 py-4">
+                        <div className="md:px-6 md:py-4 hidden md:block">
                           <StyledCheckbox
                             checked={selectedTxIds.includes(t.id)}
                             onChange={() => setSelectedTxIds(prev =>
@@ -1236,27 +1236,59 @@ export const Categories: React.FC = () => {
                             );
                           })()}
                           <div className="flex flex-col truncate">
-                            {(() => {
-                              const cat = categories.find(c => c.id === t.categoryId);
-                              return (
-                                <div className="flex items-center gap-1.5 flex-wrap overflow-hidden">
-                                  <span className="font-bold text-[11px] uppercase tracking-tight truncate max-w-[200px]">{t.description}</span>
-                                  <span className="text-muted-foreground text-[10px]">/</span>
-                                  <span className="text-muted-foreground text-[10px] font-medium uppercase tracking-widest">{cat?.name || 'Geral'}</span>
-                                </div>
-                              );
-                            })()}
-                            <span className="text-[9px] text-muted-foreground font-black uppercase tracking-widest mt-1.5 opacity-60">
-                              {wallets.find(w => w.id === t.walletId)?.name || 'Carteira Padrão'}
-                            </span>
+                            <div className="flex items-center gap-2 mb-1 md:hidden">
+                              <span className="text-[10px] font-black text-muted-foreground">{formatDate(t.date).split('/')[0]}/{formatDate(t.date).split('/')[1]}</span>
+                              <div className="w-1 h-1 rounded-full bg-border" />
+                              <div className="text-[9px] text-muted-foreground font-black uppercase tracking-widest opacity-60 truncate flex items-center gap-1">
+                                {(() => {
+                                 const isInvoicePayment = (t.description?.toLowerCase() || '').includes('pagamento de fatura');
+                                 const showDouble = isInvoicePayment || t.type === 'transfer' || t.type === 'provision';
+                                 
+                                 if (!showDouble) {
+                                   const w = wallets.find(item => item.id === t.walletId);
+                                   if (!w) return null;
+                                   return (
+                                     <div className="flex items-center gap-1 bg-muted/50 px-1 py-0.5 rounded border border-border/20">
+                                       <IconRenderer icon={w.logoUrl || w.icon || 'wallet'} color={w.color} size={10} className="shrink-0" />
+                                       <span className="text-[8px] font-black uppercase text-primary/80">{w.name}</span>
+                                     </div>
+                                   );
+                                 }
+
+                                 const sourceW = wallets.find(item => item.id === t.walletId);
+                                 const destW = wallets.find(item => item.id === t.toWalletId);
+
+                                 return (
+                                   <div className="flex items-center gap-1 flex-wrap">
+                                      {sourceW && (
+                                        <div className="flex items-center gap-1 bg-muted/50 px-1 py-0.5 rounded border border-border/20">
+                                          <IconRenderer icon={sourceW.logoUrl || sourceW.icon || 'wallet'} color={sourceW.color} size={10} className="shrink-0" />
+                                          <span className="text-[8px] font-black uppercase text-primary/80">{sourceW.name}</span>
+                                        </div>
+                                      )}
+                                      {(sourceW && destW) && <ArrowRight size={8} className="text-muted-foreground" />}
+                                      {destW && (
+                                        <div className="flex items-center gap-1 bg-muted/50 px-1 py-0.5 rounded border border-border/20">
+                                          <IconRenderer icon={destW.logoUrl || destW.icon || 'wallet'} color={destW.color} size={10} className="shrink-0" />
+                                          <span className="text-[8px] font-black uppercase text-primary/80">{destW.name}</span>
+                                        </div>
+                                      )}
+                                   </div>
+                                 );
+                               })()}
+                             </div>
+                            </div>
+                            <div className="flex items-center gap-1.5 flex-wrap overflow-hidden">
+                              <span className="font-bold text-[11px] uppercase tracking-tight truncate max-w-[200px]">{t.description}</span>
+                            </div>
                             {t.groupId && t.type === 'expense' && (
                               <div className={cn(
-                                "mt-2 px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-tighter w-fit border",
+                                "mt-1 px-2 py-0.5 rounded-md text-[7px] font-black uppercase tracking-tighter w-fit border",
                                 t.necessity === 'necessary'
                                   ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
                                   : "bg-amber-500/10 text-amber-500 border-amber-500/20"
                               )}>
-                                {t.necessity === 'necessary' ? 'Nec. Recorrente' : 'Desnec. Recorrente'}
+                                {t.necessity === 'necessary' ? 'Nec.' : 'Desnec.'}
                               </div>
                             )}
                           </div>
@@ -1321,11 +1353,34 @@ export const Categories: React.FC = () => {
                           })()}
                         </div>
 
-                        <div className="flex items-center justify-between md:justify-end gap-6 w-full md:w-40">
-                          <span className={cn("font-black text-base tracking-tighter", t.type === 'income' ? "text-emerald-500" : "text-rose-500")}>
+                        <div className="flex items-center justify-between md:justify-end gap-4 w-full md:w-40 border-t md:border-t-0 border-border/40 pt-3 md:pt-0">
+                          <div className="flex flex-col items-start md:hidden">
+                             <span className={cn("font-black text-sm tracking-tighter", t.type === 'income' ? "text-emerald-500" : "text-rose-500")}>
+                               {t.type === 'income' ? '+' : '-'} {formatCurrency(t.amount)}
+                             </span>
+                             {t.isPaid === false && wallets.find(w => w.id === t.walletId)?.type !== 'credit_card' && <span className="text-[7px] font-black uppercase text-amber-500 tracking-tighter">Pendente</span>}
+                          </div>
+                          <span className={cn("hidden md:block font-black text-base tracking-tighter", t.type === 'income' ? "text-emerald-500" : "text-rose-500")}>
                             {formatCurrency(t.amount)}
                           </span>
                           <div className="flex gap-1">
+                            {(() => {
+                              const wallet = wallets.find(w => w.id === t.walletId);
+                              if (wallet?.type !== 'credit_card') {
+                                return (
+                                  <button
+                                    onClick={() => handleToggleTxStatus(t)}
+                                    className={cn(
+                                      "p-2 rounded-xl transition-all",
+                                      t.isPaid ? "text-emerald-500" : "text-amber-500"
+                                    )}
+                                  >
+                                    {t.isPaid ? <ThumbsUp size={16} /> : <ThumbsDown size={16} />}
+                                  </button>
+                                );
+                              }
+                              return null;
+                            })()}
                             <button onClick={() => handleEditTransaction(t)} className="p-2 text-muted-foreground hover:text-blue-500 hover:bg-blue-500/5 rounded-lg transition-all"><Edit size={16} /></button>
                             <button onClick={() => handleDeleteTx(t.id)} className="p-2 text-muted-foreground hover:text-rose-500 hover:bg-rose-500/5 rounded-lg transition-all"><Trash2 size={16} /></button>
                           </div>
