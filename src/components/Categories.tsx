@@ -3,8 +3,16 @@ import {
   Tag, Plus, Edit, Trash2, ChevronDown, ChevronRight, ArrowUpCircle,
   ArrowDownCircle, Search, Eye, EyeOff, LayoutDashboard, Clock,
   CheckCircle2, X, History as HistoryIcon, Layers, Calendar, CreditCard, ThumbsUp, ThumbsDown,
-  TrendingUp, Check, ChevronLeft, Target, RefreshCw
+  TrendingUp, Check, ChevronLeft, Target, RefreshCw, PieChart as PieIcon
 } from 'lucide-react';
+import {
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  Tooltip,
+  Legend
+} from 'recharts';
 import { useFinance } from '../FinanceContext';
 import { useModal } from '../contexts/ModalContext';
 import { cn, formatCurrency, formatDate, getAvailableYears } from '../lib/utils';
@@ -23,6 +31,8 @@ const MONTH_NAMES = [
   "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
   "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
 ];
+
+const COLORS = ['#10b981', '#3b82f6', '#8b5cf6', '#f59e0b', '#f43f5e', '#06b6d4', '#ec4899', '#84cc16'];
 
 
 
@@ -384,6 +394,38 @@ export const Categories: React.FC = () => {
       totalUsed
     };
   }, [transactions, wallets, filterMonth, filterYear]);
+
+  const orderedPieData = useMemo(() => {
+    const expenseByCatMap = new Map<string, number>();
+    
+    transactions.filter(t => {
+      const d = new Date(t.date + 'T12:00:00Z');
+      const mMatch = filterMonth === 'all' || (d.getUTCMonth() + 1) === filterMonth;
+      const yMatch = d.getUTCFullYear() === filterYear;
+      
+      const isInvoicePayment = t.description?.toLowerCase().includes('pagamento de fatura');
+      const isRefund = t.description?.toLowerCase().includes('estorno');
+      if (isInvoicePayment || isRefund) return false;
+
+      // Inclui despesas e provisões para bater com a Visão Geral
+      return (t.type === 'expense' || t.type === 'provision') && mMatch && yMatch;
+    }).forEach(t => {
+      const cat = categories.find(c => c.id === t.categoryId);
+      let finalCat = cat;
+      if (cat?.parentId) {
+        finalCat = categories.find(c => c.id === cat.parentId) || cat;
+      }
+      const name = (finalCat?.name || 'Sem Categoria').toUpperCase();
+      const current = expenseByCatMap.get(name) || 0;
+      expenseByCatMap.set(name, current + (Number(t.amount) || 0));
+    });
+
+    return Array.from(expenseByCatMap.entries())
+      .map(([name, value]) => ({ name, value }))
+      .filter(item => item.value > 0)
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 10);
+  }, [transactions, categories, filterMonth, filterYear]);
 
   const totalLimitGlobal = categories
     .filter(c => c.type === 'expense' && !c.isDeleted && c.isActive !== false)
@@ -831,78 +873,167 @@ export const Categories: React.FC = () => {
             ))}
           </motion.div>
 
-          {/* RESUMO OU DEFINIÇÃO DE LIMITES */}
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-card/40 p-8 rounded-[2.5rem] border border-border/50 shadow-xl relative group overflow-hidden"
-          >
-            <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-8">
-              {totalLimitGlobal > 0 ? (
-                <>
-                  <div className="space-y-2">
-                    <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground opacity-60">Resumo do Orçamento</h2>
-                    <div className="flex items-baseline gap-3">
-                      <span className="text-4xl font-black tracking-tighter">{formatCurrency(totalSpendGlobal)}</span>
-                      <span className="text-sm font-bold text-muted-foreground opacity-40 uppercase tracking-widest">de {formatCurrency(totalLimitGlobal)}</span>
+          {/* SEÇÃO DE ANÁLISE GRÁFICA E RESUMO */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* GRÁFICO DE MAIORES GASTOS */}
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="bg-card/40 p-8 rounded-[2.5rem] border border-border/50 shadow-xl flex flex-col"
+            >
+              <div className="flex flex-col gap-1 mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                    <PieIcon size={18} />
+                  </div>
+                  <h3 className="text-sm font-black uppercase tracking-widest">Maiores Gastos (Ordenados)</h3>
+                </div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-40 ml-11">
+                  Distribuição por categoria no período
+                </p>
+              </div>
 
-                      {/* Global Toggle for Greeting Card */}
-                      <button
-                        onClick={() => setIncludeCategoryLimits(!includeCategoryLimits)}
-                        className={cn(
-                          "ml-6 px-4 py-2 rounded-xl border-2 transition-all flex items-center gap-2 group/toggle",
-                          includeCategoryLimits
-                            ? "bg-primary/5 border-primary text-primary shadow-lg shadow-primary/10 scale-105"
-                            : "bg-muted/30 border-border text-muted-foreground grayscale opacity-60 hover:grayscale-0 hover:opacity-100"
-                        )}
-                      >
-                        <Target size={16} className={cn("transition-transform", includeCategoryLimits && "animate-pulse")} />
-                        <span className="text-[9px] font-black uppercase tracking-widest">
-                          {includeCategoryLimits ? "No Orçamento" : "Oculto no Orçamento"}
-                        </span>
-                      </button>
+              <div className="flex-1 flex flex-col md:flex-row items-center justify-between gap-8 min-h-[260px] mt-4">
+                {orderedPieData.length > 0 ? (
+                  <>
+                    <div className="w-full md:w-1/2 h-[220px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={orderedPieData}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={60}
+                            outerRadius={80}
+                            paddingAngle={5}
+                            dataKey="value"
+                            nameKey="name"
+                            isAnimationActive={false}
+                          >
+                            {orderedPieData.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                            ))}
+                          </Pie>
+                          <Tooltip 
+                            contentStyle={{ 
+                              backgroundColor: 'hsl(var(--card))', 
+                              border: '1px solid hsl(var(--border))', 
+                              borderRadius: '1rem',
+                              boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)'
+                            }}
+                            itemStyle={{ fontSize: '10px', fontWeight: 'bold' }}
+                            formatter={(value: number) => formatCurrency(value)}
+                          />
+                        </PieChart>
+                      </ResponsiveContainer>
                     </div>
-                  </div>
 
-                  <div className="flex-1 max-w-md w-full space-y-3">
-                    <div className="flex items-center justify-between text-[11px] font-black uppercase tracking-widest">
-                      <span className="text-muted-foreground opacity-60">Uso Consolidado</span>
-                      <span className={cn(
-                        globalProgressPercent >= 100 ? "text-rose-500" :
-                          globalProgressPercent >= 75 ? "text-amber-500" :
-                            "text-emerald-500"
-                      )}>
-                        {Math.round(globalProgressPercent)}%
-                      </span>
+                    {/* Legenda Manual - Garante Ordem 100% */}
+                    <div className="w-full md:w-1/2 flex flex-col gap-2.5 max-h-[220px] overflow-y-auto pr-2 custom-scrollbar">
+                      {orderedPieData.map((item, index) => (
+                        <div key={item.name} className="flex items-center justify-between group py-1 border-b border-border/5 last:border-0 hover:bg-muted/30 px-2 rounded-lg transition-colors">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div 
+                              className="w-3 h-3 rounded-full shrink-0 shadow-sm" 
+                              style={{ backgroundColor: COLORS[index % COLORS.length] }} 
+                            />
+                            <span className="text-[10px] font-black uppercase tracking-widest text-foreground/70 truncate group-hover:text-foreground transition-colors">
+                              {item.name}
+                            </span>
+                          </div>
+                          <span className="text-[11px] font-black text-primary shrink-0">
+                            {formatCurrency(item.value)}
+                          </span>
+                        </div>
+                      ))}
                     </div>
-                    <div className="h-4 w-full bg-muted/50 rounded-full overflow-hidden border border-border/20 p-1">
-                      <motion.div
-                        animate={{ width: `${Math.min(globalProgressPercent, 100)}%` }}
-                        className={cn(
-                          "h-full rounded-full transition-all",
-                          globalProgressPercent > 100 ? "bg-red-800" :
-                            globalProgressPercent >= 75 ? "bg-amber-500" :
-                              "bg-emerald-500"
-                        )}
-                      />
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <div className="flex items-center gap-6 py-2">
-                  <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shrink-0 animate-pulse">
-                    <TrendingUp size={28} />
-                  </div>
-                  <div className="space-y-1">
-                    <h3 className="text-lg font-black uppercase tracking-tight">Defina seus Limites</h3>
-                    <p className="text-sm text-muted-foreground font-medium max-w-md leading-tight">
-                      Para uma melhor visualização do seu orçamento mensal, defina limites de gastos nas suas categorias principais abaixo.
+                  </>
+                ) : (
+                  <div className="w-full h-full flex flex-col items-center justify-center text-center p-8">
+                    <PieIcon size={48} className="text-muted-foreground opacity-20 mb-4" />
+                    <p className="text-[10px] font-black text-muted-foreground opacity-40 uppercase tracking-widest">
+                      Sem dados para exibir
                     </p>
                   </div>
-                </div>
-              )}
-            </div>
-          </motion.div>
+                )}
+              </div>
+            </motion.div>
+
+            {/* RESUMO DO ORÇAMENTO */}
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="bg-card/40 p-8 rounded-[2.5rem] border border-border/50 shadow-xl relative group overflow-hidden flex flex-col justify-center"
+            >
+              <div className="relative flex flex-col gap-8">
+                {totalLimitGlobal > 0 ? (
+                  <>
+                    <div className="space-y-2">
+                      <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground opacity-60">Resumo do Orçamento</h2>
+                      <div className="flex flex-col gap-3">
+                        <div className="flex items-baseline gap-3">
+                          <span className="text-4xl font-black tracking-tighter">{formatCurrency(totalSpendGlobal)}</span>
+                          <span className="text-sm font-bold text-muted-foreground opacity-40 uppercase tracking-widest">de {formatCurrency(totalLimitGlobal)}</span>
+                        </div>
+
+                        {/* Global Toggle for Greeting Card */}
+                        <button
+                          onClick={() => setIncludeCategoryLimits(!includeCategoryLimits)}
+                          className={cn(
+                            "w-fit px-4 py-2 rounded-xl border-2 transition-all flex items-center gap-2 group/toggle",
+                            includeCategoryLimits
+                              ? "bg-primary/5 border-primary text-primary shadow-lg shadow-primary/10 scale-105"
+                              : "bg-muted/30 border-border text-muted-foreground grayscale opacity-60 hover:grayscale-0 hover:opacity-100"
+                          )}
+                        >
+                          <Target size={16} className={cn("transition-transform", includeCategoryLimits && "animate-pulse")} />
+                          <span className="text-[9px] font-black uppercase tracking-widest">
+                            {includeCategoryLimits ? "No Orçamento" : "Oculto no Orçamento"}
+                          </span>
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="w-full space-y-3">
+                      <div className="flex items-center justify-between text-[11px] font-black uppercase tracking-widest">
+                        <span className="text-muted-foreground opacity-60">Uso Consolidado</span>
+                        <span className={cn(
+                          globalProgressPercent >= 100 ? "text-rose-500" :
+                            globalProgressPercent >= 75 ? "text-amber-500" :
+                              "text-emerald-500"
+                        )}>
+                          {Math.round(globalProgressPercent)}%
+                        </span>
+                      </div>
+                      <div className="h-4 w-full bg-muted/50 rounded-full overflow-hidden border border-border/20 p-1">
+                        <motion.div
+                          animate={{ width: `${Math.min(globalProgressPercent, 100)}%` }}
+                          className={cn(
+                            "h-full rounded-full transition-all",
+                            globalProgressPercent > 100 ? "bg-red-800" :
+                              globalProgressPercent >= 75 ? "bg-amber-500" :
+                                "bg-emerald-500"
+                          )}
+                        />
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex items-center gap-6 py-2">
+                    <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shrink-0 animate-pulse">
+                      <TrendingUp size={28} />
+                    </div>
+                    <div className="space-y-1">
+                      <h3 className="text-lg font-black uppercase tracking-tight">Defina seus Limites</h3>
+                      <p className="text-sm text-muted-foreground font-medium max-w-md leading-tight">
+                        Para uma melhor visualização do seu orçamento mensal, defina limites de gastos nas suas categorias principais abaixo.
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </div>
         </div>
       )}
 
