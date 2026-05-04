@@ -1278,8 +1278,8 @@ export const Categories: React.FC = () => {
                                })()}
                              </div>
                             </div>
-                            <div className="flex items-center gap-1.5 flex-wrap overflow-hidden">
-                              <span className="font-bold text-[11px] uppercase tracking-tight truncate max-w-[300px]">
+                            <div className="flex items-center gap-1.5 flex-wrap overflow-hidden flex-1">
+                              <span className="font-bold text-[11px] uppercase tracking-tight break-words">
                                 {t.description}
                                 {(() => {
                                   const txCat = categories.find(c => c.id === t.categoryId);
@@ -1343,36 +1343,6 @@ export const Categories: React.FC = () => {
                           })()}
                         </div>
 
-                        <div className="flex items-center justify-center gap-2">
-                          {(() => {
-                            const wallet = wallets.find(w => w.id === t.walletId);
-                            if (wallet?.type === 'credit_card') return null;
-                            return (
-                              <>
-                                <button
-                                  onClick={() => handleToggleTxStatus(t)}
-                                  className={cn(
-                                    "p-2 rounded-xl transition-all",
-                                    t.isPaid ? "bg-emerald-500/10 text-emerald-500" : "text-muted-foreground hover:bg-muted"
-                                  )}
-                                  title="Marcar como Pago"
-                                >
-                                  <ThumbsUp size={16} />
-                                </button>
-                                <button
-                                  onClick={() => handleToggleTxStatus(t)}
-                                  className={cn(
-                                    "p-2 rounded-xl transition-all",
-                                    !t.isPaid ? "bg-amber-500/10 text-amber-500" : "text-muted-foreground hover:bg-muted"
-                                  )}
-                                  title="Marcar como Pendente"
-                                >
-                                  <ThumbsDown size={16} />
-                                </button>
-                              </>
-                            );
-                          })()}
-                        </div>
 
                         <div className="flex items-center justify-between md:justify-end gap-4 w-full md:w-40 border-t md:border-t-0 border-border/40 pt-3 md:pt-0">
                           <div className="flex flex-col items-start md:hidden">

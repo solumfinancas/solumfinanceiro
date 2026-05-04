@@ -324,42 +324,30 @@ export const CategoryHistoryModal: React.FC<CategoryHistoryModalProps> = ({
                         })()}
                       </div>
 
-                      <div className="flex items-center justify-center gap-2">
-                        {(() => {
-                          const wallet = wallets.find(w => w.id === t.walletId);
-                          if (wallet?.type === 'credit_card') return null;
-                          return (
-                            <>
-                              <button
-                                onClick={() => handleToggleTxStatus(t)}
-                                className={cn(
-                                  "p-2 rounded-xl transition-all",
-                                  t.isPaid ? "bg-emerald-500/10 text-emerald-500" : "text-muted-foreground hover:bg-muted"
-                                )}
-                                title="Marcar como Pago"
-                              >
-                                <ThumbsUp size={16} />
-                              </button>
-                              <button
-                                onClick={() => handleToggleTxStatus(t)}
-                                className={cn(
-                                  "p-2 rounded-xl transition-all",
-                                  !t.isPaid ? "bg-amber-500/10 text-amber-500" : "text-muted-foreground hover:bg-muted"
-                                )}
-                                title="Marcar como Pendente"
-                              >
-                                <ThumbsDown size={16} />
-                              </button>
-                            </>
-                          );
-                        })()}
-                      </div>
 
                       <div className="flex items-center justify-between md:justify-end gap-6 w-full md:w-40">
                         <span className={cn("font-black text-base tracking-tighter", t.type === 'income' ? "text-emerald-500" : "text-rose-500")}>
                           {formatCurrency(t.amount)}
                         </span>
                         <div className="flex gap-1">
+                          {(() => {
+                            const wallet = wallets.find(w => w.id === t.walletId);
+                            if (wallet?.type !== 'credit_card') {
+                              return (
+                                <button
+                                  onClick={() => handleToggleTxStatus(t)}
+                                  className={cn(
+                                    "p-2 rounded-xl transition-all",
+                                    t.isPaid ? "text-emerald-500" : "text-amber-500"
+                                  )}
+                                  title={t.isPaid ? "Marcar como Pendente" : "Marcar como Pago"}
+                                >
+                                  {t.isPaid ? <ThumbsUp size={16} /> : <ThumbsDown size={16} />}
+                                </button>
+                              );
+                            }
+                            return null;
+                          })()}
                           <button onClick={() => onEditTransaction(t)} className="p-2 text-muted-foreground hover:text-blue-500 hover:bg-blue-500/5 rounded-lg transition-all"><Edit size={16} /></button>
                           <button onClick={() => handleDeleteTx(t.id)} className="p-2 text-muted-foreground hover:text-rose-500 hover:bg-rose-500/5 rounded-lg transition-all"><Trash2 size={16} /></button>
                         </div>
