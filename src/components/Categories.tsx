@@ -162,11 +162,11 @@ export const Categories: React.FC = () => {
   const getCategoryEffectiveLimit = (categoryId: string) => {
     const cat = categories.find(c => c.id === categoryId);
     if (!cat) return { total: 0, parent: 0, subs: 0, hasSubsWithLimit: false };
-    
+
     const subs = categories.filter(s => s.parentId === categoryId && !s.isDeleted && s.isActive !== false);
     const subsLimit = subs.reduce((sum, s) => sum + (s.limit || 0), 0);
     const parentLimit = cat.limit || 0;
-    
+
     return {
       total: parentLimit + subsLimit,
       parent: parentLimit,
@@ -253,10 +253,10 @@ export const Categories: React.FC = () => {
     const subcategoryIds = categories.filter(c => c.parentId === cat.id).map(c => c.id);
     const allTargetIds = [cat.id, ...subcategoryIds];
     const hasTransactions = transactions.some(t => allTargetIds.includes(t.categoryId));
-    
+
     const confirmed = await showConfirm(
       hasTransactions ? 'Arquivar Categoria' : 'Excluir Categoria',
-      hasTransactions 
+      hasTransactions
         ? `Esta categoria (ou suas subcategorias) possui lançamentos vinculados. Ela será ocultada da sua lista, mas os lançamentos históricos serão preservados para seus relatórios. Deseja continuar?`
         : `Deseja excluir permanentemente a categoria "${cat.name}"? Esta ação não pode ser desfeita.`,
       {
@@ -381,6 +381,14 @@ export const Categories: React.FC = () => {
       .filter(t => t.groupId && t.necessity === 'unnecessary')
       .reduce((acc, t) => acc + t.amount, 0);
 
+    const recurrentWithoutLimit = expenseTxs
+      .filter(t => t.groupId)
+      .filter(t => {
+        const cat = categories.find(c => c.id === t.categoryId);
+        return !cat || !cat.limit || cat.limit === 0;
+      })
+      .reduce((acc, t) => acc + t.amount, 0);
+
     const others = expenseTxs
       .filter(t => !t.groupId)
       .reduce((acc, t) => acc + t.amount, 0);
@@ -390,19 +398,20 @@ export const Categories: React.FC = () => {
     return {
       recurrentNecessary,
       recurrentUnnecessary,
+      recurrentWithoutLimit,
       others,
       totalUsed
     };
-  }, [transactions, wallets, filterMonth, filterYear]);
+  }, [transactions, wallets, filterMonth, filterYear, categories]);
 
   const orderedPieData = useMemo(() => {
     const expenseByCatMap = new Map<string, number>();
-    
+
     transactions.filter(t => {
       const d = new Date(t.date + 'T12:00:00Z');
       const mMatch = filterMonth === 'all' || (d.getUTCMonth() + 1) === filterMonth;
       const yMatch = d.getUTCFullYear() === filterYear;
-      
+
       const isInvoicePayment = t.description?.toLowerCase().includes('pagamento de fatura');
       const isRefund = t.description?.toLowerCase().includes('estorno');
       if (isInvoicePayment || isRefund) return false;
@@ -505,7 +514,7 @@ export const Categories: React.FC = () => {
                             </div>
                             {effective.total > 0 && (
                               <span className="text-[10px] font-bold text-muted-foreground opacity-60 uppercase tracking-tight">
-                                Limite: {formatCurrency(effective.total)} 
+                                Limite: {formatCurrency(effective.total)}
                                 {effective.hasSubsWithLimit && (
                                   <> (Cat: {formatCurrency(effective.parent)} + Subs: {formatCurrency(effective.subs)})</>
                                 )}
@@ -912,10 +921,10 @@ export const Categories: React.FC = () => {
                               <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                             ))}
                           </Pie>
-                          <Tooltip 
-                            contentStyle={{ 
-                              backgroundColor: 'hsl(var(--card))', 
-                              border: '1px solid hsl(var(--border))', 
+                          <Tooltip
+                            contentStyle={{
+                              backgroundColor: 'hsl(var(--card))',
+                              border: '1px solid hsl(var(--border))',
                               borderRadius: '1rem',
                               boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)'
                             }}
@@ -931,9 +940,9 @@ export const Categories: React.FC = () => {
                       {orderedPieData.map((item, index) => (
                         <div key={item.name} className="flex items-center justify-between group py-1 border-b border-border/5 last:border-0 hover:bg-muted/30 px-2 rounded-lg transition-colors">
                           <div className="flex items-center gap-3 min-w-0">
-                            <div 
-                              className="w-3 h-3 rounded-full shrink-0 shadow-sm" 
-                              style={{ backgroundColor: COLORS[index % COLORS.length] }} 
+                            <div
+                              className="w-3 h-3 rounded-full shrink-0 shadow-sm"
+                              style={{ backgroundColor: COLORS[index % COLORS.length] }}
                             />
                             <span className="text-[10px] font-black uppercase tracking-widest text-foreground/70 truncate group-hover:text-foreground transition-colors">
                               {item.name}
@@ -973,6 +982,15 @@ export const Categories: React.FC = () => {
                           <span className="text-4xl font-black tracking-tighter">{formatCurrency(totalSpendGlobal)}</span>
                           <span className="text-sm font-bold text-muted-foreground opacity-40 uppercase tracking-widest">de {formatCurrency(totalLimitGlobal)}</span>
                         </div>
+
+                        {categoryMetrics.recurrentWithoutLimit > 0 && (
+                          <div className="flex items-center gap-2 -mt-1 py-1.5 px-3 bg-orange-500/5 border border-orange-500/10 rounded-xl w-fit">
+                            <div className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse shrink-0" />
+                            <span className="text-[9px] font-black uppercase text-orange-600 tracking-wider">
+                              {formatCurrency(categoryMetrics.recurrentWithoutLimit)} comprometido sem meta de gasto definida
+                            </span>
+                          </div>
+                        )}
 
                         {/* Global Toggle for Greeting Card */}
                         <button
@@ -1241,25 +1259,25 @@ export const Categories: React.FC = () => {
                               <div className="w-1 h-1 rounded-full bg-border" />
                               <div className="text-[9px] text-muted-foreground font-black uppercase tracking-widest opacity-60 truncate flex items-center gap-1">
                                 {(() => {
-                                 const isInvoicePayment = (t.description?.toLowerCase() || '').includes('pagamento de fatura');
-                                 const showDouble = isInvoicePayment || t.type === 'transfer' || t.type === 'provision';
-                                 
-                                 if (!showDouble) {
-                                   const w = wallets.find(item => item.id === t.walletId);
-                                   if (!w) return null;
-                                   return (
-                                     <div className="flex items-center gap-1 bg-muted/50 px-1 py-0.5 rounded border border-border/20">
-                                       <IconRenderer icon={w.logoUrl || w.icon || 'wallet'} color={w.color} size={10} className="shrink-0" />
-                                       <span className="text-[8px] font-black uppercase text-primary/80">{w.name}</span>
-                                     </div>
-                                   );
-                                 }
+                                  const isInvoicePayment = (t.description?.toLowerCase() || '').includes('pagamento de fatura');
+                                  const showDouble = isInvoicePayment || t.type === 'transfer' || t.type === 'provision';
 
-                                 const sourceW = wallets.find(item => item.id === t.walletId);
-                                 const destW = wallets.find(item => item.id === t.toWalletId);
+                                  if (!showDouble) {
+                                    const w = wallets.find(item => item.id === t.walletId);
+                                    if (!w) return null;
+                                    return (
+                                      <div className="flex items-center gap-1 bg-muted/50 px-1 py-0.5 rounded border border-border/20">
+                                        <IconRenderer icon={w.logoUrl || w.icon || 'wallet'} color={w.color} size={10} className="shrink-0" />
+                                        <span className="text-[8px] font-black uppercase text-primary/80">{w.name}</span>
+                                      </div>
+                                    );
+                                  }
 
-                                 return (
-                                   <div className="flex items-center gap-1 flex-wrap">
+                                  const sourceW = wallets.find(item => item.id === t.walletId);
+                                  const destW = wallets.find(item => item.id === t.toWalletId);
+
+                                  return (
+                                    <div className="flex items-center gap-1 flex-wrap">
                                       {sourceW && (
                                         <div className="flex items-center gap-1 bg-muted/50 px-1 py-0.5 rounded border border-border/20">
                                           <IconRenderer icon={sourceW.logoUrl || sourceW.icon || 'wallet'} color={sourceW.color} size={10} className="shrink-0" />
@@ -1273,10 +1291,10 @@ export const Categories: React.FC = () => {
                                           <span className="text-[8px] font-black uppercase text-primary/80">{destW.name}</span>
                                         </div>
                                       )}
-                                   </div>
-                                 );
-                               })()}
-                             </div>
+                                    </div>
+                                  );
+                                })()}
+                              </div>
                             </div>
                             <div className="flex items-center gap-1.5 flex-wrap overflow-hidden flex-1">
                               <span className="font-bold text-[11px] uppercase tracking-tight break-words">
@@ -1346,20 +1364,20 @@ export const Categories: React.FC = () => {
 
                         <div className="flex items-center justify-between md:justify-end gap-4 w-full md:w-40 border-t md:border-t-0 border-border/40 pt-3 md:pt-0">
                           <div className="flex flex-col items-start md:hidden">
-                             <span className={cn("font-black text-sm tracking-tighter", t.type === 'income' ? "text-emerald-500" : "text-rose-500")}>
-                               {t.type === 'income' ? '+' : '-'} {formatCurrency(t.amount)}
-                             </span>
-                             {t.recurrenceNumber && (
-                               <span className="text-[7px] font-bold text-orange-500 uppercase tracking-tighter">
-                                 {t.recurrenceNumber.current} de {t.recurrenceNumber.total}
-                               </span>
-                             )}
-                             {t.isContinuous && (
-                               <span className="text-[7px] font-bold text-slate-500 uppercase tracking-tighter flex items-center gap-1">
-                                 <RefreshCw size={7} /> Ciclo
-                               </span>
-                             )}
-                             {t.isPaid === false && wallets.find(w => w.id === t.walletId)?.type !== 'credit_card' && <span className="text-[7px] font-black uppercase text-amber-500 tracking-tighter">Pendente</span>}
+                            <span className={cn("font-black text-sm tracking-tighter", t.type === 'income' ? "text-emerald-500" : "text-rose-500")}>
+                              {t.type === 'income' ? '+' : '-'} {formatCurrency(t.amount)}
+                            </span>
+                            {t.recurrenceNumber && (
+                              <span className="text-[7px] font-bold text-orange-500 uppercase tracking-tighter">
+                                {t.recurrenceNumber.current} de {t.recurrenceNumber.total}
+                              </span>
+                            )}
+                            {t.isContinuous && (
+                              <span className="text-[7px] font-bold text-slate-500 uppercase tracking-tighter flex items-center gap-1">
+                                <RefreshCw size={7} /> Ciclo
+                              </span>
+                            )}
+                            {t.isPaid === false && wallets.find(w => w.id === t.walletId)?.type !== 'credit_card' && <span className="text-[7px] font-black uppercase text-amber-500 tracking-tighter">Pendente</span>}
                           </div>
                           <div className="hidden md:flex flex-col items-end">
                             <span className={cn("font-black text-base tracking-tighter", t.type === 'income' ? "text-emerald-500" : "text-rose-500")}>
