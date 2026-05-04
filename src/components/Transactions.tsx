@@ -106,7 +106,7 @@ export const Transactions: React.FC<TransactionsProps> = ({
   const [showPaid, setShowPaid] = useState(true);
   const [showPending, setShowPending] = useState(true);
   const [isSelectionMode, setIsSelectionMode] = useState(false);
-  const [viewMode, setViewMode] = useState<'separated' | 'combined'>('combined');
+  const [viewMode, setViewMode] = useState<'separated' | 'combined'>('separated');
 
   // Edit State
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -780,7 +780,7 @@ export const Transactions: React.FC<TransactionsProps> = ({
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
           <div className="flex items-center p-1 bg-muted/50 rounded-2xl border border-border/30 h-14 shadow-inner w-full sm:w-auto">
             <button
-               onClick={() => { setViewModeContas('contas'); setViewMode('combined'); }}
+               onClick={() => { setViewModeContas('contas'); setViewMode('separated'); }}
                className={cn(
                  "flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 sm:px-6 h-full rounded-xl transition-all text-[10px] font-black uppercase tracking-widest whitespace-nowrap",
                  viewModeContas === 'contas' ? "bg-background text-primary shadow-sm" : "text-muted-foreground hover:bg-muted"
