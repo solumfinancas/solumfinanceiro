@@ -194,16 +194,25 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, setTxFilter,
             return sum + remaining;
          }, 0);
 
+      const recurrentWithoutLimit = expensesInMonth
+         .filter(t => t.groupId)
+         .filter(t => {
+            const cat = categories.find(c => c.id === t.categoryId);
+            return !cat || !cat.limit || cat.limit === 0;
+         })
+         .reduce((sum, t) => sum + t.amount, 0);
+
       // Total que vai precisar
-      // Se includeCategoryLimits for true, usamos apenas o estimado (que já deve considerar o geral)
-      // Se for false, usamos o comprometido total (recorrentes)
-      const totalNeeded = includeCategoryLimits ? estimated : (necRec + unnecRec);
+      // Se includeCategoryLimits for true, usamos o estimado + recorrentes sem meta (necessidade real)
+      // Se for false, usamos o comprometido total (recorrentes cadastradas)
+      const totalNeeded = includeCategoryLimits ? (estimated + recurrentWithoutLimit) : (necRec + unnecRec);
 
       return {
          monthName: targetDate.toLocaleString('pt-BR', { month: 'long', year: 'numeric' }),
          necRec,
          unnecRec,
          estimated,
+         recurrentWithoutLimit,
          cardsToPay,
          totalNeeded
       };
@@ -770,6 +779,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, setTxFilter,
                         )}>
                            {!includeCategoryLimits ? "Inativo (Ativar nas categorias)" : "Deve considerar o comprometido com recorrentes"}
                         </p>
+
+                        {includeCategoryLimits && budgetVision.recurrentWithoutLimit > 0 && (
+                           <div className="flex items-center gap-1.5 py-1 px-2 bg-orange-500/5 border border-orange-500/10 rounded-lg w-fit mt-2">
+                              <div className="w-1 h-1 rounded-full bg-orange-500 animate-pulse shrink-0" />
+                              <span className="text-[7px] font-black uppercase text-orange-600 tracking-tighter leading-none">
+                                 {formatCurrency(budgetVision.recurrentWithoutLimit)} comprometido sem meta de gasto definida
+                              </span>
+                           </div>
+                        )}
                      </div>
 
                   </div>

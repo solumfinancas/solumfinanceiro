@@ -975,16 +975,23 @@ export const Categories: React.FC = () => {
               <div className="relative flex flex-col gap-8">
                 {totalLimitGlobal > 0 ? (
                   <>
-                    <div className="space-y-2">
-                      <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground opacity-60">Resumo do Orçamento</h2>
+                    <div className="space-y-6">
+                      {/* Valor Principal em Destaque: O que de fato precisa no mês */}
+                      <div className="space-y-1">
+                        <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground opacity-60">Total que vai precisar</h2>
+                        <div className="text-5xl font-black tracking-tighter text-foreground drop-shadow-sm">
+                          {formatCurrency(totalLimitGlobal + categoryMetrics.recurrentWithoutLimit)}
+                        </div>
+                      </div>
+
                       <div className="flex flex-col gap-3">
-                        <div className="flex items-baseline gap-3">
-                          <span className="text-4xl font-black tracking-tighter">{formatCurrency(totalSpendGlobal)}</span>
-                          <span className="text-sm font-bold text-muted-foreground opacity-40 uppercase tracking-widest">de {formatCurrency(totalLimitGlobal)}</span>
+                        <div className="flex items-baseline gap-2 opacity-70 scale-90 origin-left">
+                          <span className="text-2xl font-black tracking-tighter">{formatCurrency(totalSpendGlobal)}</span>
+                          <span className="text-[10px] font-bold text-muted-foreground opacity-40 uppercase tracking-widest">utilizado de {formatCurrency(totalLimitGlobal)}</span>
                         </div>
 
                         {categoryMetrics.recurrentWithoutLimit > 0 && (
-                          <div className="flex items-center gap-2 -mt-1 py-1.5 px-3 bg-orange-500/5 border border-orange-500/10 rounded-xl w-fit">
+                          <div className="flex items-center gap-2 py-1.5 px-3 bg-orange-500/5 border border-orange-500/10 rounded-xl w-fit scale-95 origin-left">
                             <div className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse shrink-0" />
                             <span className="text-[9px] font-black uppercase text-orange-600 tracking-wider">
                               {formatCurrency(categoryMetrics.recurrentWithoutLimit)} comprometido sem meta de gasto definida
