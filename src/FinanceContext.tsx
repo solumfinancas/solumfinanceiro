@@ -367,15 +367,19 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       txToInsert.paidDate = new Date().toISOString().split('T')[0];
     }
 
-    // Prevent duplicates
-    const alreadyExists = transactions.some(t => 
-      t.description === txToInsert.description && 
-      t.date === txToInsert.date && 
-      t.walletId === txToInsert.walletId && 
-      t.amount === txToInsert.amount &&
-      !t.isDeleted
-    );
-    if (alreadyExists) return;
+    // Prevent duplicates only for recurrent transactions (Ciclo/Recurrence)
+    const isRecurrent = !!(txToInsert.groupId || txToInsert.isContinuous);
+    if (isRecurrent) {
+      const alreadyExists = transactions.some(t => 
+        t.description === txToInsert.description && 
+        t.date === txToInsert.date && 
+        t.walletId === txToInsert.walletId && 
+        t.amount === txToInsert.amount &&
+        !t.isDeleted &&
+        (t.groupId || t.isContinuous)
+      );
+      if (alreadyExists) return;
+    }
 
     const tempId = 'temp-' + Date.now();
     const optimisticTx = { 
@@ -409,14 +413,20 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     
     const baseTime = Date.now();
     
-    // Filter out transactions that already exist in the local state
-    const uniqueTxs = txs.filter(newTx => !transactions.some(t => 
-      t.description === newTx.description && 
-      t.date === newTx.date && 
-      t.walletId === newTx.walletId && 
-      t.amount === newTx.amount &&
-      !t.isDeleted
-    ));
+    // Filter out transactions that already exist (only for recurrent ones)
+    const uniqueTxs = txs.filter(newTx => {
+      const isRecurrent = !!(newTx.groupId || (newTx as any).isContinuous);
+      if (!isRecurrent) return true;
+
+      return !transactions.some(t => 
+        t.description === newTx.description && 
+        t.date === newTx.date && 
+        t.walletId === newTx.walletId && 
+        t.amount === newTx.amount &&
+        !t.isDeleted &&
+        (t.groupId || t.isContinuous)
+      );
+    });
 
     if (uniqueTxs.length === 0) return;
 

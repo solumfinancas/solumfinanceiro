@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useFinance } from '../FinanceContext';
 import { useModal } from '../contexts/ModalContext';
-import { 
-  X, 
-  ThumbsUp, 
-  ThumbsDown, 
-  Check, 
-  AlertTriangle, 
+import {
+  X,
+  ThumbsUp,
+  ThumbsDown,
+  Check,
+  AlertTriangle,
   BellRing,
   Plus,
   AlertCircle,
@@ -26,15 +26,15 @@ interface TransactionModalProps {
   initialType?: TransactionType;
 }
 
-export const TransactionModal: React.FC<TransactionModalProps> = ({ 
-  isOpen, 
-  onClose, 
+export const TransactionModal: React.FC<TransactionModalProps> = ({
+  isOpen,
+  onClose,
   editingTransaction,
   initialType = 'expense'
 }) => {
   const { transactions, categories, wallets, addTransaction, addTransactions, updateTransaction } = useFinance();
   const { showAlert } = useModal();
-  
+
   const [budgetAlert, setBudgetAlert] = useState<{
     categoryName: string;
     threshold: '75' | '100';
@@ -55,7 +55,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
     description: '',
     isPaid: true,
   });
-  
+
   const [triedSubmit, setTriedSubmit] = useState(false);
 
   const isInvoicePayment = !!newTx.description?.toLowerCase().includes('pagamento de fatura');
@@ -116,16 +116,16 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isSubmitting) return;
-    
+
     setTriedSubmit(true);
-    
+
     if (!newTx.description || !newTx.amount || !newTx.walletId) return;
     if (!isInvoicePayment && ['income', 'expense'].includes(newTx.type!) && !newTx.categoryId) return;
     if (hasRecurrence && newTx.type === 'expense' && !newTx.necessity) {
       showAlert('Classificação Obrigatória', 'Para lançamentos recorrentes, você deve informar se a despesa é Necessária ou Desnecessária.', 'warning');
       return;
     }
-    
+
     if ((newTx.type === 'transfer' || newTx.type === 'provision') && (!newTx.toWalletId || newTx.walletId === newTx.toWalletId)) {
       showAlert('Campos Obrigatórios', 'A carteira de destino é obrigatória e deve ser diferente da origem.', 'warning');
       return;
@@ -142,7 +142,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
 
       const baseDate = new Date(newTx.date! + 'T12:00:00Z');
       const groupId = crypto.randomUUID?.() || Math.random().toString(36).substring(2, 11);
-      
+
       let monthsToGenerate = 1;
       if (hasRecurrence) {
         if (recurrenceContinuous) {
@@ -158,37 +158,37 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       const isCreditCard = wallet?.type === 'credit_card';
 
       for (let i = 0; i < monthsToGenerate; i++) {
-          const currDate = new Date(baseDate);
-          currDate.setUTCMonth(currDate.getUTCMonth() + i);
-          
-          const txToSave: any = {
-            ...newTx as any,
-            date: currDate.toISOString().split('T')[0],
-          };
+        const currDate = new Date(baseDate);
+        currDate.setUTCMonth(currDate.getUTCMonth() + i);
 
-          delete txToSave.id;
-          
-          if (isCreditCard) {
-            txToSave.isPaid = true;
-            delete txToSave.paidDate;
-            const initialPeriod = getInvoicePeriod(wallet.closingDay || 5, wallet.dueDay || 15, new Date(newTx.date! + 'T12:00:00Z'));
-            const startMonth = newTx.invoiceMonth || (initialPeriod.due.getUTCMonth() + 1);
-            const startYear = newTx.invoiceYear || initialPeriod.due.getUTCFullYear();
-            const targetInvoiceDate = new Date(Date.UTC(startYear, (startMonth - 1) + i, 1));
-            txToSave.invoiceMonth = targetInvoiceDate.getUTCMonth() + 1;
-            txToSave.invoiceYear = targetInvoiceDate.getUTCFullYear();
-          }
+        const txToSave: any = {
+          ...newTx as any,
+          date: currDate.toISOString().split('T')[0],
+        };
 
-          if (hasRecurrence) {
-            txToSave.groupId = groupId;
-            if (recurrenceContinuous) {
-              txToSave.isContinuous = true;
-              if (i === monthsToGenerate - 1) txToSave.requiresRenewal = true;
-            } else {
-              txToSave.recurrenceNumber = { current: i + 1, total: monthsToGenerate };
-            }
+        delete txToSave.id;
+
+        if (isCreditCard) {
+          txToSave.isPaid = true;
+          delete txToSave.paidDate;
+          const initialPeriod = getInvoicePeriod(wallet.closingDay || 5, wallet.dueDay || 15, new Date(newTx.date! + 'T12:00:00Z'));
+          const startMonth = newTx.invoiceMonth || (initialPeriod.due.getUTCMonth() + 1);
+          const startYear = newTx.invoiceYear || initialPeriod.due.getUTCFullYear();
+          const targetInvoiceDate = new Date(Date.UTC(startYear, (startMonth - 1) + i, 1));
+          txToSave.invoiceMonth = targetInvoiceDate.getUTCMonth() + 1;
+          txToSave.invoiceYear = targetInvoiceDate.getUTCFullYear();
+        }
+
+        if (hasRecurrence) {
+          txToSave.groupId = groupId;
+          if (recurrenceContinuous) {
+            txToSave.isContinuous = true;
+            if (i === monthsToGenerate - 1) txToSave.requiresRenewal = true;
+          } else {
+            txToSave.recurrenceNumber = { current: i + 1, total: monthsToGenerate };
           }
-          txList.push(txToSave);
+        }
+        txList.push(txToSave);
       }
 
       await addTransactions(txList);
@@ -202,7 +202,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
           const currentSpend = getCategorySpend(category.id, transactions, categories, currentMonth, currentYear);
           const newTotal = currentSpend + (newTx.amount || 0);
           const threshold = checkBudgetThreshold(newTotal, category.limit);
-          
+
           if (threshold) {
             setBudgetAlert({
               categoryName: category.name,
@@ -232,34 +232,34 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
 
   const walletOptions = useMemo(() => {
     const isSpecialType = ['income', 'transfer', 'provision'].includes(newTx.type || '') || isInvoicePayment;
-    
+
     const banks = wallets.filter(w => w.type !== 'credit_card' && ((w.isActive !== false && !w.isDeleted) || w.id === newTx.walletId));
     const cards = wallets.filter(w => w.type === 'credit_card' && (
-      w.id === newTx.walletId || 
+      w.id === newTx.walletId ||
       (!isSpecialType || isEstorno) && w.isActive !== false && !w.isDeleted
     ));
-    
+
     const result: SelectOption[] = [];
     if (cards.length > 0) {
       result.push({ id: 'header-cards', name: 'Cartões de Crédito', isHeader: true });
-      cards.forEach(w => result.push({ 
-        id: w.id, 
-        name: `(CARTÃO) ${w.name}`, 
-        logoUrl: w.logoUrl, 
+      cards.forEach(w => result.push({
+        id: w.id,
+        name: `(CARTÃO) ${w.name}`,
+        logoUrl: w.logoUrl,
         icon: w.icon || 'CreditCard',
         color: w.color,
-        type: w.type 
+        type: w.type
       }));
     }
     if (banks.length > 0) {
       result.push({ id: 'header-banks', name: 'Bancos', isHeader: true });
-      banks.forEach(w => result.push({ 
-        id: w.id, 
-        name: w.name, 
-        logoUrl: w.logoUrl, 
+      banks.forEach(w => result.push({
+        id: w.id,
+        name: w.name,
+        logoUrl: w.logoUrl,
         icon: w.icon || 'Wallet',
         color: w.color,
-        type: w.type 
+        type: w.type
       }));
     }
     return result;
@@ -268,19 +268,19 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   const categoryOptions = useMemo(() => {
     const isIncome = newTx.type === 'income';
     const targetType = (newTx.type === 'provision' || newTx.type === 'planned') ? 'expense' : newTx.type;
-    
+
     // Identificar categoria atual e seu pai para garantir que apareçam mesmo se excluídos
     const currentCategory = categories.find(c => c.id === newTx.categoryId);
     const parentIdOfSelected = currentCategory?.parentId;
 
-    const filtered = categories.filter(c => 
-      ((c.isActive !== false && !c.isDeleted) || c.id === newTx.categoryId || c.id === parentIdOfSelected) && 
+    const filtered = categories.filter(c =>
+      ((c.isActive !== false && !c.isDeleted) || c.id === newTx.categoryId || c.id === parentIdOfSelected) &&
       c.type === targetType
     );
-    
+
     const result: SelectOption[] = [];
     const parents = filtered.filter(c => !c.parentId);
-    
+
     parents.forEach(parent => {
       result.push({
         id: parent.id,
@@ -288,13 +288,13 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
         icon: parent.icon,
         color: parent.color
       });
-      
+
       // Filhos do pai atual que estão ativos OU são o selecionado
-      const children = categories.filter(c => 
-        c.parentId === parent.id && 
+      const children = categories.filter(c =>
+        c.parentId === parent.id &&
         ((c.isActive !== false && !c.isDeleted) || c.id === newTx.categoryId)
       );
-      
+
       children.forEach(child => {
         result.push({
           id: child.id,
@@ -305,11 +305,11 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
         });
       });
     });
-    
+
     return result;
   }, [categories, newTx.type, newTx.categoryId]);
 
-  const targetWalletOptions = useMemo(() => 
+  const targetWalletOptions = useMemo(() =>
     wallets
       .filter(w => w.id !== newTx.walletId && w.type !== 'credit_card' && ((w.isActive !== false && !w.isDeleted) || w.id === newTx.toWalletId))
       .sort((a, b) => (a.type === b.type ? 0 : a.type === 'credit_card' ? -1 : 1))
@@ -321,7 +321,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
         color: w.color,
         type: w.type
       }))
-  , [wallets, newTx.walletId, newTx.toWalletId]);
+    , [wallets, newTx.walletId, newTx.toWalletId]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -331,12 +331,12 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       const period = getInvoicePeriod(wallet.closingDay || 5, wallet.dueDay || 15, d);
       const m = period.due.getUTCMonth() + 1;
       const y = period.due.getUTCFullYear();
-      
+
       if (!newTx.invoiceMonth || !newTx.invoiceYear) {
         setNewTx(prev => ({ ...prev, invoiceMonth: m, invoiceYear: y }));
       }
     }
-    
+
     if (newTx.walletId) {
       const isSpecialType = ['income', 'transfer', 'provision'].includes(newTx.type || '');
       if (isSpecialType && wallet?.type === 'credit_card') {
@@ -356,24 +356,24 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       <AnimatePresence>
         {isOpen && (
           <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={() => { if(!budgetAlert) onClose(); }}
+              onClick={() => { if (!budgetAlert) onClose(); }}
               className="absolute inset-0 backdrop-premium"
             />
-            <motion.div 
+            <motion.div
               initial={{ scale: 0.95, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.95, opacity: 0, y: 20 }}
               className="relative bg-card w-full max-w-lg rounded-3xl shadow-2xl border p-5 sm:p-8 max-h-[90vh] overflow-y-auto"
             >
               <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-2xl font-bold">{isInvoicePayment ? 'Editar Pagamento de Fatura' : (editingTransaction ? 'Editar Lançamento' : 'Novo Lançamento')}</h2>
-                  <button onClick={onClose} className="p-2 hover:bg-muted rounded-full transition-colors">
-                    <X size={20} />
-                  </button>
+                <h2 className="text-2xl font-bold">{isInvoicePayment ? 'Editar Pagamento de Fatura' : (editingTransaction ? 'Editar Lançamento' : 'Novo Lançamento')}</h2>
+                <button onClick={onClose} className="p-2 hover:bg-muted rounded-full transition-colors">
+                  <X size={20} />
+                </button>
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-4">
@@ -403,12 +403,12 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                           onClick={() => setNewTx(prev => ({ ...prev, type, categoryId: undefined }))}
                           className={cn(
                             "flex-1 py-1.5 px-1 rounded-lg text-[11px] font-black uppercase tracking-widest transition-all min-w-[30%]",
-                            newTx.type === type 
-                              ? type === 'income' ? "bg-emerald-500 text-white" : 
-                                 type === 'expense' ? "bg-rose-500 text-white" : 
-                                 type === 'transfer' ? "bg-blue-500 text-white" :
-                                 type === 'provision' ? "bg-orange-500 text-white" :
-                                 "bg-yellow-500 text-white shadow-sm"
+                            newTx.type === type
+                              ? type === 'income' ? "bg-emerald-500 text-white" :
+                                type === 'expense' ? "bg-rose-500 text-white" :
+                                  type === 'transfer' ? "bg-blue-500 text-white" :
+                                    type === 'provision' ? "bg-orange-500 text-white" :
+                                      "bg-yellow-500 text-white shadow-sm"
                               : "text-muted-foreground hover:text-foreground hover:bg-accent/50",
                             isDisabled && "opacity-30 cursor-not-allowed"
                           )}
@@ -423,8 +423,8 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Valor</label>
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       inputMode="decimal"
                       required
                       value={newTx.amount ? (newTx.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ''}
@@ -438,8 +438,8 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Data Competência</label>
-                    <input 
-                      type="date" 
+                    <input
+                      type="date"
                       required
                       value={newTx.date}
                       onChange={(e) => setNewTx(prev => ({ ...prev, date: e.target.value }))}
@@ -452,16 +452,16 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                   <div className="space-y-1.5 animate-in fade-in slide-in-from-top-2 duration-300">
                     <label className="text-[10px] font-black uppercase tracking-widest text-emerald-500 ml-1 italic">Data do Pagamento / Recebimento</label>
                     <div className="relative">
-                      <input 
-                        type="date" 
+                      <input
+                        type="date"
                         required
                         value={newTx.paidDate || new Date().toISOString().split('T')[0]}
                         onChange={(e) => setNewTx(prev => ({ ...prev, paidDate: e.target.value }))}
                         className="w-full px-4 py-3 bg-emerald-500/5 border border-emerald-500/20 rounded-xl focus:ring-2 focus:ring-emerald-500/20 outline-none shadow-sm font-black text-emerald-600"
                       />
                       <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2 pointer-events-none opacity-40">
-                         <Check size={14} className="text-emerald-500" />
-                         <span className="text-[8px] font-black uppercase tracking-widest text-emerald-500">Confirmado</span>
+                        <Check size={14} className="text-emerald-500" />
+                        <span className="text-[8px] font-black uppercase tracking-widest text-emerald-500">Confirmado</span>
                       </div>
                     </div>
                   </div>
@@ -469,8 +469,8 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
 
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Descrição</label>
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     required
                     readOnly={isInvoicePayment || isEstorno}
                     value={newTx.description}
@@ -489,7 +489,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                     <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">
                       {(newTx.type === 'transfer' || newTx.type === 'provision') ? 'Origem' : 'Carteira'}
                     </label>
-                    <CustomSelect 
+                    <CustomSelect
                       options={walletOptions}
                       value={newTx.walletId || ''}
                       onChange={(val) => setNewTx(prev => ({ ...prev, walletId: val }))}
@@ -502,7 +502,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                   {!isInvoicePayment && ['income', 'expense'].includes(newTx.type || '') && (
                     <div className="space-y-1.5">
                       <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Categoria</label>
-                      <CustomSelect 
+                      <CustomSelect
                         options={categoryOptions}
                         value={newTx.categoryId || ''}
                         onChange={(val) => setNewTx(prev => ({ ...prev, categoryId: val }))}
@@ -516,7 +516,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                     <div className="col-span-2 p-4 bg-primary/5 rounded-2xl border border-primary/20 mt-2">
                       <div className="space-y-1.5">
                         <label className="text-[10px] font-black uppercase tracking-widest text-primary ml-1">Ciclo da Fatura</label>
-                        <select 
+                        <select
                           required
                           value={`${newTx.invoiceMonth}-${newTx.invoiceYear}`}
                           onChange={(e) => {
@@ -526,17 +526,17 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                           className="w-full px-4 py-2.5 bg-background border border-primary/20 rounded-xl focus:ring-2 focus:ring-primary/20 outline-none font-bold text-xs appearance-none"
                         >
                           {(() => {
-                             const baseDate = new Date((newTx.date || new Date().toISOString().split('T')[0]) + 'T12:00:00Z');
-                             const options = [];
-                             for (let i = 0; i <= 4; i++) {
-                               const d = new Date(baseDate);
-                               d.setUTCMonth(baseDate.getUTCMonth() + i);
-                               const m = d.getUTCMonth() + 1;
-                               const y = d.getUTCFullYear();
-                               const label = d.toLocaleString('pt-BR', { month: 'long', year: 'numeric' }).toUpperCase();
-                               options.push(<option key={`${m}-${y}`} value={`${m}-${y}`}>{label}</option>);
-                             }
-                             return options;
+                            const baseDate = new Date((newTx.date || new Date().toISOString().split('T')[0]) + 'T12:00:00Z');
+                            const options = [];
+                            for (let i = 0; i <= 4; i++) {
+                              const d = new Date(baseDate);
+                              d.setUTCMonth(baseDate.getUTCMonth() + i);
+                              const m = d.getUTCMonth() + 1;
+                              const y = d.getUTCFullYear();
+                              const label = d.toLocaleString('pt-BR', { month: 'long', year: 'numeric' }).toUpperCase();
+                              options.push(<option key={`${m}-${y}`} value={`${m}-${y}`}>{label}</option>);
+                            }
+                            return options;
                           })()}
                         </select>
                       </div>
@@ -546,7 +546,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                   {(newTx.type === 'transfer' || newTx.type === 'provision') && (
                     <div className="space-y-1.5">
                       <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Destino</label>
-                      <CustomSelect 
+                      <CustomSelect
                         options={targetWalletOptions}
                         value={newTx.toWalletId || ''}
                         onChange={(val) => setNewTx(prev => ({ ...prev, toWalletId: val }))}
@@ -562,22 +562,22 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                     type="button"
                     onClick={() => setNewTx(prev => {
                       const nextPaid = !newTx.isPaid;
-                      return { 
-                        ...prev, 
+                      return {
+                        ...prev,
                         isPaid: nextPaid,
-                        paidDate: nextPaid && !prev.paidDate ? new Date().toISOString().split('T')[0] : 
-                                  !nextPaid ? undefined : prev.paidDate
+                        paidDate: nextPaid && !prev.paidDate ? new Date().toISOString().split('T')[0] :
+                          !nextPaid ? undefined : prev.paidDate
                       };
                     })}
                     className={cn(
                       "flex items-center gap-4 px-6 py-3 rounded-2xl transition-all border-2 w-full",
-                      newTx.isPaid !== false 
-                        ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-600 shadow-sm" 
+                      newTx.isPaid !== false
+                        ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-600 shadow-sm"
                         : "bg-amber-500/10 border-amber-500/30 text-amber-600 shadow-sm"
                     )}
                   >
                     <div className={cn("w-8 h-8 rounded-full flex items-center justify-center shadow-inner", newTx.isPaid !== false ? "bg-emerald-500 text-white" : "bg-amber-500 text-white")}>
-                       <ThumbsUp size={16} className={cn(newTx.isPaid === false && "rotate-180")} />
+                      <ThumbsUp size={16} className={cn(newTx.isPaid === false && "rotate-180")} />
                     </div>
                     <span className="text-[10px] font-black uppercase tracking-widest text-left">
                       {newTx.isPaid !== false ? 'Confirmado / Liquidado' : 'Aguardando Pagamento/Recebimento'}
@@ -587,33 +587,33 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
 
                 {!isInvoicePayment && (
                   <div className="pt-4 border-t space-y-4">
-                    <div 
+                    <div
                       className={cn(
                         "flex items-center justify-between p-4 rounded-2xl border transition-all cursor-pointer",
                         hasRecurrence ? "bg-primary/5 border-primary/30" : "bg-muted/10 border-border/50 hover:bg-muted/20"
                       )}
                       onClick={() => setHasRecurrence(!hasRecurrence)}
                     >
-                       <div className="flex flex-col">
-                         <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-0.5">Lançamento Recorrente?</span>
-                         <span className={cn("text-xs font-bold", hasRecurrence ? "text-primary" : "text-muted-foreground/60")}>
-                            {hasRecurrence ? 'Ativado' : 'Não se repete'}
-                         </span>
-                       </div>
-                       <div className={cn(
-                         "w-12 h-6 rounded-full relative transition-all duration-300",
-                         hasRecurrence ? "bg-primary" : "bg-muted-foreground/30"
-                       )}>
-                          <div className={cn(
-                            "absolute top-1 w-4 h-4 bg-white rounded-full transition-all duration-300 shadow-sm",
-                            hasRecurrence ? "left-7" : "left-1"
-                          )} />
-                       </div>
+                      <div className="flex flex-col">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-0.5">Lançamento Recorrente?</span>
+                        <span className={cn("text-xs font-bold", hasRecurrence ? "text-primary" : "text-muted-foreground/60")}>
+                          {hasRecurrence ? 'Ativado' : 'Não se repete'}
+                        </span>
+                      </div>
+                      <div className={cn(
+                        "w-12 h-6 rounded-full relative transition-all duration-300",
+                        hasRecurrence ? "bg-primary" : "bg-muted-foreground/30"
+                      )}>
+                        <div className={cn(
+                          "absolute top-1 w-4 h-4 bg-white rounded-full transition-all duration-300 shadow-sm",
+                          hasRecurrence ? "left-7" : "left-1"
+                        )} />
+                      </div>
                     </div>
 
                     <AnimatePresence>
                       {hasRecurrence && (
-                        <motion.div 
+                        <motion.div
                           initial={{ opacity: 0, height: 0, y: -10 }}
                           animate={{ opacity: 1, height: 'auto', y: 0 }}
                           exit={{ opacity: 0, height: 0, y: -10 }}
@@ -639,14 +639,14 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                                 )}
                               >
                                 <div className="flex items-center gap-2">
-                                    <Check size={14} />
-                                    <span className="text-[10px] font-black uppercase tracking-widest">Necessário</span>
+                                  <Check size={14} />
+                                  <span className="text-[10px] font-black uppercase tracking-widest">Necessário</span>
                                 </div>
                                 <span className={cn(
                                   "text-[7px] font-bold uppercase opacity-60 leading-tight px-2 text-center",
                                   newTx.necessity === 'necessary' ? "text-white" : "text-muted-foreground"
                                 )}>
-                                    Essencial. Não pode ser guardado para comprar (Ex: Aluguel, Internet).
+                                  Essencial. Não pode ser guardado para realizar (Ex: Aluguel, Internet).
                                 </span>
                               </button>
 
@@ -659,14 +659,14 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                                 )}
                               >
                                 <div className="flex items-center gap-2">
-                                    <AlertCircle size={14} />
-                                    <span className="text-[10px] font-black uppercase tracking-widest">Desnecessário</span>
+                                  <AlertCircle size={14} />
+                                  <span className="text-[10px] font-black uppercase tracking-widest">Desnecessário</span>
                                 </div>
                                 <span className={cn(
                                   "text-[7px] font-bold uppercase opacity-60 leading-tight px-2 text-center",
                                   newTx.necessity === 'unnecessary' ? "text-white" : "text-muted-foreground"
                                 )}>
-                                    Variável. Poderia ter sido planejado antes de comprar.
+                                  Variável. Poderia ter sido planejado antes de realizar (Ex: Roupas, Móveis).
                                 </span>
                               </button>
                             </div>
@@ -674,7 +674,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
 
                           <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Configurar repetição</p>
                           <div className="flex gap-2">
-                            <button 
+                            <button
                               type="button"
                               onClick={() => setRecurrenceContinuous(true)}
                               className={cn(
@@ -685,12 +685,12 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                               <span className="text-[11px] font-black uppercase italic">DEZ DE {new Date().getFullYear()}</span>
                               <span className="text-[8px] font-bold opacity-60 uppercase">Até fim do ano</span>
                             </button>
-                            
+
                             <div className={cn(
                               "flex-1 flex gap-2 items-center p-1 rounded-2xl border transition-all",
                               !recurrenceContinuous ? "bg-primary/5 border-primary/30" : "bg-card border-border opacity-50"
                             )}>
-                              <button 
+                              <button
                                 type="button"
                                 onClick={() => setRecurrenceContinuous(false)}
                                 className={cn(
@@ -699,7 +699,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                                 )}
                               >Meses</button>
                               {!recurrenceContinuous && (
-                                <input 
+                                <input
                                   type="number"
                                   min="1"
                                   max="48"
@@ -718,15 +718,15 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                 )}
 
                 <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t shrink-0">
-                  <button 
-                    type="button" 
-                    onClick={onClose} 
+                  <button
+                    type="button"
+                    onClick={onClose}
                     className="w-full sm:flex-1 shrink-0 px-4 h-14 sm:h-12 rounded-xl font-black uppercase text-xs tracking-widest border border-border hover:bg-muted transition-all active:scale-95 shadow-sm flex items-center justify-center"
                   >
                     Cancelar
                   </button>
-                  <button 
-                    type="submit" 
+                  <button
+                    type="submit"
                     disabled={isSubmitting}
                     className={cn(
                       "w-full sm:flex-1 shrink-0 px-4 h-14 sm:h-12 rounded-xl font-black uppercase text-xs tracking-widest bg-primary text-white shadow-lg shadow-primary/20 transition-all flex items-center justify-center",
@@ -751,10 +751,10 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                   >
                     <div className="flex items-center justify-between">
                       <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg", budgetAlert.threshold === '100' ? "bg-rose-500 text-white" : "bg-amber-500 text-white")}>
-                         {budgetAlert.threshold === '100' ? <AlertTriangle size={24} /> : <BellRing size={24} />}
+                        {budgetAlert.threshold === '100' ? <AlertTriangle size={24} /> : <BellRing size={24} />}
                       </div>
                       <button onClick={() => { setBudgetAlert(null); onClose(); resetForm(); }} className="p-2 hover:bg-black/5 rounded-xl transition-colors">
-                         <X size={18} />
+                        <X size={18} />
                       </button>
                     </div>
                     <div>

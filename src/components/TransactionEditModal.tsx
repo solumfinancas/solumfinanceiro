@@ -14,10 +14,10 @@ interface TransactionEditModalProps {
   categories: Category[];
 }
 
-export const TransactionEditModal: React.FC<TransactionEditModalProps> = ({ 
-  isOpen, 
-  onClose, 
-  transaction, 
+export const TransactionEditModal: React.FC<TransactionEditModalProps> = ({
+  isOpen,
+  onClose,
+  transaction,
   onSave,
   wallets,
   categories
@@ -41,9 +41,9 @@ export const TransactionEditModal: React.FC<TransactionEditModalProps> = ({
       const period = getInvoicePeriod(wallet.closingDay || 5, wallet.dueDay || 15, d);
       const m = period.due.getUTCMonth() + 1;
       const y = period.due.getUTCFullYear();
-      
+
       const isFirstLoadOrWalletChange = !editingTx.invoiceMonth || !editingTx.invoiceYear;
-      
+
       if (isFirstLoadOrWalletChange) {
         setEditingTx(prev => prev ? ({ ...prev, invoiceMonth: m, invoiceYear: y }) : null);
       }
@@ -82,10 +82,10 @@ export const TransactionEditModal: React.FC<TransactionEditModalProps> = ({
       if (editingTx.type === 'transfer' || editingTx.type === 'provision') return isActive && !isCreditCard;
       return isActive;
     });
-    
+
     const banks = filteredWallets.filter(w => w.type !== 'credit_card');
     const cards = filteredWallets.filter(w => w.type === 'credit_card');
-    
+
     const result: SelectOption[] = [];
     if (cards.length > 0) {
       result.push({ id: 'header-cards', name: 'Cartões de Crédito', isHeader: true });
@@ -101,24 +101,24 @@ export const TransactionEditModal: React.FC<TransactionEditModalProps> = ({
   const categoryOptions = React.useMemo(() => {
     if (!editingTx) return [];
     const targetType = (editingTx.type === 'provision' || editingTx.type === 'planned') ? 'expense' : (editingTx.type === 'transfer' ? 'expense' : editingTx.type);
-    
-    const filtered = categories.filter(c => 
-      (c.isActive !== false || c.id === editingTx.categoryId) && 
+
+    const filtered = categories.filter(c =>
+      (c.isActive !== false || c.id === editingTx.categoryId) &&
       c.type === targetType
     );
-    
+
     const result: SelectOption[] = [];
     const parents = filtered.filter(c => !c.parentId);
-    
+
     parents.forEach(parent => {
       result.push({ id: parent.id, name: parent.name, icon: parent.icon, color: parent.color });
-      
+
       const children = categories.filter(c => c.parentId === parent.id && (c.isActive !== false || c.id === editingTx.categoryId));
       children.forEach(child => {
         result.push({ id: child.id, name: `${parent.name} > ${child.name}`, icon: child.icon, color: child.color, parentId: parent.id });
       });
     });
-    
+
     return result;
   }, [categories, editingTx.type, editingTx.categoryId]);
 
@@ -137,16 +137,16 @@ export const TransactionEditModal: React.FC<TransactionEditModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-[160] flex items-center justify-center p-4">
-      <motion.div 
-        initial={{ opacity: 0 }} 
-        animate={{ opacity: 1 }} 
-        exit={{ opacity: 0 }} 
-        onClick={onClose} 
-        className="absolute inset-0 bg-black/80 backdrop-blur-md" 
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={onClose}
+        className="absolute inset-0 bg-black/80 backdrop-blur-md"
       />
-      <motion.div 
-        initial={{ scale: 0.95, opacity: 0, y: 20 }} 
-        animate={{ scale: 1, opacity: 1, y: 0 }} 
+      <motion.div
+        initial={{ scale: 0.95, opacity: 0, y: 20 }}
+        animate={{ scale: 1, opacity: 1, y: 0 }}
         exit={{ scale: 0.95, opacity: 0, y: 20 }}
         className="relative bg-card w-full max-w-xl rounded-[2.5rem] p-8 border border-border/50 shadow-2xl flex flex-col max-h-[90vh]"
       >
@@ -161,15 +161,15 @@ export const TransactionEditModal: React.FC<TransactionEditModalProps> = ({
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6 overflow-y-auto pr-2 custom-scrollbar">
-          
+
           <div className="space-y-2">
             <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Descrição</label>
-            <input 
-              type="text" 
-              value={editingTx.description || ''} 
-              onChange={e => setEditingTx({...editingTx, description: e.target.value})} 
-              className="w-full p-4 bg-muted/10 border border-border/40 rounded-2xl font-bold focus:ring-2 focus:ring-primary/20 outline-none transition-all" 
-              placeholder="Ex: Aluguel, Supermercado..." 
+            <input
+              type="text"
+              value={editingTx.description || ''}
+              onChange={e => setEditingTx({ ...editingTx, description: e.target.value })}
+              className="w-full p-4 bg-muted/10 border border-border/40 rounded-2xl font-bold focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+              placeholder="Ex: Aluguel, Supermercado..."
             />
           </div>
 
@@ -178,24 +178,24 @@ export const TransactionEditModal: React.FC<TransactionEditModalProps> = ({
               <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Valor</label>
               <div className="relative">
                 <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground font-black text-xs opacity-40">R$</span>
-                <input 
-                  type="text" 
-                  value={(editingTx.amount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} 
+                <input
+                  type="text"
+                  value={(editingTx.amount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   onChange={e => {
                     const val = e.target.value.replace(/\D/g, '');
-                    setEditingTx({...editingTx, amount: Number(val) / 100});
-                  }} 
-                  className="w-full pl-10 pr-4 py-4 bg-muted/10 border border-border/40 rounded-2xl font-mono font-black focus:ring-2 focus:ring-primary/20 outline-none transition-all text-foreground" 
+                    setEditingTx({ ...editingTx, amount: Number(val) / 100 });
+                  }}
+                  className="w-full pl-10 pr-4 py-4 bg-muted/10 border border-border/40 rounded-2xl font-mono font-black focus:ring-2 focus:ring-primary/20 outline-none transition-all text-foreground"
                 />
               </div>
             </div>
             <div className="space-y-2">
               <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Data</label>
-              <input 
-                type="date" 
-                value={editingTx.date} 
-                onChange={e => setEditingTx({...editingTx, date: e.target.value})} 
-                className="w-full p-4 bg-muted/10 border border-border/40 rounded-2xl font-bold focus:ring-2 focus:ring-primary/20 outline-none transition-all text-foreground" 
+              <input
+                type="date"
+                value={editingTx.date}
+                onChange={e => setEditingTx({ ...editingTx, date: e.target.value })}
+                className="w-full p-4 bg-muted/10 border border-border/40 rounded-2xl font-bold focus:ring-2 focus:ring-primary/20 outline-none transition-all text-foreground"
               />
             </div>
           </div>
@@ -203,10 +203,10 @@ export const TransactionEditModal: React.FC<TransactionEditModalProps> = ({
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">{(editingTx.type === 'transfer' || editingTx.type === 'provision') ? 'Carteira de Origem' : 'Carteira'}</label>
-              <CustomSelect 
+              <CustomSelect
                 options={walletOptions}
-                value={editingTx.walletId} 
-                onChange={val => setEditingTx({...editingTx, walletId: val})}
+                value={editingTx.walletId}
+                onChange={val => setEditingTx({ ...editingTx, walletId: val })}
                 placeholder="Selecionar Carteira"
               />
 
@@ -249,24 +249,24 @@ export const TransactionEditModal: React.FC<TransactionEditModalProps> = ({
                 </div>
               )}
             </div>
-            
+
             {editingTx.type !== 'provision' && (editingTx.type === 'transfer' ? (
               <div className="space-y-2">
                 <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Carteira de Destino</label>
-                <CustomSelect 
+                <CustomSelect
                   options={targetWalletOptions}
-                  value={editingTx.toWalletId || ''} 
-                  onChange={val => setEditingTx({...editingTx, toWalletId: val})}
+                  value={editingTx.toWalletId || ''}
+                  onChange={val => setEditingTx({ ...editingTx, toWalletId: val })}
                   placeholder="Selecionar Destino"
                 />
               </div>
             ) : editingTx.type !== 'planned' ? (
               <div className="space-y-2">
                 <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Categoria</label>
-                <CustomSelect 
+                <CustomSelect
                   options={categoryOptions}
-                  value={editingTx.categoryId || ''} 
-                  onChange={val => setEditingTx({...editingTx, categoryId: val})}
+                  value={editingTx.categoryId || ''}
+                  onChange={val => setEditingTx({ ...editingTx, categoryId: val })}
                   placeholder="Selecionar Categoria"
                 />
               </div>
@@ -276,10 +276,10 @@ export const TransactionEditModal: React.FC<TransactionEditModalProps> = ({
           {editingTx.type !== 'provision' && (editingTx.type === 'transfer') && (
             <div className="space-y-2">
               <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Categoria</label>
-              <CustomSelect 
+              <CustomSelect
                 options={categoryOptions}
-                value={editingTx.categoryId || ''} 
-                onChange={val => setEditingTx({...editingTx, categoryId: val})}
+                value={editingTx.categoryId || ''}
+                onChange={val => setEditingTx({ ...editingTx, categoryId: val })}
                 placeholder="Selecionar Categoria"
               />
             </div>
@@ -291,7 +291,7 @@ export const TransactionEditModal: React.FC<TransactionEditModalProps> = ({
               <div className="flex gap-4 p-1 bg-muted/30 rounded-2xl border border-border/50">
                 <button
                   type="button"
-                  onClick={() => setEditingTx({...editingTx, necessity: 'necessary'})}
+                  onClick={() => setEditingTx({ ...editingTx, necessity: 'necessary' })}
                   className={cn(
                     "flex-1 flex flex-col items-center justify-center gap-1 py-4 rounded-xl transition-all",
                     editingTx.necessity === 'necessary' ? "bg-primary text-white shadow-lg shadow-primary/20 scale-[1.02]" : "text-muted-foreground hover:bg-muted"
@@ -304,12 +304,12 @@ export const TransactionEditModal: React.FC<TransactionEditModalProps> = ({
                   <span className={cn(
                     "text-[8px] font-bold uppercase opacity-60 leading-tight px-2 text-center",
                     editingTx.necessity === 'necessary' ? "text-white" : "text-muted-foreground"
-                  )}>Essencial. Não pode ser guardado para comprar (Ex: Aluguel, Internet).</span>
+                  )}>Essencial. Não pode ser guardado para realizar (Ex: Aluguel, Internet).</span>
                 </button>
 
                 <button
                   type="button"
-                  onClick={() => setEditingTx({...editingTx, necessity: 'unnecessary'})}
+                  onClick={() => setEditingTx({ ...editingTx, necessity: 'unnecessary' })}
                   className={cn(
                     "flex-1 flex flex-col items-center justify-center gap-1 py-4 rounded-xl transition-all",
                     editingTx.necessity === 'unnecessary' ? "bg-orange-500 text-white shadow-lg shadow-orange-500/20 scale-[1.02]" : "text-muted-foreground hover:bg-muted"
@@ -322,7 +322,7 @@ export const TransactionEditModal: React.FC<TransactionEditModalProps> = ({
                   <span className={cn(
                     "text-[8px] font-bold uppercase opacity-60 leading-tight px-2 text-center",
                     editingTx.necessity === 'unnecessary' ? "text-white" : "text-muted-foreground"
-                  )}>Variável. Poderia ter sido planejado antes de comprar.</span>
+                  )}>Variável. Poderia ter sido planejado antes de realizar (Ex: Roupas, Móveis).</span>
                 </button>
               </div>
             </div>
@@ -331,13 +331,13 @@ export const TransactionEditModal: React.FC<TransactionEditModalProps> = ({
           {wallets.find(w => w.id === editingTx.walletId)?.type !== 'credit_card' && (
             <div className="flex flex-col gap-2 mt-4">
               <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Status de Pagamento</label>
-              <button 
+              <button
                 type="button"
-                onClick={() => setEditingTx({...editingTx, isPaid: !editingTx.isPaid})}
+                onClick={() => setEditingTx({ ...editingTx, isPaid: !editingTx.isPaid })}
                 className={cn(
                   "flex items-center gap-4 px-6 py-4 rounded-[2rem] transition-all border-2 w-full",
-                  editingTx.isPaid !== false 
-                    ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-600 shadow-lg shadow-emerald-500/10" 
+                  editingTx.isPaid !== false
+                    ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-600 shadow-lg shadow-emerald-500/10"
                     : "bg-amber-500/10 border-amber-500/30 text-amber-600 shadow-lg shadow-amber-500/10"
                 )}
               >
@@ -349,34 +349,34 @@ export const TransactionEditModal: React.FC<TransactionEditModalProps> = ({
                 </div>
                 <div className="text-left flex-1">
                   <p className="text-[11px] font-black uppercase tracking-widest leading-none mb-1">
-                    {editingTx.isPaid !== false 
-                      ? (editingTx.type === 'income' ? 'Recebido / Liquidado' : 'Pago / Liquidado') 
+                    {editingTx.isPaid !== false
+                      ? (editingTx.type === 'income' ? 'Recebido / Liquidado' : 'Pago / Liquidado')
                       : (editingTx.type === 'income' ? 'Aguardando Recebimento' : 'Aguardando Pagamento')}
                   </p>
                   <p className="text-[9px] font-bold opacity-60 uppercase tracking-tighter">Clique para alterar o status</p>
                 </div>
                 <div className="text-right">
-                   <span className={cn(
-                     "text-[8px] font-black px-2 py-1 rounded-lg uppercase tracking-widest",
-                     editingTx.isPaid !== false ? "bg-emerald-500 text-white" : "bg-amber-500 text-white"
-                   )}>
-                     {editingTx.isPaid !== false ? 'Confirmado' : 'Pendente'}
-                   </span>
+                  <span className={cn(
+                    "text-[8px] font-black px-2 py-1 rounded-lg uppercase tracking-widest",
+                    editingTx.isPaid !== false ? "bg-emerald-500 text-white" : "bg-amber-500 text-white"
+                  )}>
+                    {editingTx.isPaid !== false ? 'Confirmado' : 'Pendente'}
+                  </span>
                 </div>
               </button>
             </div>
           )}
 
           <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t shrink-0">
-            <button 
-              type="button" 
-              onClick={onClose} 
+            <button
+              type="button"
+              onClick={onClose}
               className="w-full sm:flex-1 shrink-0 px-4 h-14 sm:h-12 rounded-xl font-black uppercase text-xs tracking-widest border border-border hover:bg-muted transition-all active:scale-95 shadow-sm flex items-center justify-center"
             >
               Cancelar
             </button>
-            <button 
-              type="submit" 
+            <button
+              type="submit"
               className="w-full sm:flex-1 shrink-0 px-4 h-14 sm:h-12 rounded-xl font-black uppercase text-xs tracking-widest bg-primary text-white shadow-lg shadow-primary/20 transition-all flex items-center justify-center hover:scale-[1.02] active:scale-95"
             >
               Salvar Alterações

@@ -63,11 +63,11 @@ interface DashboardProps {
 const COLORS = ['#10b981', '#3b82f6', '#8b5cf6', '#f59e0b', '#f43f5e', '#06b6d4', '#ec4899', '#84cc16'];
 
 export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, setTxFilter, setTxTypeFilter }) => {
-   const { 
-      includeCategoryLimits, 
-      transactions, categories, wallets, 
+   const {
+      includeCategoryLimits,
+      transactions, categories, wallets,
       orderedAccounts,
-      updateTransaction, deleteTransaction 
+      updateTransaction, deleteTransaction
    } = useFinance();
    const { user } = useAuth();
 
@@ -113,13 +113,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, setTxFilter,
             const wallet = wallets.find(w => w.id === t.walletId);
             const isCreditCard = wallet?.type === 'credit_card';
             const d = new Date(t.date + 'T12:00:00Z');
-            
+
             // Somente Entradas Reais em Contas (Liquidez)
-            return t.type === 'income' && 
-                   !isCreditCard && 
-                   (d.getUTCMonth() + 1) === tMonth && 
-                   d.getUTCFullYear() === tYear && 
-                   t.isPaid;
+            return t.type === 'income' &&
+               !isCreditCard &&
+               (d.getUTCMonth() + 1) === tMonth &&
+               d.getUTCFullYear() === tYear &&
+               t.isPaid;
          })
          .reduce((sum, t) => sum + t.amount, 0);
 
@@ -129,15 +129,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, setTxFilter,
             const isCreditCard = wallet?.type === 'credit_card';
             const isCCPayment = t.description.toLowerCase().includes('pagamento de fatura');
             const d = new Date(t.date + 'T12:00:00Z');
-            
+
             // Somente Saídas Reais de Contas (Despesas Pagas + Pagamento de Fatura)
             // Ignoramos compras individuais no cartão de crédito pois não afetam o saldo bancário agora
             const isRelevantDate = (d.getUTCMonth() + 1) === tMonth && d.getUTCFullYear() === tYear;
-            
-            return !isCreditCard && 
-                   t.isPaid && 
-                   isRelevantDate && 
-                   (t.type === 'expense' || isCCPayment);
+
+            return !isCreditCard &&
+               t.isPaid &&
+               isRelevantDate &&
+               (t.type === 'expense' || isCCPayment);
          })
          .reduce((sum, t) => sum + t.amount, 0);
 
@@ -182,12 +182,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, setTxFilter,
             // Se o vencimento é antes do fechamento (ex: vence dia 10 e fecha dia 25), 
             // a fatura que vence neste mês foi a que fechou no mês anterior.
             const dueMonthOffset = dueDay < closingDay ? 1 : 0;
-            
+
             // Criamos uma data de referência que, ao ser passada para getInvoicePeriod,
             // resulte no vencimento (due) igual ao mês/ano que estamos visualizando no Dashboard.
             const refDate = new Date(Date.UTC(targetYear, targetMonth - 1 - dueMonthOffset, 1));
             const period = getInvoicePeriod(closingDay, dueDay, refDate);
-            
+
             const info = getInvoiceAmount(transactions, w.id, period);
             // Mostrar apenas o que falta pagar. Se já estiver pago (isLastPaid), contribui com 0.
             const remaining = info.isLastPaid ? 0 : Math.max(0, info.amount - info.paidSum);
@@ -333,7 +333,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, setTxFilter,
 
    const subcategoriesDetail = useMemo(() => {
       if (!selectedCategoryDetail) return [];
-      
+
       const isReportMonthSelected = reportPeriod === 1;
       const refMonth = isReportMonthSelected ? reportReferenceDate.getUTCMonth() + 1 : currentMonth;
       const refYear = isReportMonthSelected ? reportReferenceDate.getUTCFullYear() : currentYear;
@@ -494,9 +494,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, setTxFilter,
       transactions.forEach(t => {
          const wallet = wallets.find(w => w.id === t.walletId);
          const isCreditCard = wallet?.type === 'credit_card';
-         
+
          const d = new Date(t.date + 'T12:00:00Z');
-         
+
          const m = d.getUTCMonth() + 1;
          const y = d.getUTCFullYear();
          const day = d.getUTCDate();
@@ -521,7 +521,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, setTxFilter,
             const wallet = wallets.find(w => w.id === t.walletId);
             const isCreditCard = wallet?.type === 'credit_card';
             const isCCPayment = t.description.toLowerCase().includes('pagamento de fatura');
-            
+
             if (!isCreditCard) {
                if (t.type === 'income' && t.isPaid) {
                   targetBucket.income += t.amount;
@@ -576,7 +576,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, setTxFilter,
          runningBalance += p.balance;
          p.accumulated = runningBalance;
          foundNames.forEach(name => {
-             if ((p as any)[name] === undefined) (p as any)[name] = 0;
+            if ((p as any)[name] === undefined) (p as any)[name] = 0;
          });
          return p;
       });
@@ -679,7 +679,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, setTxFilter,
                   </div>
                </div>
 
-                {/* Monthly Budget Vision */}
+               {/* Monthly Budget Vision */}
                <div className="mt-8 p-6 bg-muted/20 border border-border/40 rounded-[2rem] flex flex-col gap-8 shadow-inner">
                   <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-border/40 pb-6 gap-6">
                      <div className="flex flex-col gap-1">
@@ -687,7 +687,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, setTxFilter,
                         <div className="flex flex-wrap items-center gap-3">
                            <span className="text-sm font-black uppercase text-primary shrink-0">{budgetVision.monthName}</span>
                            <div className="flex items-center gap-2">
-                              <button 
+                              <button
                                  type="button"
                                  onClick={() => setBudgetOffset(prev => Math.max(0, prev - 1))}
                                  disabled={budgetOffset === 0}
@@ -696,21 +696,21 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, setTxFilter,
                               >
                                  <ChevronLeft size={18} />
                               </button>
-                              
-                              <button 
+
+                              <button
                                  type="button"
                                  onClick={() => setBudgetOffset(0)}
                                  className={cn(
                                     "px-3 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border shadow-sm",
-                                    budgetOffset === 0 
-                                       ? "bg-primary text-white border-primary" 
+                                    budgetOffset === 0
+                                       ? "bg-primary text-white border-primary"
                                        : "bg-muted/30 text-muted-foreground border-border/20 hover:bg-muted"
                                  )}
                               >
                                  Hoje
                               </button>
- 
-                              <button 
+
+                              <button
                                  type="button"
                                  onClick={() => setBudgetOffset(prev => Math.min(11, prev + 1))}
                                  disabled={budgetOffset === 11}
@@ -744,15 +744,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, setTxFilter,
                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Nec. Recorrentes
                         </span>
                         <p className="text-lg font-black">{formatCurrency(budgetVision.necRec)}</p>
-                        <p className="text-[8px] font-bold text-muted-foreground uppercase opacity-40">Compromissos Essenciais</p>
+                        <p className="text-[8px] font-bold text-muted-foreground uppercase opacity-40">Não pode ser guardado para realizar</p>
                      </div>
-                     
+
                      <div className="space-y-1">
                         <span className="text-[9px] font-black uppercase text-muted-foreground/60 tracking-wider flex items-center justify-center md:justify-start gap-1">
                            <div className="w-1.5 h-1.5 rounded-full bg-orange-500" /> Desnec. Recorrentes
                         </span>
                         <p className="text-lg font-black">{formatCurrency(budgetVision.unnecRec)}</p>
-                        <p className="text-[8px] font-bold text-muted-foreground uppercase opacity-40">Gastos Variáveis/Lazer</p>
+                        <p className="text-[8px] font-bold text-muted-foreground uppercase opacity-40">Deveria ter sido planejado para realizar</p>
                      </div>
 
                      <div className="space-y-1">
@@ -766,7 +766,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, setTxFilter,
                            "text-[8px] font-bold uppercase transition-all",
                            !includeCategoryLimits ? "text-amber-500 animate-pulse" : "text-muted-foreground opacity-40"
                         )}>
-                           {!includeCategoryLimits ? "Inativo (Ativar nas categorias)" : "Total estimado (Metas)"}
+                           {!includeCategoryLimits ? "Inativo (Ativar nas categorias)" : "Deve considerar o comprometido com recorrentes"}
                         </p>
                      </div>
 
@@ -995,8 +995,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, setTxFilter,
                   <div className="w-full md:w-1/2 flex flex-col justify-center px-0 md:px-4">
                      <div className="space-y-3">
                         {topSpendingData.map((item, i) => (
-                           <div 
-                              key={i} 
+                           <div
+                              key={i}
                               className="flex items-center justify-between cursor-pointer hover:bg-muted/30 p-1.5 rounded-lg transition-colors"
                               onClick={() => {
                                  const cat = categories.find(c => c.name === item.name);
@@ -1142,18 +1142,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, setTxFilter,
                      <div className="flex flex-wrap items-center gap-3 max-w-full">
                         {reportType !== 'categoria' && (
                            <div className="flex bg-muted/50 p-1 rounded-2xl border border-border/30 h-11 shadow-sm overflow-x-auto no-scrollbar max-w-full">
-                           {(['daily', 'weekly', 'monthly'] as const).map(g => (
-                              <button
-                                 key={g}
-                                 onClick={() => setReportGranularity(g)}
-                                 className={cn(
-                                    "px-4 h-full rounded-xl transition-all text-[10px] font-black uppercase tracking-widest",
-                                    reportGranularity === g ? "bg-background text-primary shadow-sm" : "text-muted-foreground hover:bg-muted"
-                                 )}
-                              >
-                                 {g === 'daily' ? 'Diário' : g === 'weekly' ? 'Semanal' : 'Mensal'}
-                              </button>
-                           ))}
+                              {(['daily', 'weekly', 'monthly'] as const).map(g => (
+                                 <button
+                                    key={g}
+                                    onClick={() => setReportGranularity(g)}
+                                    className={cn(
+                                       "px-4 h-full rounded-xl transition-all text-[10px] font-black uppercase tracking-widest",
+                                       reportGranularity === g ? "bg-background text-primary shadow-sm" : "text-muted-foreground hover:bg-muted"
+                                    )}
+                                 >
+                                    {g === 'daily' ? 'Diário' : g === 'weekly' ? 'Semanal' : 'Mensal'}
+                                 </button>
+                              ))}
                            </div>
                         )}
 
@@ -1188,28 +1188,28 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, setTxFilter,
                   {/* Period Buttons */}
                   {reportType !== 'categoria' && (
                      <div className="flex bg-muted/50 p-1 rounded-2xl border border-border/30 h-11 shadow-sm overflow-x-auto no-scrollbar max-w-full">
-                     <button
-                        onClick={() => setReportPeriod(1)}
-                        className={cn(
-                           "px-4 h-full rounded-xl transition-all text-[10px] font-black uppercase tracking-widest",
-                           reportPeriod === 1 ? "bg-background text-primary shadow-sm" : "text-muted-foreground hover:bg-muted"
-                        )}
-                     >
-                        Mês
-                     </button>
-                     {[3, 6, 9, 12].map(m => (
                         <button
-                           key={m}
-                           onClick={() => setReportPeriod(m as any)}
+                           onClick={() => setReportPeriod(1)}
                            className={cn(
                               "px-4 h-full rounded-xl transition-all text-[10px] font-black uppercase tracking-widest",
-                              reportPeriod === m ? "bg-background text-primary shadow-sm" : "text-muted-foreground hover:bg-muted"
+                              reportPeriod === 1 ? "bg-background text-primary shadow-sm" : "text-muted-foreground hover:bg-muted"
                            )}
                         >
-                           {m} Meses
+                           Mês
                         </button>
-                     ))}
-                  </div>
+                        {[3, 6, 9, 12].map(m => (
+                           <button
+                              key={m}
+                              onClick={() => setReportPeriod(m as any)}
+                              className={cn(
+                                 "px-4 h-full rounded-xl transition-all text-[10px] font-black uppercase tracking-widest",
+                                 reportPeriod === m ? "bg-background text-primary shadow-sm" : "text-muted-foreground hover:bg-muted"
+                              )}
+                           >
+                              {m} Meses
+                           </button>
+                        ))}
+                     </div>
                   )}
                </div>
             </div>
@@ -1404,9 +1404,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, setTxFilter,
                                     })}
                                     <td className="p-3 text-[11px] font-black text-right text-rose-600 bg-rose-500/10 rounded-br-xl">
                                        {formatCurrency(
-                                          chartData.reduce((grandTotal, bucket) => 
-                                             grandTotal + activeCategoryNames.reduce((acc, name) => acc + ((bucket as any)[name] || 0), 0), 
-                                          0)
+                                          chartData.reduce((grandTotal, bucket) =>
+                                             grandTotal + activeCategoryNames.reduce((acc, name) => acc + ((bucket as any)[name] || 0), 0),
+                                             0)
                                        )}
                                     </td>
                                  </tr>
@@ -1572,14 +1572,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, setTxFilter,
                      <div className="p-8 flex flex-col gap-8">
                         <div className="flex items-center justify-between">
                            <div className="flex items-center gap-4">
-                              <div 
+                              <div
                                  className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg"
                                  style={{ backgroundColor: selectedCategoryDetail.color + '20' }}
                               >
-                                 <IconRenderer 
-                                    icon={selectedCategoryDetail.icon} 
-                                    color={selectedCategoryDetail.color} 
-                                    size={24} 
+                                 <IconRenderer
+                                    icon={selectedCategoryDetail.icon}
+                                    color={selectedCategoryDetail.color}
+                                    size={24}
                                  />
                               </div>
                               <div>
@@ -1587,7 +1587,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, setTxFilter,
                                  <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-60">Detalhamento de Gastos</p>
                               </div>
                            </div>
-                           <button 
+                           <button
                               onClick={() => setSelectedCategoryDetail(null)}
                               className="p-3 hover:bg-muted rounded-2xl transition-all"
                            >
@@ -1610,16 +1610,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, setTxFilter,
                                     <div key={idx} className="group flex items-center justify-between p-4 bg-muted/20 rounded-2xl border border-border/30 hover:bg-muted/40 transition-all">
                                        <div className="flex items-center gap-3">
                                           <div className="shrink-0">
-                                             <IconRenderer 
-                                                icon={sub.icon || 'Tag'} 
-                                                color={selectedCategoryDetail.color} 
-                                                size={18} 
+                                             <IconRenderer
+                                                icon={sub.icon || 'Tag'}
+                                                color={selectedCategoryDetail.color}
+                                                size={18}
                                              />
                                           </div>
                                           <div className="flex flex-col">
                                              <span className="text-[11px] font-bold uppercase tracking-tight">{sub.name}</span>
                                              {sub.id !== 'unclassified' && (
-                                                <button 
+                                                <button
                                                    onClick={() => {
                                                       setHistoryCategoryId(sub.id);
                                                       setIsHistoryOpen(true);
