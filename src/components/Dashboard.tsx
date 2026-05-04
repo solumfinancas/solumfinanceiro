@@ -168,7 +168,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, setTxFilter,
 
       // Metas de Categorias (Estimados Totais)
       const estimated = includeCategoryLimits ? categories
-         .filter(c => !c.parentId && c.limit && c.limit > 0 && c.isActive !== false && c.type === 'expense')
+         .filter(c => c.type === 'expense' && !c.isDeleted && c.isActive !== false)
          .reduce((sum, c) => sum + (c.limit || 0), 0) : 0;
 
       // Cartões à Pagar (Soma das faturas no mês selecionado)
