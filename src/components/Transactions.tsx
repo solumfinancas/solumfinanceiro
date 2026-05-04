@@ -35,6 +35,10 @@ import { Transaction, TransactionType } from '../types';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CustomSelect } from './ui/CustomSelect';
 import { IconRenderer } from './ui/IconRenderer';
+const MONTH_NAMES = [
+  'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+  'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+];
 
 interface TransactionsProps {
   initialFilter?: 'all' | 'pending' | 'paid';
@@ -517,9 +521,16 @@ export const Transactions: React.FC<TransactionsProps> = ({
                                    const w = wallets.find(item => item.id === t.walletId);
                                    if (!w) return null;
                                    return (
-                                     <div className="flex items-center gap-1 bg-muted/50 px-1 py-0.5 rounded border border-border/20">
-                                       <IconRenderer icon={w.logoUrl || w.icon || 'wallet'} color={w.color} size={10} className="shrink-0" />
-                                       <span className="text-[8px] font-black uppercase text-primary/80">{w.name}</span>
+                                     <div className="flex flex-col">
+                                       <div className="flex items-center gap-1 bg-muted/50 px-1 py-0.5 rounded border border-border/20">
+                                         <IconRenderer icon={w.logoUrl || w.icon || 'wallet'} color={w.color} size={10} className="shrink-0" />
+                                         <span className="text-[8px] font-black uppercase text-primary/80">{w.name}</span>
+                                       </div>
+                                       {w.type === 'credit_card' && t.invoiceMonth && t.invoiceYear && (
+                                         <span className="text-[7px] font-bold text-orange-500 uppercase tracking-tighter mt-0.5 ml-1">
+                                           Fatura {MONTH_NAMES[t.invoiceMonth - 1].substring(0, 3)}/{t.invoiceYear.toString().slice(-2)}
+                                         </span>
+                                       )}
                                      </div>
                                    );
                                  }
@@ -529,12 +540,19 @@ export const Transactions: React.FC<TransactionsProps> = ({
 
                                  return (
                                    <div className="flex items-center gap-1 flex-wrap">
-                                      {sourceW && (
-                                        <div className="flex items-center gap-1 bg-muted/50 px-1 py-0.5 rounded border border-border/20">
-                                          <IconRenderer icon={sourceW.logoUrl || sourceW.icon || 'wallet'} color={sourceW.color} size={10} className="shrink-0" />
-                                          <span className="text-[8px] font-black uppercase text-primary/80">{sourceW.name}</span>
-                                        </div>
-                                      )}
+                                       {sourceW && (
+                                         <div className="flex flex-col">
+                                           <div className="flex items-center gap-1 bg-muted/50 px-1 py-0.5 rounded border border-border/20">
+                                             <IconRenderer icon={sourceW.logoUrl || sourceW.icon || 'wallet'} color={sourceW.color} size={10} className="shrink-0" />
+                                             <span className="text-[8px] font-black uppercase text-primary/80">{sourceW.name}</span>
+                                           </div>
+                                           {sourceW.type === 'credit_card' && t.invoiceMonth && t.invoiceYear && (
+                                             <span className="text-[7px] font-bold text-orange-500 uppercase tracking-tighter mt-0.5 ml-1">
+                                               Fatura {MONTH_NAMES[t.invoiceMonth - 1].substring(0, 3)}/{t.invoiceYear.toString().slice(-2)}
+                                             </span>
+                                           )}
+                                         </div>
+                                       )}
                                       {(sourceW && destW) && <ArrowRight size={8} className="text-muted-foreground" />}
                                       {destW && (
                                         <div className="flex items-center gap-1 bg-muted/50 px-1 py-0.5 rounded border border-border/20">
@@ -601,12 +619,19 @@ export const Transactions: React.FC<TransactionsProps> = ({
                       if (!showDouble) {
                         const w = wallets.find(item => item.id === t.walletId);
                         if (!w) return <span className="text-muted-foreground italic text-xs">Carteira Excluída</span>;
-                        return (
-                          <div className="flex items-center gap-2">
-                            <IconRenderer icon={w.logoUrl || w.icon || 'wallet'} color={w.color} size={20} className="shrink-0 border border-border/10 shadow-sm rounded-md" />
-                            <span className="font-bold text-xs uppercase tracking-tight">{w.name}</span>
-                          </div>
-                        );
+                         return (
+                           <div className="flex flex-col">
+                             <div className="flex items-center gap-2">
+                               <IconRenderer icon={w.logoUrl || w.icon || 'wallet'} color={w.color} size={20} className="shrink-0 border border-border/10 shadow-sm rounded-md" />
+                               <span className="font-bold text-xs uppercase tracking-tight">{w.name}</span>
+                             </div>
+                             {w.type === 'credit_card' && t.invoiceMonth && t.invoiceYear && (
+                               <span className="text-[9px] font-bold text-orange-500 uppercase tracking-tighter mt-1">
+                                 Fatura {MONTH_NAMES[t.invoiceMonth - 1].substring(0, 3)}/{t.invoiceYear.toString().slice(-2)}
+                               </span>
+                             )}
+                           </div>
+                         );
                       }
 
                       const sourceW = wallets.find(item => item.id === t.walletId);
@@ -615,9 +640,16 @@ export const Transactions: React.FC<TransactionsProps> = ({
                       return (
                         <div className="flex flex-col gap-1.5">
                           {sourceW && (
-                            <div className="flex items-center gap-2">
-                              <IconRenderer icon={sourceW.logoUrl || sourceW.icon || 'wallet'} color={sourceW.color} size={16} className="shrink-0 border border-border/10 rounded-md" />
-                              <span className="font-bold text-[10px] uppercase tracking-tight opacity-80">{sourceW.name}</span>
+                            <div className="flex flex-col">
+                              <div className="flex items-center gap-2">
+                                <IconRenderer icon={sourceW.logoUrl || sourceW.icon || 'wallet'} color={sourceW.color} size={16} className="shrink-0 border border-border/10 rounded-md" />
+                                <span className="font-bold text-[10px] uppercase tracking-tight opacity-80">{sourceW.name}</span>
+                              </div>
+                              {sourceW.type === 'credit_card' && t.invoiceMonth && t.invoiceYear && (
+                                <span className="text-[8px] font-bold text-orange-500 uppercase tracking-tighter mt-0.5">
+                                  Fatura {MONTH_NAMES[t.invoiceMonth - 1].substring(0, 3)}/{t.invoiceYear.toString().slice(-2)}
+                                </span>
+                              )}
                             </div>
                           )}
                           {(sourceW && destW) && <ArrowRight size={10} className="text-muted-foreground ml-1" />}
