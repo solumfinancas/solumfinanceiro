@@ -194,8 +194,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, setTxFilter,
             return sum + remaining;
          }, 0);
 
-      // Total que vai precisar = Recorrentes + Estimados
-      const totalNeeded = necRec + unnecRec + estimated;
+      // Total que vai precisar
+      // Se includeCategoryLimits for true, usamos apenas o estimado (que já deve considerar o geral)
+      // Se for false, usamos o comprometido total (recorrentes)
+      const totalNeeded = includeCategoryLimits ? estimated : (necRec + unnecRec);
 
       return {
          monthName: targetDate.toLocaleString('pt-BR', { month: 'long', year: 'numeric' }),

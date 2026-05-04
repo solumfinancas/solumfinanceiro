@@ -1279,7 +1279,16 @@ export const Categories: React.FC = () => {
                              </div>
                             </div>
                             <div className="flex items-center gap-1.5 flex-wrap overflow-hidden">
-                              <span className="font-bold text-[11px] uppercase tracking-tight truncate max-w-[200px]">{t.description}</span>
+                              <span className="font-bold text-[11px] uppercase tracking-tight truncate max-w-[300px]">
+                                {t.description}
+                                {(() => {
+                                  const txCat = categories.find(c => c.id === t.categoryId);
+                                  if (txCat && txCat.id !== viewingTransactionsId) {
+                                    return <span className="text-muted-foreground/60 ml-1"> / {txCat.name}</span>;
+                                  }
+                                  return null;
+                                })()}
+                              </span>
                               {(() => {
                                 const wallet = wallets.find(w => w.id === t.walletId);
                                 const isInvoicePayment = (t.description?.toLowerCase() || '').includes('pagamento de fatura');

@@ -253,12 +253,30 @@ export const CategoryHistoryModal: React.FC<CategoryHistoryModalProps> = ({
                         })()}
                         <div className="flex flex-col flex-1 min-w-0">
                           {(() => {
-                            const cat = categories.find(c => c.id === t.categoryId);
+                            const txCat = categories.find(c => c.id === t.categoryId);
+                            const showCatName = txCat && txCat.id !== categoryId;
                             return (
-                              <div className="flex items-center gap-1.5 flex-wrap">
-                                <span className="font-bold text-[11px] uppercase tracking-tight break-words">{t.description}</span>
-                                <span className="text-muted-foreground text-[10px]">/</span>
-                                <span className="text-muted-foreground text-[10px] font-medium uppercase tracking-widest">{cat?.name || 'Geral'}</span>
+                              <div className="flex flex-col">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className="font-bold text-[12px] uppercase tracking-tight break-words text-foreground">
+                                    {t.description}
+                                    {showCatName && (
+                                      <span className="text-muted-foreground/60 ml-1"> / {txCat.name}</span>
+                                    )}
+                                  </span>
+                                  {(() => {
+                                    const wallet = wallets.find(w => w.id === t.walletId);
+                                    const isInvoicePayment = (t.description?.toLowerCase() || '').includes('pagamento de fatura');
+                                    const isRefund = t.type === 'income' && wallet?.type === 'credit_card';
+                                    if (isInvoicePayment || isRefund) {
+                                      return <span className="text-[7px] bg-rose-500/10 text-rose-500 px-1 py-0.5 rounded uppercase font-black border border-rose-500/20 shrink-0">Fatura</span>;
+                                    }
+                                    if (t.type === 'planned') {
+                                      return <span className="text-[7px] bg-yellow-500/10 text-yellow-500 px-1 py-0.5 rounded uppercase font-black border border-yellow-500/20 shrink-0">Planejada</span>;
+                                    }
+                                    return null;
+                                  })()}
+                                </div>
                               </div>
                             );
                           })()}
