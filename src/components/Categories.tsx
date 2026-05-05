@@ -444,6 +444,8 @@ export const Categories: React.FC = () => {
     .filter(c => c.type === 'expense')
     .reduce((acc, c) => acc + getCategorySpend(c.id), 0);
 
+  const totalNeededGlobal = totalLimitGlobal + categoryMetrics.recurrentWithoutLimit;
+  const remainingToSpendGlobal = totalLimitGlobal - totalSpendGlobal;
   const globalProgressPercent = totalLimitGlobal > 0 ? (totalSpendGlobal / totalLimitGlobal) * 100 : 0;
 
   const renderCategoryList = (cats: Category[], label: string, icon: React.ReactNode, colorClass: string, isInactiveSection = false) => (
@@ -985,9 +987,9 @@ export const Categories: React.FC = () => {
                       </div>
 
                       <div className="flex flex-col gap-3">
-                        <div className="flex items-baseline gap-2 opacity-70 scale-90 origin-left">
-                          <span className="text-2xl font-black tracking-tighter">{formatCurrency(totalSpendGlobal)}</span>
-                          <span className="text-[10px] font-bold text-muted-foreground opacity-40 uppercase tracking-widest">utilizado de {formatCurrency(totalLimitGlobal)}</span>
+                        <div className="flex items-baseline gap-2 scale-90 origin-left">
+                          <span className="text-2xl font-black tracking-tighter text-rose-400">{formatCurrency(totalSpendGlobal)}</span>
+                          <span className="text-[10px] font-bold text-muted-foreground opacity-40 uppercase tracking-widest">utilizado de {formatCurrency(totalLimitGlobal)} planejado</span>
                         </div>
 
                         {categoryMetrics.recurrentWithoutLimit > 0 && (
@@ -1019,7 +1021,15 @@ export const Categories: React.FC = () => {
 
                     <div className="w-full space-y-3">
                       <div className="flex items-center justify-between text-[11px] font-black uppercase tracking-widest">
-                        <span className="text-muted-foreground opacity-60">Uso Consolidado</span>
+                        <div className="flex flex-col">
+                          <span className="text-muted-foreground opacity-60">Uso em relação ao planejado mensal (não incluso despesas sem meta de gasto definida)</span>
+                          <span className={cn(
+                            "text-[9px] mt-0.5",
+                            remainingToSpendGlobal < 0 ? "text-rose-500" : "text-emerald-500"
+                          )}>
+                            {remainingToSpendGlobal < 0 ? "Excedido em:" : "Resta utilizar:"} {formatCurrency(Math.abs(remainingToSpendGlobal))}
+                          </span>
+                        </div>
                         <span className={cn(
                           globalProgressPercent >= 100 ? "text-rose-500" :
                             globalProgressPercent >= 75 ? "text-amber-500" :
