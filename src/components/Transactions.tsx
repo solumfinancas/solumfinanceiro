@@ -63,6 +63,7 @@ export const Transactions: React.FC<TransactionsProps> = ({
   const [isFilteringPastPending, setIsFilteringPastPending] = useState(false);
   const [necessityFilter, setNecessityFilter] = useState<'all' | 'necessary' | 'unnecessary' | 'other' | 'planned' | 'invoice'>('all');
   const [showSearchFAB, setShowSearchFAB] = useState(false);
+  const [isCardOptionsModalOpen, setIsCardOptionsModalOpen] = useState(false);
 
   useEffect(() => {
     const searchInput = document.getElementById('search-input-transactions');
@@ -789,7 +790,7 @@ export const Transactions: React.FC<TransactionsProps> = ({
                <LayoutGrid size={14} /> Geral
             </button>
             <button
-               onClick={() => { setViewModeContas('cartoes'); setViewMode('combined'); }}
+               onClick={() => setIsCardOptionsModalOpen(true)}
                className={cn(
                  "flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 sm:px-6 h-full rounded-xl transition-all text-[10px] font-black uppercase tracking-widest whitespace-nowrap",
                  viewModeContas === 'cartoes' ? "bg-background text-primary shadow-sm" : "text-muted-foreground hover:bg-muted"
@@ -1162,6 +1163,101 @@ export const Transactions: React.FC<TransactionsProps> = ({
           categories={categories}
         />
       )}
+
+      <AnimatePresence>
+        {isCardOptionsModalOpen && (
+          <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="bg-card border border-border shadow-2xl rounded-[2.5rem] p-8 w-full max-w-md relative overflow-hidden"
+            >
+              {/* Elementos Decorativos */}
+              <div className="absolute -top-24 -right-24 w-48 h-48 bg-primary/5 rounded-full blur-3xl" />
+              <div className="absolute -bottom-24 -left-24 w-48 h-48 bg-primary/5 rounded-full blur-3xl" />
+
+              <div className="relative">
+                <div className="flex items-center justify-between mb-8">
+                  <div className="flex items-center gap-3">
+                    <div className="p-3 bg-primary/10 rounded-2xl text-primary">
+                      <CreditCard size={24} />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-black uppercase tracking-tighter">Visão de Cartões</h3>
+                      <p className="text-muted-foreground text-xs font-medium">Selecione o período das faturas</p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => setIsCardOptionsModalOpen(false)}
+                    className="p-2 hover:bg-muted rounded-xl transition-colors text-muted-foreground"
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  <button
+                    onClick={() => {
+                      const now = new Date();
+                      setFilterMonth(now.getUTCMonth() + 1);
+                      setFilterYear(now.getUTCFullYear());
+                      setViewModeContas('cartoes');
+                      setViewMode('combined');
+                      setIsCardOptionsModalOpen(false);
+                    }}
+                    className="w-full group flex items-center justify-between p-5 bg-muted/30 hover:bg-primary/10 border border-border/50 hover:border-primary/30 rounded-2xl transition-all text-left"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="p-2 bg-background rounded-lg group-hover:text-primary transition-colors">
+                        <Calendar size={18} />
+                      </div>
+                      <div>
+                        <span className="block font-bold text-sm uppercase tracking-tight">Mês Atual</span>
+                        <span className="block text-[10px] text-muted-foreground font-medium uppercase">
+                          Faturas que fecham em {MONTH_NAMES[new Date().getUTCMonth()]}
+                        </span>
+                      </div>
+                    </div>
+                    <ArrowRight size={18} className="text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      const now = new Date();
+                      let nextM = now.getUTCMonth() + 2;
+                      let nextY = now.getUTCFullYear();
+                      if (nextM > 12) {
+                        nextM = 1;
+                        nextY += 1;
+                      }
+                      setFilterMonth(nextM);
+                      setFilterYear(nextY);
+                      setViewModeContas('cartoes');
+                      setViewMode('combined');
+                      setIsCardOptionsModalOpen(false);
+                    }}
+                    className="w-full group flex items-center justify-between p-5 bg-muted/30 hover:bg-primary/10 border border-border/50 hover:border-primary/30 rounded-2xl transition-all text-left"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="p-2 bg-background rounded-lg group-hover:text-primary transition-colors">
+                        <ArrowUpRight size={18} />
+                      </div>
+                      <div>
+                        <span className="block font-bold text-sm uppercase tracking-tight">Próximo Mês</span>
+                        <span className="block text-[10px] text-muted-foreground font-medium uppercase">
+                          Faturas que fecham em {MONTH_NAMES[new Date().getUTCMonth() === 11 ? 0 : new Date().getUTCMonth() + 1]}
+                        </span>
+                      </div>
+                    </div>
+                    <ArrowRight size={18} className="text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       <FloatingSearchFAB show={showSearchFAB} onAction={scrollToSearch} />
     </div>
