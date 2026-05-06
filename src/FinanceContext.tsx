@@ -128,7 +128,11 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       if (catErr) throw catErr;
 
       let finalCats = cats || [];
-      setCategories(finalCats);
+      setCategories(prev => {
+        const optimistic = prev.filter(c => typeof c.id === 'string' && c.id.startsWith('temp-'));
+        const filteredOptimistic = optimistic.filter(opt => !finalCats.some(c => c.name === opt.name));
+        return [...finalCats, ...filteredOptimistic];
+      });
 
       // 2. Carteiras
       const { data: wals, error: walErr } = await supabase
@@ -139,7 +143,13 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         .order('created_at');
       if (walErr) throw walErr;
       const fetchedWallets = wals || [];
-      setRawWallets(fetchedWallets);
+      // Preservar itens otimistas (temp-) que ainda não foram confirmados, para evitar que desapareçam se o fetchData rodar rápido demais
+      setRawWallets(prev => {
+        const optimistic = prev.filter(w => typeof w.id === 'string' && w.id.startsWith('temp-'));
+        // Evitar duplicatas se o item real já estiver no fetch
+        const filteredOptimistic = optimistic.filter(opt => !fetchedWallets.some(w => w.name === opt.name && w.type === opt.type));
+        return [...fetchedWallets, ...filteredOptimistic];
+      });
 
       // 3. Carregar Ordenação do user_metadata
       if (user.user_metadata) {
@@ -183,7 +193,11 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         .order('date', { ascending: false })
         .order('created_at', { ascending: false });
       if (txErr) throw txErr;
-      setTransactions(txs || []);
+      const txsData = txs || [];
+      setTransactions(prev => {
+        const optimistic = prev.filter(t => typeof t.id === 'string' && t.id.startsWith('temp-'));
+        return [...txsData, ...optimistic];
+      });
 
       // 5. Tarefas
       const { data: fetchedTasks, error: taskErr } = await supabase
@@ -218,7 +232,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setLoading(false);
       isFetchingData.current = false;
     }
-  }, [effectiveUserId, activeSpace, isSpaceInitialized]);
+  }, [user, effectiveUserId, activeSpace, isSpaceInitialized]);
 
   const currentMetadata = viewingProfile ? viewingProfile.user_metadata : user?.user_metadata;
   const initializedSpaces = (currentMetadata?.initialized_spaces || []) as ('personal' | 'business')[];
@@ -252,8 +266,11 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       }, (payload) => {
         if (payload.eventType === 'INSERT') {
           setRawWallets(prev => {
+            // BUG FIX: Somente adicionar se pertencer ao espaço ativo
+            if (payload.new.space !== activeSpace) return prev;
             if (prev.some(w => w.id === payload.new.id)) return prev;
-            return [...prev, payload.new as Wallet];
+            // Se já existir um item otimista com o mesmo nome/tipo, removemos ele para dar lugar ao real
+            return [...prev.filter(w => !(typeof w.id === 'string' && w.id.startsWith('temp-') && w.name === payload.new.name)), payload.new as Wallet];
           });
         } else if (payload.eventType === 'UPDATE') {
           setRawWallets(prev => prev.map(w => w.id === payload.new.id ? { ...w, ...payload.new } : w));
@@ -269,8 +286,9 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       }, (payload) => {
         if (payload.eventType === 'INSERT') {
           setCategories(prev => {
+            if (payload.new.space !== activeSpace) return prev;
             if (prev.some(c => c.id === payload.new.id)) return prev;
-            return [...prev, payload.new as Category];
+            return [...prev.filter(c => !(typeof c.id === 'string' && c.id.startsWith('temp-') && c.name === payload.new.name)), payload.new as Category];
           });
         } else if (payload.eventType === 'UPDATE') {
           setCategories(prev => prev.map(c => c.id === payload.new.id ? { ...c, ...payload.new } : c));
@@ -286,8 +304,19 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       }, (payload) => {
         if (payload.eventType === 'INSERT') {
           setTransactions(prev => {
+            if (payload.new.space !== activeSpace) return prev;
             if (prev.some(t => t.id === payload.new.id)) return prev;
-            return [payload.new as Transaction, ...prev];
+            
+            // Tentar encontrar uma transação otimista correspondente para evitar duplicidade momentânea
+            const isOptimisticMatch = (t: Transaction) => 
+              typeof t.id === 'string' && 
+              t.id.startsWith('temp-') && 
+              t.description === payload.new.description && 
+              t.amount === payload.new.amount &&
+              t.date === payload.new.date;
+
+            const filtered = prev.filter(t => !isOptimisticMatch(t));
+            return [payload.new as Transaction, ...filtered];
           });
         } else if (payload.eventType === 'UPDATE') {
           setTransactions(prev => prev.map(t => t.id === payload.new.id ? { ...t, ...payload.new } : t));
