@@ -66,7 +66,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, setTxFilter,
    const {
       includeCategoryLimits,
       transactions, categories, wallets,
-      orderedAccounts,
+      orderedAccounts, orderedCards,
       updateTransaction, deleteTransaction
    } = useFinance();
    const { user } = useAuth();
@@ -226,8 +226,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, setTxFilter,
 
    // 3. Credit Card Data
    const creditCards = useMemo(() => {
-      return wallets
-         .filter(w => w.type === 'credit_card' && w.isActive !== false)
+      const filtered = wallets.filter(w => w.type === 'credit_card' && w.isActive !== false);
+      return [...filtered]
+         .sort((a, b) => {
+            const indexA = orderedCards.indexOf(a.id);
+            const indexB = orderedCards.indexOf(b.id);
+            if (indexA === -1 && indexB === -1) return 0;
+            if (indexA === -1) return 1;
+            if (indexB === -1) return -1;
+            return indexA - indexB;
+         })
          .map(card => {
             const period = getInvoicePeriod(card.closingDay || 5, card.dueDay || 15, now);
             const invoice = getInvoiceAmount(transactions, card.id, period);
@@ -239,7 +247,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, setTxFilter,
             };
          })
          .slice(0, 3);
-   }, [wallets, transactions, now]);
+   }, [wallets, transactions, now, orderedCards]);
 
    const totalAvailableCredit = useMemo(() => {
       return wallets

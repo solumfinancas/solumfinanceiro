@@ -30,7 +30,11 @@ export const WalletActionsModal: React.FC<WalletActionsModalProps> = ({
   onDelete,
   onEditTransaction
 }) => {
-  const { addTransaction, updateTransaction, deleteTransaction, wallets = [], transactions = [], categories = [] } = useFinance();
+  const { 
+    addTransaction, updateTransaction, deleteTransaction, 
+    wallets = [], transactions = [], categories = [],
+    orderedAccounts 
+  } = useFinance();
   const { showConfirm, showAlert } = useModal();
   const [view, setView] = React.useState<'actions' | 'history' | 'history-detail' | 'future-history'>('actions');
   const [viewingDetailPeriod, setViewingDetailPeriod] = React.useState<{ start: Date, end: Date, due: Date } | null>(null);
@@ -1262,10 +1266,17 @@ export const WalletActionsModal: React.FC<WalletActionsModalProps> = ({
                    <div className="space-y-2">
                       <label className="text-[10px] font-black uppercase text-white/40 ml-2">Conta de Origem</label>
                       <CustomSelect 
-                        options={wallets
-                          .filter(w => w.type !== 'credit_card' && w.isActive !== false)
-                          .map(w => ({ id: w.id, name: w.name, logoUrl: w.logoUrl, type: w.type }))
-                        }
+                        options={(() => {
+                          const filtered = wallets.filter(w => w.type !== 'credit_card' && w.isActive !== false);
+                          return [...filtered].sort((a, b) => {
+                            const indexA = (orderedAccounts || []).indexOf(a.id);
+                            const indexB = (orderedAccounts || []).indexOf(b.id);
+                            if (indexA === -1 && indexB === -1) return 0;
+                            if (indexA === -1) return 1;
+                            if (indexB === -1) return -1;
+                            return indexA - indexB;
+                          }).map(w => ({ id: w.id, name: w.name, logoUrl: w.logoUrl, type: w.type }));
+                        })()}
                         value={payWalletId}
                         onChange={(val) => setPayWalletId(val)}
                         placeholder="Selecionar conta"

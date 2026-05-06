@@ -51,7 +51,11 @@ export const Transactions: React.FC<TransactionsProps> = ({
   initialFilter, setInitialFilter, 
   initialTypeFilter, setInitialTypeFilter 
 }) => {
-  const { transactions, categories, wallets, addTransaction, addTransactions, deleteTransaction, updateTransaction } = useFinance();
+  const { 
+    transactions, categories, wallets, 
+    addTransaction, addTransactions, deleteTransaction, updateTransaction,
+    orderedCards, orderedAccounts 
+  } = useFinance();
   const { showConfirm, showAlert } = useModal();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [filter, setFilter] = useState<TransactionType | 'all'>('all');
@@ -939,14 +943,24 @@ export const Transactions: React.FC<TransactionsProps> = ({
             <CustomSelect 
               options={[
                 { id: 'all', name: viewModeContas === 'cartoes' ? 'Todos os Cartões' : 'Geral (Contas)', icon: 'Layers' },
-                ...wallets
-                  .filter(w => (viewModeContas === 'cartoes' ? w.type === 'credit_card' : w.type !== 'credit_card') && w.isActive !== false)
-                  .map(w => ({
+                ...(() => {
+                  const filtered = wallets.filter(w => (viewModeContas === 'cartoes' ? w.type === 'credit_card' : w.type !== 'credit_card') && w.isActive !== false);
+                  const orderList = viewModeContas === 'cartoes' ? orderedCards : orderedAccounts;
+                  
+                  return [...filtered].sort((a, b) => {
+                    const indexA = orderList.indexOf(a.id);
+                    const indexB = orderList.indexOf(b.id);
+                    if (indexA === -1 && indexB === -1) return 0;
+                    if (indexA === -1) return 1;
+                    if (indexB === -1) return -1;
+                    return indexA - indexB;
+                  }).map(w => ({
                     id: w.id,
                     name: w.name,
                     icon: w.logoUrl || w.icon || (w.type === 'credit_card' ? 'CreditCard' : 'Wallet'),
                     color: w.color
-                  }))
+                  }));
+                })()
               ]}
               value={selectedWalletId}
               onChange={(val) => setSelectedWalletId(val)}

@@ -32,7 +32,11 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   editingTransaction,
   initialType = 'expense'
 }) => {
-  const { transactions, categories, wallets, addTransaction, addTransactions, updateTransaction } = useFinance();
+  const { 
+    transactions, categories, wallets, 
+    addTransaction, addTransactions, updateTransaction,
+    orderedCards, orderedAccounts 
+  } = useFinance();
   const { showAlert } = useModal();
 
   const [budgetAlert, setBudgetAlert] = useState<{
@@ -242,7 +246,17 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
     const result: SelectOption[] = [];
     if (cards.length > 0) {
       result.push({ id: 'header-cards', name: 'Cartões de Crédito', isHeader: true });
-      cards.forEach(w => result.push({
+      
+      const sortedCards = [...cards].sort((a, b) => {
+        const indexA = orderedCards.indexOf(a.id);
+        const indexB = orderedCards.indexOf(b.id);
+        if (indexA === -1 && indexB === -1) return 0;
+        if (indexA === -1) return 1;
+        if (indexB === -1) return -1;
+        return indexA - indexB;
+      });
+
+      sortedCards.forEach(w => result.push({
         id: w.id,
         name: `(CARTÃO) ${w.name}`,
         logoUrl: w.logoUrl,
@@ -253,7 +267,17 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
     }
     if (banks.length > 0) {
       result.push({ id: 'header-banks', name: 'Bancos', isHeader: true });
-      banks.forEach(w => result.push({
+      
+      const sortedBanks = [...banks].sort((a, b) => {
+        const indexA = orderedAccounts.indexOf(a.id);
+        const indexB = orderedAccounts.indexOf(b.id);
+        if (indexA === -1 && indexB === -1) return 0;
+        if (indexA === -1) return 1;
+        if (indexB === -1) return -1;
+        return indexA - indexB;
+      });
+
+      sortedBanks.forEach(w => result.push({
         id: w.id,
         name: w.name,
         logoUrl: w.logoUrl,
@@ -263,7 +287,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       }));
     }
     return result;
-  }, [wallets, newTx.walletId, newTx.type, isEstorno]);
+  }, [wallets, newTx.walletId, newTx.type, isEstorno, orderedCards, orderedAccounts]);
 
   const categoryOptions = useMemo(() => {
     const isIncome = newTx.type === 'income';
@@ -312,7 +336,14 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   const targetWalletOptions = useMemo(() =>
     wallets
       .filter(w => w.id !== newTx.walletId && w.type !== 'credit_card' && ((w.isActive !== false && !w.isDeleted) || w.id === newTx.toWalletId))
-      .sort((a, b) => (a.type === b.type ? 0 : a.type === 'credit_card' ? -1 : 1))
+      .sort((a, b) => {
+        const indexA = orderedAccounts.indexOf(a.id);
+        const indexB = orderedAccounts.indexOf(b.id);
+        if (indexA === -1 && indexB === -1) return 0;
+        if (indexA === -1) return 1;
+        if (indexB === -1) return -1;
+        return indexA - indexB;
+      })
       .map(w => ({
         id: w.id,
         name: w.type === 'credit_card' ? `(CARTÃO) ${w.name}` : w.name,
@@ -321,7 +352,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
         color: w.color,
         type: w.type
       }))
-    , [wallets, newTx.walletId, newTx.toWalletId]);
+    , [wallets, newTx.walletId, newTx.toWalletId, orderedAccounts]);
 
   useEffect(() => {
     if (!isOpen) return;

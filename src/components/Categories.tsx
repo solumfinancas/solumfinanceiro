@@ -479,7 +479,7 @@ export const Categories: React.FC = () => {
                   scale={0.65}
                   className="shadow-lg border-2 border-background"
                 />
-                <div className="flex flex-col truncate flex-1">
+                <div className="flex flex-col flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="font-black text-sm block truncate leading-none uppercase tracking-tight">{c.name}</span>
                     <Search size={12} className="text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -503,8 +503,8 @@ export const Categories: React.FC = () => {
                               <span className="opacity-80 italic font-bold">Uso: {formatCurrency(spend)}</span>
                               {effective.total ? (
                                 <span className={cn(
-                                  "font-black shrink-0",
-                                  (spend / effective.total) >= 1 ? "text-rose-500 scale-105" :
+                                  "font-black shrink-0 pl-1",
+                                  (spend / effective.total) >= 1 ? "text-rose-500" :
                                     (spend / effective.total) >= 0.75 ? "text-amber-500" :
                                       "text-emerald-500"
                                 )}>
@@ -515,10 +515,10 @@ export const Categories: React.FC = () => {
                               )}
                             </div>
                             {effective.total > 0 && (
-                              <span className="text-[10px] font-bold text-muted-foreground opacity-60 uppercase tracking-tight">
+                              <span className="text-[9px] sm:text-[10px] font-bold text-muted-foreground opacity-60 uppercase tracking-tight leading-tight">
                                 Limite: {formatCurrency(effective.total)}
                                 {effective.hasSubsWithLimit && (
-                                  <> (Cat: {formatCurrency(effective.parent)} + Subs: {formatCurrency(effective.subs)})</>
+                                  <span className="block sm:inline mt-0.5 sm:mt-0"> (Cat: {formatCurrency(effective.parent)} + Subs: {formatCurrency(effective.subs)})</span>
                                 )}
                               </span>
                             )}
@@ -634,7 +634,7 @@ export const Categories: React.FC = () => {
                       <motion.div
                         key={sub.id}
                         className={cn(
-                          "bg-card/40 p-3 rounded-xl border border-border/50 flex items-center justify-between group hover:bg-muted/50 transition-all cursor-pointer",
+                          "bg-card/40 p-3 rounded-xl border border-border/50 flex flex-col sm:flex-row sm:items-center justify-between group hover:bg-muted/50 transition-all cursor-pointer gap-3 sm:gap-0",
                           sub.isActive === false && "opacity-60"
                         )}
                         onClick={() => { setCategoryForAction(sub); setSelectedTxIds([]); }}
@@ -644,20 +644,20 @@ export const Categories: React.FC = () => {
                             className="w-2 h-2 rounded-full shadow-sm"
                             style={{ backgroundColor: sub.color }}
                           />
-                          <div className="flex flex-col min-w-0">
+                          <div className="flex flex-col min-w-0 flex-1">
                             <div className="flex items-center gap-2">
                               <span className="font-bold text-[13px] text-foreground leading-none uppercase tracking-tight truncate">{sub.name}</span>
                               <Search size={10} className="text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                             </div>
                             <span className="text-[10px] font-black text-muted-foreground mt-1 opacity-60">
-                              {formatCurrency(getCategoryBalance(sub.id, filterMonth, filterYear))}
+                              USO: {formatCurrency(getCategoryBalance(sub.id, filterMonth, filterYear))}
                             </span>
                           </div>
                         </div>
 
                         {viewMode === 'budget' && (
-                          <div className="flex items-center gap-4 mr-4 text-right">
-                            <div className="flex flex-col items-end">
+                          <div className="flex items-center justify-between sm:justify-end gap-3 sm:gap-6 sm:mr-4 w-full sm:w-auto">
+                            <div className="flex flex-col items-start sm:items-end min-w-[80px]">
                               <span className="text-[7px] font-black text-muted-foreground uppercase tracking-widest opacity-40">Comprometido</span>
                               <span className={cn(
                                 "text-[10px] font-bold",
@@ -667,27 +667,29 @@ export const Categories: React.FC = () => {
                               </span>
                             </div>
                             {sub.limit > 0 && (
-                              <div className="flex flex-col items-end border-l border-border/10 pl-4 min-w-[100px]">
-                                <div className="flex items-center gap-2 mb-1">
-                                  <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest opacity-60">Limite Real</span>
+                              <div className="flex flex-col items-start sm:items-end sm:border-l border-border/10 sm:pl-4 flex-1 sm:flex-none min-w-[120px]">
+                                <div className="flex items-center justify-between sm:justify-end w-full gap-2 mb-1">
+                                  <span className="text-[8px] font-black text-muted-foreground uppercase tracking-widest opacity-60">Limite Real</span>
                                   <span className={cn(
-                                    "text-[11px] font-black px-1.5 py-0.5 rounded-full",
+                                    "text-[9px] font-black px-1.5 py-0.5 rounded-full",
                                     getCategorySpend(sub.id) > sub.limit ? "bg-rose-500 text-white animate-pulse" : "bg-emerald-500/10 text-emerald-500"
                                   )}>
                                     {Math.round((getCategorySpend(sub.id) / sub.limit) * 100)}%
                                   </span>
                                 </div>
-                                <span className={cn(
-                                  "text-[13px] font-black transition-colors leading-none",
-                                  getCategorySpend(sub.id) > sub.limit ? "text-rose-500" : "text-emerald-500"
-                                )}>
-                                  {formatCurrency(sub.limit - getCategorySpend(sub.id))}
-                                </span>
-                                <span className="text-[7px] font-black text-muted-foreground uppercase tracking-widest opacity-40 mt-0.5">
-                                  de {formatCurrency(sub.limit)}
-                                </span>
+                                <div className="flex items-baseline justify-between sm:justify-end w-full gap-2">
+                                  <span className={cn(
+                                    "text-[12px] font-black transition-colors leading-none",
+                                    getCategorySpend(sub.id) > sub.limit ? "text-rose-500" : "text-emerald-500"
+                                  )}>
+                                    {formatCurrency(sub.limit - getCategorySpend(sub.id))}
+                                  </span>
+                                  <span className="text-[7px] font-black text-muted-foreground uppercase tracking-widest opacity-40">
+                                    de {formatCurrency(sub.limit)}
+                                  </span>
+                                </div>
                                 {/* Mini Barra de Progresso Subcategoria */}
-                                <div className="h-1 w-full bg-muted rounded-full overflow-hidden mt-1 mt-1 border border-border/5">
+                                <div className="h-1 w-full bg-muted rounded-full overflow-hidden mt-1 border border-border/5">
                                   <motion.div
                                     initial={{ width: 0 }}
                                     animate={{ width: `${Math.min((getCategorySpend(sub.id) / sub.limit) * 100, 100)}%` }}
@@ -702,7 +704,7 @@ export const Categories: React.FC = () => {
                           </div>
                         )}
 
-                        <div className="flex items-center gap-1 transition-opacity shrink-0" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center gap-1 transition-opacity shrink-0 justify-end" onClick={e => e.stopPropagation()}>
                           <button
                             onClick={() => handleOpenModal(undefined, sub)}
                             className="p-1.5 text-muted-foreground hover:text-blue-500 rounded-md transition-all"
