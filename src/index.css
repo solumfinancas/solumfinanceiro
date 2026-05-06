@@ -94,3 +94,13 @@
   position: relative;
   z-index: 9999;
 }
+
+/* Prevent iOS zoom on focus */
+@media screen and (max-width: 768px) {
+  input, 
+  select, 
+  textarea, 
+  [contenteditable] {
+    font-size: 16px !important;
+  }
+}

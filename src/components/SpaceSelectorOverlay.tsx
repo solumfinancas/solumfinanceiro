@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { User, Building2, Rocket, ArrowRight, ShieldCheck, Gem, LayoutDashboard, LogOut } from 'lucide-react';
 import { useFinance } from '../FinanceContext';
@@ -15,10 +15,18 @@ interface SpaceSelectorOverlayProps {
 export const SpaceSelectorOverlay: React.FC<SpaceSelectorOverlayProps> = ({ isOpen, onSelect, onSelectManagement }) => {
   const { initializedSpaces } = useFinance();
   const { user, profile, signOut } = useAuth();
+  const containerRef = useRef<HTMLDivElement>(null);
   const [activationModal, setActivationModal] = React.useState<{ isOpen: boolean; space: 'personal' | 'business' | null }>({
     isOpen: false,
     space: null
   });
+  
+  useEffect(() => {
+    if (isOpen && containerRef.current) {
+      containerRef.current.scrollTop = 0;
+      window.scrollTo(0, 0);
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
   
@@ -37,7 +45,10 @@ export const SpaceSelectorOverlay: React.FC<SpaceSelectorOverlayProps> = ({ isOp
   };
 
   return (
-    <div className="fixed inset-0 z-[1000] bg-[#020617] overflow-y-auto custom-scrollbar">
+    <div 
+      ref={containerRef}
+      className="fixed inset-0 z-[1000] bg-[#020617] overflow-y-auto custom-scrollbar"
+    >
       {/* Background Effects */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/20 rounded-full blur-[120px] animate-pulse" />
@@ -45,7 +56,7 @@ export const SpaceSelectorOverlay: React.FC<SpaceSelectorOverlayProps> = ({ isOp
         <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-[0.03] mix-blend-overlay" />
       </div>
 
-      <div className="relative w-full max-w-6xl mx-auto px-6 py-12 min-h-full flex flex-col items-center justify-center text-center">
+      <div className="relative w-full max-w-6xl mx-auto px-6 py-16 md:py-12 min-h-full flex flex-col items-center justify-start md:justify-center text-center">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
