@@ -620,17 +620,22 @@ export const WalletActionsModal: React.FC<WalletActionsModalProps> = ({
                         </div>
                     </div>
                     
-                    <div className="flex items-center gap-4">
-                       <div className="text-right">
-                          <span className={cn(
-                            "block text-sm font-black tracking-tight",
-                            item.isPaid ? "text-emerald-500" :
-                            item.isOverdue ? "text-rose-500" :
-                            item.isClosed ? "text-amber-500" :
-                            "text-blue-500"
-                          )}>
-                            {formatCurrency(item.amount)}
-                          </span>
+                     <div className="flex items-center gap-4">
+                        <div className="text-right">
+                           {item.isPartial && (
+                             <span className="block text-[8px] font-bold text-muted-foreground uppercase opacity-60 leading-none mb-0.5">
+                               Total {formatCurrency(item.amount)}
+                             </span>
+                           )}
+                           <span className={cn(
+                             "block text-sm font-black tracking-tight",
+                             item.isPaid ? "text-emerald-500" :
+                             item.isOverdue ? "text-rose-500" :
+                             item.isClosed ? "text-amber-500" :
+                             "text-blue-500"
+                           )}>
+                             {formatCurrency(item.isPartial ? (item.amount - item.paidSum) : item.amount)}
+                           </span>
                              <div className="flex items-center gap-2">
                                  <span className={cn(
                                    "text-[8px] font-black uppercase px-1.5 py-0.5 rounded",
@@ -691,10 +696,15 @@ export const WalletActionsModal: React.FC<WalletActionsModalProps> = ({
                     </div>
                     
                     <div className="flex items-center gap-4">
-                       <div className="text-right">
-                          <span className="block text-sm font-black tracking-tight text-orange-600">
-                            {formatCurrency(item.amount)}
-                          </span>
+                        <div className="text-right">
+                           {item.isPartial && (
+                             <span className="block text-[8px] font-bold text-muted-foreground uppercase opacity-60 leading-none mb-0.5 text-orange-600/60">
+                               Total {formatCurrency(item.amount)}
+                             </span>
+                           )}
+                           <span className="block text-sm font-black tracking-tight text-orange-600">
+                             {formatCurrency(item.isPartial ? (item.amount - item.paidSum) : item.amount)}
+                           </span>
                           <span className="text-[8px] font-black uppercase px-1.5 py-0.5 rounded bg-orange-500 text-white shadow-sm">
                             FUTURA
                           </span>

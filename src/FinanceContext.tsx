@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
-import { Transaction, Category, Wallet, ProfileType } from './types';
+import { Transaction, Category, Wallet, ProfileType, EquityAsset, EquityHistory } from './types';
 import { supabase } from './lib/supabase';
 import { useAuth } from './contexts/AuthContext';
 import { getInvoicePeriod } from './lib/utils';
@@ -39,6 +39,12 @@ interface FinanceContextType {
   acknowledgeOverdue: () => void;
   tasks: any[];
   setGlobalTasks: (tasks: any[]) => void;
+  equityAssets: EquityAsset[];
+  equityHistory: EquityHistory[];
+  addEquityAsset: (asset: Omit<EquityAsset, 'id' | 'user_id' | 'created_at'>) => Promise<void>;
+  updateEquityAsset: (id: string, asset: Partial<EquityAsset>) => Promise<void>;
+  deleteEquityAsset: (id: string) => Promise<void>;
+  updateEquityValue: (assetId: string, monthYear: string, value: number, observation: string) => Promise<void>;
 }
 
 const FinanceContext = createContext<FinanceContextType | undefined>(undefined);
@@ -95,6 +101,8 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return sessionStorage.getItem('overdue_acknowledged') === 'true';
   });
   const [tasks, setGlobalTasks] = useState<any[]>([]);
+  const [equityAssets, setEquityAssets] = useState<EquityAsset[]>([]);
+  const [equityHistory, setEquityHistory] = useState<EquityHistory[]>([]);
 
   const acknowledgeOverdue = () => {
     setHasAcknowledgedOverdue(true);
@@ -226,6 +234,35 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       } else {
         setOverdueServices([]);
       }
+
+      // 7. Patrimônio
+      const { data: eAssets, error: eAssetsErr } = await supabase
+        .from('equity_assets')
+        .select('*')
+        .eq('user_id', effectiveUserId)
+        .eq('space', activeSpace)
+        .order('created_at', { ascending: false });
+
+      if (eAssetsErr) throw eAssetsErr;
+      const fetchedEquity = eAssets || [];
+      setEquityAssets(prev => {
+        const optimistic = prev.filter(a => typeof a.id === 'string' && a.id.startsWith('temp-'));
+        const filteredOptimistic = optimistic.filter(opt => !fetchedEquity.some(a => a.name === opt.name));
+        return [...fetchedEquity, ...filteredOptimistic];
+      });
+
+      if (fetchedEquity.length > 0) {
+        const assetIds = fetchedEquity.map(a => a.id);
+        const { data: eHistory, error: eHistoryErr } = await supabase
+          .from('equity_history')
+          .select('*')
+          .in('asset_id', assetIds);
+
+        if (eHistoryErr) throw eHistoryErr;
+        setEquityHistory(eHistory || []);
+      } else {
+        setEquityHistory([]);
+      }
     } catch (err) {
       console.error('Erro ao buscar dados:', err);
     } finally {
@@ -322,6 +359,41 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
           setTransactions(prev => prev.map(t => t.id === payload.new.id ? { ...t, ...payload.new } : t));
         } else if (payload.eventType === 'DELETE') {
           setTransactions(prev => prev.filter(t => t.id !== payload.old.id));
+        }
+      })
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'equity_assets',
+        filter: `user_id=eq.${effectiveUserId}`
+      }, (payload) => {
+        if (payload.eventType === 'INSERT') {
+          setEquityAssets(prev => {
+            if (payload.new.space !== activeSpace) return prev;
+            if (prev.some(a => a.id === payload.new.id)) return prev;
+            return [...prev.filter(a => !(typeof a.id === 'string' && a.id.startsWith('temp-') && a.name === payload.new.name)), payload.new as EquityAsset];
+          });
+        } else if (payload.eventType === 'UPDATE') {
+          setEquityAssets(prev => prev.map(a => a.id === payload.new.id ? { ...a, ...payload.new } : a));
+        } else if (payload.eventType === 'DELETE') {
+          setEquityAssets(prev => prev.filter(a => a.id !== payload.old.id));
+        }
+      })
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'equity_history',
+      }, (payload) => {
+        if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+          setEquityHistory(prev => {
+            const exists = prev.some(h => h.id === payload.new.id);
+            if (exists) {
+              return prev.map(h => h.id === payload.new.id ? payload.new as EquityHistory : h);
+            }
+            return [...prev, payload.new as EquityHistory];
+          });
+        } else if (payload.eventType === 'DELETE') {
+          setEquityHistory(prev => prev.filter(h => h.id !== payload.old.id));
         }
       })
       .subscribe();
@@ -802,6 +874,93 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   };
 
+  const addEquityAsset = async (asset: Omit<EquityAsset, 'id' | 'user_id' | 'created_at'>) => {
+    const tempId = 'temp-' + Math.random().toString(36).substr(2, 9);
+    const newAsset = { 
+      ...asset, 
+      id: tempId, 
+      user_id: effectiveUserId, 
+      created_at: new Date().toISOString() 
+    } as EquityAsset;
+
+    setEquityAssets(prev => [newAsset, ...prev]);
+
+    try {
+      const { data, error } = await supabase
+        .from('equity_assets')
+        .insert([{
+          user_id: effectiveUserId,
+          space: activeSpace,
+          name: asset.name,
+          initial_value: asset.initial_value,
+          registration_date: asset.registration_date,
+          observation: asset.observation
+        }])
+        .select()
+        .single();
+
+      if (error) throw error;
+      setEquityAssets(prev => prev.map(a => a.id === tempId ? data : a));
+      updateActivity('update');
+    } catch (err) {
+      setEquityAssets(prev => prev.filter(a => a.id !== tempId));
+      throw err;
+    }
+  };
+
+  const updateEquityAsset = async (id: string, asset: Partial<EquityAsset>) => {
+    setEquityAssets(prev => prev.map(a => a.id === id ? { ...a, ...asset } : a));
+
+    const { data, error } = await supabase
+      .from('equity_assets')
+      .update(asset)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    setEquityAssets(prev => prev.map(a => a.id === id ? data : a));
+    updateActivity('update');
+  };
+
+  const deleteEquityAsset = async (id: string) => {
+    // Primeiro remove o histórico
+    await supabase.from('equity_history').delete().eq('asset_id', id);
+    
+    const { error } = await supabase
+      .from('equity_assets')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+    setEquityAssets(prev => prev.filter(a => a.id !== id));
+    setEquityHistory(prev => prev.filter(h => h.asset_id !== id));
+    updateActivity('update');
+  };
+
+  const updateEquityValue = async (assetId: string, monthYear: string, value: number, observation: string) => {
+    const { data, error } = await supabase
+      .from('equity_history')
+      .upsert({
+        asset_id: assetId,
+        month_year: monthYear,
+        value: value,
+        observation: observation
+      }, {
+        onConflict: 'asset_id, month_year'
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    
+    setEquityHistory(prev => {
+      const filtered = prev.filter(h => !(h.asset_id === assetId && h.month_year === monthYear));
+      return [...filtered, data];
+    });
+    updateActivity('update');
+  };
+
   return (
     <FinanceContext.Provider value={{
       transactions, categories, wallets, activeSpace, theme, loading,
@@ -815,6 +974,12 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       acknowledgeOverdue,
       tasks,
       setGlobalTasks,
+      equityAssets,
+      equityHistory,
+      addEquityAsset,
+      updateEquityAsset,
+      deleteEquityAsset,
+      updateEquityValue,
       saveWalletOrder: async (cards: string[], accounts: string[]) => {
         if (!user) return;
         

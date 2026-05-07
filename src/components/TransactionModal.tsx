@@ -479,24 +479,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                   </div>
                 </div>
 
-                {newTx.isPaid && wallets.find(w => w.id === newTx.walletId)?.type !== 'credit_card' && (
-                  <div className="space-y-1.5 animate-in fade-in slide-in-from-top-2 duration-300">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-emerald-500 ml-1 italic">Data do Pagamento / Recebimento</label>
-                    <div className="relative">
-                      <input
-                        type="date"
-                        required
-                        value={newTx.paidDate || new Date().toISOString().split('T')[0]}
-                        onChange={(e) => setNewTx(prev => ({ ...prev, paidDate: e.target.value }))}
-                        className="w-full px-4 py-3 bg-emerald-500/5 border border-emerald-500/20 rounded-xl focus:ring-2 focus:ring-emerald-500/20 outline-none shadow-sm font-black text-emerald-600"
-                      />
-                      <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2 pointer-events-none opacity-40">
-                        <Check size={14} className="text-emerald-500" />
-                        <span className="text-[8px] font-black uppercase tracking-widest text-emerald-500">Confirmado</span>
-                      </div>
-                    </div>
-                  </div>
-                )}
+
 
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Descrição</label>
@@ -589,31 +572,52 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
 
 
                 {wallets.find(w => w.id === newTx.walletId)?.type !== 'credit_card' && (
-                  <button
-                    type="button"
-                    onClick={() => setNewTx(prev => {
-                      const nextPaid = !newTx.isPaid;
-                      return {
-                        ...prev,
-                        isPaid: nextPaid,
-                        paidDate: nextPaid && !prev.paidDate ? new Date().toISOString().split('T')[0] :
-                          !nextPaid ? undefined : prev.paidDate
-                      };
-                    })}
-                    className={cn(
-                      "flex items-center gap-4 px-6 py-3 rounded-2xl transition-all border-2 w-full",
-                      newTx.isPaid !== false
-                        ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-600 shadow-sm"
-                        : "bg-amber-500/10 border-amber-500/30 text-amber-600 shadow-sm"
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setNewTx(prev => {
+                        const nextPaid = !newTx.isPaid;
+                        return {
+                          ...prev,
+                          isPaid: nextPaid,
+                          paidDate: nextPaid && !prev.paidDate ? new Date().toISOString().split('T')[0] :
+                            !nextPaid ? undefined : prev.paidDate
+                        };
+                      })}
+                      className={cn(
+                        "flex items-center gap-4 px-6 py-3 rounded-2xl transition-all border-2 w-full",
+                        newTx.isPaid !== false
+                          ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-600 shadow-sm"
+                          : "bg-amber-500/10 border-amber-500/30 text-amber-600 shadow-sm"
+                      )}
+                    >
+                      <div className={cn("w-8 h-8 rounded-full flex items-center justify-center shadow-inner", newTx.isPaid !== false ? "bg-emerald-500 text-white" : "bg-amber-500 text-white")}>
+                        <ThumbsUp size={16} className={cn(newTx.isPaid === false && "rotate-180")} />
+                      </div>
+                      <span className="text-[10px] font-black uppercase tracking-widest text-left">
+                        {newTx.isPaid !== false ? 'Confirmado / Liquidado' : 'Aguardando Pagamento/Recebimento'}
+                      </span>
+                    </button>
+
+                    {newTx.isPaid && (
+                      <div className="space-y-1.5 animate-in fade-in slide-in-from-top-2 duration-300 mt-2">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-emerald-500 ml-1 italic">Data do Pagamento / Recebimento</label>
+                        <div className="relative">
+                          <input
+                            type="date"
+                            required
+                            value={newTx.paidDate || new Date().toISOString().split('T')[0]}
+                            onChange={(e) => setNewTx(prev => ({ ...prev, paidDate: e.target.value }))}
+                            className="w-full px-4 py-3 bg-emerald-500/5 border border-emerald-500/20 rounded-xl focus:ring-2 focus:ring-emerald-500/20 outline-none shadow-sm font-black text-emerald-600"
+                          />
+                          <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2 pointer-events-none opacity-40">
+                            <Check size={14} className="text-emerald-500" />
+                            <span className="text-[8px] font-black uppercase tracking-widest text-emerald-500">Confirmado</span>
+                          </div>
+                        </div>
+                      </div>
                     )}
-                  >
-                    <div className={cn("w-8 h-8 rounded-full flex items-center justify-center shadow-inner", newTx.isPaid !== false ? "bg-emerald-500 text-white" : "bg-amber-500 text-white")}>
-                      <ThumbsUp size={16} className={cn(newTx.isPaid === false && "rotate-180")} />
-                    </div>
-                    <span className="text-[10px] font-black uppercase tracking-widest text-left">
-                      {newTx.isPaid !== false ? 'Confirmado / Liquidado' : 'Aguardando Pagamento/Recebimento'}
-                    </span>
-                  </button>
+                  </>
                 )}
 
                 {!isInvoicePayment && (

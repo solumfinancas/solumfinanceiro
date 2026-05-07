@@ -68,3 +68,24 @@ export interface ProfileType {
   id: string;
   name: string;
 }
+
+export interface EquityAsset {
+  id: string;
+  user_id: string;
+  space: 'personal' | 'business';
+  name: string;
+  initial_value: number;
+  registration_date: string;
+  observation: string;
+  created_at: string;
+  ended_at?: string | null;
+}
+
+export interface EquityHistory {
+  id: string;
+  asset_id: string;
+  month_year: string;
+  value: number;
+  observation: string;
+  created_at: string;
+}
