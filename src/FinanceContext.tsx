@@ -110,6 +110,8 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
   const isFetchingData = React.useRef(false);
   const lastActivityUpdate = React.useRef<number>(0);
+  const lastFetchedId = React.useRef<string>('');
+  const lastFetchedSpace = React.useRef<string>('');
  
   const effectiveUserId = viewingUserId || user?.id;
   const storageId = user?.id;
@@ -122,6 +124,24 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
     
     isFetchingData.current = true;
+
+    // Detectar mudança de identidade (usuário ou espaço) para limpar o estado imediatamente
+    const identityChanged = lastFetchedId.current !== effectiveUserId || lastFetchedSpace.current !== activeSpace;
+    if (identityChanged) {
+      setTransactions([]);
+      setCategories([]);
+      setRawWallets([]);
+      setGlobalTasks([]);
+      setEquityAssets([]);
+      setEquityHistory([]);
+      setOverdueServices([]);
+      setOrderedCards([]);
+      setOrderedAccounts([]);
+      
+      lastFetchedId.current = effectiveUserId || '';
+      lastFetchedSpace.current = activeSpace;
+    }
+
     setLoading(true);
     try {
       // 1. Categorias
