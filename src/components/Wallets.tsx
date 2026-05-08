@@ -1022,11 +1022,11 @@ export const Wallets: React.FC = () => {
               </div>
 
               {/* Filters Row */}
-              <div className="px-5 py-4 md:px-8 md:py-5 border-b bg-muted/10 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 md:gap-6 overflow-x-auto hidden-scrollbar">
-                <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3 md:gap-6 flex-1">
-                  <div className="w-full md:w-auto min-w-0 md:min-w-[200px]">
+              <div className="px-5 py-4 md:px-8 md:py-5 border-b bg-muted/10 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 md:gap-6 shrink-0 relative">
+                <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3 md:gap-6 flex-1 min-w-0">
+                  <div className="w-full md:w-auto min-w-0 md:min-w-[180px]">
                     <CustomSelect
-                      label="Tipo de Lançamento"
+                      label="Filtrar por Tipo"
                       value={activeTxTypeFilter}
                       onChange={(val: any) => setActiveTxTypeFilter(val)}
                       options={viewingWallet.type === 'credit_card' ? [
@@ -1106,37 +1106,46 @@ export const Wallets: React.FC = () => {
                     </div>
                   )}
                 </div>
-
-                {selectedTxIds.length > 0 && (
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="flex items-center gap-2 bg-primary/10 p-2 px-4 rounded-2xl border border-primary/20 shadow-lg shadow-primary/5"
-                  >
-                    <span className="text-[10px] font-black uppercase text-primary whitespace-nowrap">{selectedTxIds.length} Itens</span>
-                    <div className="h-4 w-px bg-primary/20 mx-1" />
-                    <div className="flex gap-1">
-                      {(() => {
-                        const selectedTxs = transactions.filter(t => selectedTxIds.includes(t.id));
-                        const allPayments = selectedTxs.length > 0 && selectedTxs.every(t => t.description.toLowerCase().includes('pagamento de fatura'));
-
-                        if (viewingWallet?.type !== 'credit_card' || allPayments) {
-                          return (
-                            <>
-                              <button onClick={() => handleBulkAction('paid')} className="p-2 hover:bg-emerald-500/20 text-emerald-500 rounded-xl transition-colors" title="Liquidar"><ThumbsUp size={16} /></button>
-                              <button onClick={() => handleBulkAction('pending')} className="p-2 hover:bg-amber-500/20 text-amber-500 rounded-xl transition-colors" title="Pendente"><ThumbsDown size={16} /></button>
-                            </>
-                          );
-                        }
-                        return null;
-                      })()}
-                      <button onClick={() => handleBulkAction('delete')} className="p-2 hover:bg-rose-500/20 text-rose-500 rounded-xl transition-colors" title="Excluir"><Trash2 size={16} /></button>
-                    </div>
-                  </motion.div>
-                )}
               </div>
 
-              <div className="flex-1 overflow-y-auto p-5 md:p-8 custom-scrollbar">
+              <div className="flex-1 overflow-y-auto p-5 md:p-8 custom-scrollbar relative">
+                {selectedTxIds.length > 0 && (
+                  <div className="sticky top-0 z-[160] mb-6 -mx-2 md:mx-0">
+                    <motion.div
+                      initial={{ opacity: 0, y: -20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="flex items-center justify-between gap-2 bg-primary p-3 px-4 md:px-6 rounded-2xl shadow-xl shadow-primary/20 border border-primary/20 text-white"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] md:text-xs font-black uppercase tracking-widest">{selectedTxIds.length} Selecionado{selectedTxIds.length > 1 ? 's' : ''}</span>
+                        <div className="h-4 w-px bg-white/20 mx-1" />
+                        <button 
+                          onClick={() => setSelectedTxIds([])}
+                          className="text-[10px] font-bold hover:underline opacity-80"
+                        >
+                          Limpar
+                        </button>
+                      </div>
+                      <div className="flex items-center gap-1 md:gap-2">
+                        {(() => {
+                          const selectedTxs = transactions.filter(t => selectedTxIds.includes(t.id));
+                          const allPayments = selectedTxs.length > 0 && selectedTxs.every(t => t.description.toLowerCase().includes('pagamento de fatura'));
+
+                          if (viewingWallet?.type !== 'credit_card' || allPayments) {
+                            return (
+                              <>
+                                <button onClick={() => handleBulkAction('paid')} className="p-2 hover:bg-white/20 rounded-xl transition-colors" title="Liquidar"><ThumbsUp size={16} /></button>
+                                <button onClick={() => handleBulkAction('pending')} className="p-2 hover:bg-white/20 rounded-xl transition-colors" title="Pendente"><ThumbsDown size={16} /></button>
+                              </>
+                            );
+                          }
+                          return null;
+                        })()}
+                        <button onClick={() => handleBulkAction('delete')} className="p-2 hover:bg-white/20 rounded-xl transition-colors" title="Excluir"><Trash2 size={16} /></button>
+                      </div>
+                    </motion.div>
+                  </div>
+                )}
                 {walletTransactions.length > 0 ? (
                   <div className="space-y-8">
                     {/* Grouping by Date */}
@@ -1159,21 +1168,21 @@ export const Wallets: React.FC = () => {
                                     prev.includes(t.id) ? prev.filter(id => id !== t.id) : [...prev, t.id]
                                   )}
                                   className={cn(
-                                    "group flex items-center justify-between p-3 md:p-4 rounded-2xl border transition-all cursor-pointer",
+                                    "group flex flex-col sm:flex-row sm:items-center justify-between p-3 md:p-4 rounded-2xl border transition-all cursor-pointer gap-3 sm:gap-4",
                                     selectedTxIds.includes(t.id) ? "bg-primary/5 border-primary shadow-sm" : "bg-card border-border/40 hover:bg-muted/30"
                                   )}
                                 >
-                                  <div className="flex items-center gap-4">
-                                    <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center shrink-0">
+                                  <div className="flex items-center gap-3 md:gap-4 flex-1 min-w-0">
+                                    <div className="w-9 h-9 md:w-10 md:h-10 rounded-xl bg-muted flex items-center justify-center shrink-0">
                                       {(() => {
                                         const parentCategory = category?.parentId ? (typeof category.parentId === 'object' ? category.parentId : categories.find(p => p.id === category.parentId)) : null;
                                         const icon = parentCategory?.icon || category?.icon || 'wallet';
                                         return <IconRenderer icon={icon} color={category?.color} size={20} />;
                                       })()}
                                     </div>
-                                    <div>
-                                      <div className="flex items-center gap-2 mb-0.5">
-                                        <h4 className="text-xs font-bold uppercase tracking-tight">{t.description}</h4>
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mb-0.5">
+                                        <h4 className="text-[11px] md:text-xs font-bold uppercase tracking-tight truncate max-w-[150px] md:max-w-none">{t.description}</h4>
                                         {/* Type Badge */}
                                         {(() => {
                                           const isPayment = (t.description?.toLowerCase() || '').includes('pagamento de fatura');
@@ -1191,14 +1200,14 @@ export const Wallets: React.FC = () => {
                                           return null;
                                         })()}
                                       </div>
-                                      <div className="flex items-center gap-2">
-                                        <span className="text-[10px] text-muted-foreground uppercase font-black tracking-widest opacity-60">{category?.name}</span>
-                                        <span className="w-1 h-1 rounded-full bg-muted-foreground/30" />
-                                        <span className="text-[10px] text-muted-foreground/60 font-bold uppercase">{formatDate(t.date)}</span>
+                                      <div className="flex items-center gap-1.5 flex-wrap">
+                                        <span className="text-[9px] text-muted-foreground uppercase font-black tracking-widest opacity-60 truncate max-w-[80px] md:max-w-none">{category?.name}</span>
+                                        <span className="w-0.5 h-0.5 rounded-full bg-muted-foreground/30" />
+                                        <span className="text-[9px] text-muted-foreground/60 font-bold uppercase">{formatDate(t.date)}</span>
                                         {t.recurrenceNumber && (
                                           <div className="flex items-center gap-1">
                                             <span className="w-0.5 h-0.5 rounded-full bg-muted-foreground/30" />
-                                            <span className="text-[9px] text-primary font-black uppercase tracking-tight">
+                                            <span className="text-[8px] text-primary font-black uppercase tracking-tight">
                                               {t.recurrenceNumber.current}/{t.recurrenceNumber.total}
                                             </span>
                                           </div>
@@ -1207,27 +1216,29 @@ export const Wallets: React.FC = () => {
                                     </div>
                                   </div>
 
-                                  <div className="flex items-center gap-4">
-                                    {/* Selection Checkbox */}
-                                    <div className={cn(
-                                      "w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all",
-                                      selectedTxIds.includes(t.id) ? "bg-primary border-primary text-white" : "border-muted-foreground/20"
-                                    )}>
-                                      {selectedTxIds.includes(t.id) && <Check size={14} strokeWidth={4} />}
-                                    </div>
-
-                                    <div className="text-right min-w-[100px]">
-                                      <span className={cn(
-                                        "text-sm font-black tracking-tight block leading-tight",
-                                        (viewingWallet?.type === 'credit_card' && (t.description?.toLowerCase() || '').includes('pagamento de fatura'))
-                                          ? 'text-emerald-500 font-black'
-                                          : (t.type === 'income' ? 'text-emerald-500' : 'text-rose-500 font-medium')
+                                  <div className="flex items-center justify-between sm:justify-end gap-3 md:gap-4 w-full sm:w-auto border-t sm:border-t-0 pt-3 sm:pt-0 border-border/10">
+                                    <div className="flex items-center gap-3">
+                                      {/* Selection Checkbox */}
+                                      <div className={cn(
+                                        "w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all shrink-0",
+                                        selectedTxIds.includes(t.id) ? "bg-primary border-primary text-white" : "border-muted-foreground/20"
                                       )}>
-                                        {(viewingWallet?.type === 'credit_card' && (t.description?.toLowerCase() || '').includes('pagamento de fatura'))
-                                          ? `+ ${formatCurrency(t.amount)}`
-                                          : (t.type === 'income' ? `+ ${formatCurrency(t.amount)}` : `- ${formatCurrency(t.amount)}`)}
-                                      </span>
-                                      {t.isPaid === false && <span className="text-[8px] font-black uppercase text-amber-500 tracking-wider">Pendente</span>}
+                                        {selectedTxIds.includes(t.id) && <Check size={14} strokeWidth={4} />}
+                                      </div>
+
+                                      <div className="text-right min-w-[90px] md:min-w-[100px]">
+                                        <span className={cn(
+                                          "text-xs md:text-sm font-black tracking-tight block leading-tight",
+                                          (viewingWallet?.type === 'credit_card' && (t.description?.toLowerCase() || '').includes('pagamento de fatura'))
+                                            ? 'text-emerald-500 font-black'
+                                            : (t.type === 'income' ? 'text-emerald-500' : 'text-rose-500 font-medium')
+                                        )}>
+                                          {(viewingWallet?.type === 'credit_card' && (t.description?.toLowerCase() || '').includes('pagamento de fatura'))
+                                            ? `+ ${formatCurrency(t.amount)}`
+                                            : (t.type === 'income' ? `+ ${formatCurrency(t.amount)}` : `- ${formatCurrency(t.amount)}`)}
+                                        </span>
+                                        {t.isPaid === false && <span className="text-[8px] font-black uppercase text-amber-500 tracking-wider">Pendente</span>}
+                                      </div>
                                     </div>
 
                                     <div className="flex items-center gap-1 transition-all">
