@@ -966,13 +966,18 @@ export const Wallets: React.FC = () => {
                     </div>
                     <div className="overflow-hidden">
                       <h2 className="text-xl md:text-3xl font-black tracking-tight leading-none truncate">{viewingWallet.name}</h2>
-                      <div className="flex items-center gap-2 mt-1 md:mt-2">
-                        <span className="text-[8px] md:text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">{viewingWallet.type === 'credit_card' ? 'Cartão' : 'Carteira'}</span>
-                        {viewingWallet.observation && (
-                          <span className="px-1.5 py-0.5 bg-primary/10 text-primary text-[7px] md:text-[8px] font-black uppercase rounded tracking-wider truncate max-w-[100px] md:max-w-none">
-                            {viewingWallet.observation}
+                      <div className="flex flex-col gap-1.5 mt-1 md:mt-2">
+                        <span className="text-[8px] md:text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60 leading-none">{viewingWallet.type === 'credit_card' ? 'Cartão' : 'Carteira'}</span>
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="px-1.5 py-0.5 bg-muted text-muted-foreground text-[7px] md:text-[8px] font-black uppercase rounded tracking-wider whitespace-nowrap">
+                            {walletTransactions.length} Lançamentos
                           </span>
-                        )}
+                          {viewingWallet.observation && (
+                            <span className="px-1.5 py-0.5 bg-primary/10 text-primary text-[7px] md:text-[8px] font-black uppercase rounded tracking-wider break-words max-w-[180px] md:max-w-none leading-tight">
+                              {viewingWallet.observation}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1014,10 +1019,6 @@ export const Wallets: React.FC = () => {
                       </p>
                     </div>
                   )}
-                  <div className="space-y-0.5 md:space-y-1">
-                    <span className="text-[8px] md:text-[10px] font-black uppercase tracking-widest opacity-40">Lançamentos</span>
-                    <p className="text-lg md:text-2xl font-black">{walletTransactions.length}</p>
-                  </div>
                 </div>
               </div>
 
