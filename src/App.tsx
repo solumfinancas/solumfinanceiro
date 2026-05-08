@@ -116,6 +116,36 @@ const AppContent = () => {
       localStorage.removeItem('solum_last_user');
     }
   }, [user?.id]);
+  
+
+  // Auto-seleção de espaço para usuários com apenas um espaço ativo
+  React.useEffect(() => {
+    if (
+      user && 
+      profile?.role === 'user' && 
+      !viewingUserId && 
+      !activeSessionView && 
+      !showSetup &&
+      initializedSpaces.length === 1 &&
+      !authLoading &&
+      !financeLoading
+    ) {
+      const singleSpace = initializedSpaces[0];
+      setActiveSpace(singleSpace);
+      setActiveSessionView('finance');
+      sessionStorage.setItem('solum_session_view', 'finance');
+    }
+  }, [
+    user, 
+    profile, 
+    viewingUserId, 
+    activeSessionView, 
+    showSetup, 
+    initializedSpaces, 
+    authLoading, 
+    financeLoading, 
+    setActiveSpace
+  ]);
 
 
   // Verificação de suspensão global
@@ -173,11 +203,15 @@ const AppContent = () => {
     }
   };
 
+  // Define se o usuário deve ser redirecionado automaticamente (evita flicker do seletor)
+  const isAutoSelectCase = profile?.role === 'user' && initializedSpaces.length === 1;
+
   // Define se precisamos mostrar o seletor antes de qualquer coisa
   const isSelectionNeeded = !!user && 
     !viewingManagement && 
     !viewingUserId && 
-    !showSetup && (
+    !showSetup && 
+    !isAutoSelectCase && (
       !activeSessionView || initializedSpaces.length === 0
     );
 
