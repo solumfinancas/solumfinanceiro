@@ -45,6 +45,7 @@ interface FinanceContextType {
   updateEquityAsset: (id: string, asset: Partial<EquityAsset>) => Promise<void>;
   deleteEquityAsset: (id: string) => Promise<void>;
   updateEquityValue: (assetId: string, monthYear: string, value: number, observation: string) => Promise<void>;
+  deleteEquityValue: (id: string) => Promise<void>;
 }
 
 const FinanceContext = createContext<FinanceContextType | undefined>(undefined);
@@ -981,6 +982,17 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     updateActivity('update');
   };
 
+  const deleteEquityValue = async (id: string) => {
+    const { error } = await supabase
+      .from('equity_history')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+    setEquityHistory(prev => prev.filter(h => h.id !== id));
+    updateActivity('update');
+  };
+
   return (
     <FinanceContext.Provider value={{
       transactions, categories, wallets, activeSpace, theme, loading,
@@ -1000,6 +1012,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       updateEquityAsset,
       deleteEquityAsset,
       updateEquityValue,
+      deleteEquityValue,
       saveWalletOrder: async (cards: string[], accounts: string[]) => {
         if (!user) return;
         

@@ -19,7 +19,14 @@ import {
   PowerOff,
   Layout,
   ArrowUpRight,
-  AlertCircle
+  AlertCircle,
+  Eye,
+  Info,
+  ChevronDown,
+  FileText,
+  CheckCircle2,
+  MessageSquare,
+  Settings2
 } from 'lucide-react';
 import { 
   AreaChart, 
@@ -46,6 +53,7 @@ export const Equity: React.FC = () => {
     updateEquityAsset,
     deleteEquityAsset,
     updateEquityValue,
+    deleteEquityValue,
     loading: contextLoading
   } = useFinance();
   const { showAlert } = useModal();
@@ -66,6 +74,7 @@ export const Equity: React.FC = () => {
   const [deleteInput, setDeleteInput] = useState('');
   const [confirmEnd, setConfirmEnd] = useState<EquityAsset | null>(null);
   const [confirmReactivate, setConfirmReactivate] = useState<EquityAsset | null>(null);
+  const [viewingAssetDetails, setViewingAssetDetails] = useState<EquityAsset | null>(null);
 
   // Add/Edit Asset Form State
   const [assetForm, setAssetForm] = useState({
@@ -80,9 +89,19 @@ export const Equity: React.FC = () => {
     assetId: string;
     value: number;
     observation: string;
+    monthYear: string;
+    step?: 'choice' | 'confirm_keep' | 'observation_only' | 'full_adjust';
   } | null>(null);
 
   const [chartRange, setChartRange] = useState<'12m' | '24m' | 'all'>('12m');
+  const [confirmDeleteHistory, setConfirmDeleteHistory] = useState<{
+    id: string;
+    monthYear: string;
+  } | null>(null);
+
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+  };
 
   const oldestDate = useMemo(() => {
     if (equityAssets.length === 0) return new Date();
@@ -187,12 +206,10 @@ export const Equity: React.FC = () => {
   const handleUpdateValue = async () => {
     if (!editingValue) return;
 
-    const monthStr = selectedMonth.toISOString().split('T')[0];
-
     try {
       await updateEquityValue(
         editingValue.assetId,
-        monthStr,
+        editingValue.monthYear,
         editingValue.value,
         editingValue.observation
       );
@@ -202,6 +219,16 @@ export const Equity: React.FC = () => {
     } catch (error) {
       console.error('Error updating value:', error);
       showAlert('Erro', 'Não foi possível atualizar o valor', 'danger');
+    }
+  };
+
+  const handleDeleteHistoryEntry = async (id: string) => {
+    try {
+      await deleteEquityValue(id);
+      setConfirmDeleteHistory(null);
+      showAlert('Sucesso', 'Atualização removida com sucesso', 'success');
+    } catch (error) {
+      showAlert('Erro', 'Não foi possível remover a atualização', 'danger');
     }
   };
 
@@ -506,21 +533,53 @@ export const Equity: React.FC = () => {
                           <td className="px-8 py-6">
                             <div className="flex flex-col">
                               <div className="flex items-center gap-2">
-                                <span className={cn(
-                                  "text-sm font-black uppercase tracking-tight group-hover:text-primary transition-colors",
-                                  asset.ended_at && "text-muted-foreground line-through"
-                                )}>
+                                <button
+                                  onClick={() => setViewingAssetDetails(asset)}
+                                  className={cn(
+                                    "text-sm font-black uppercase tracking-tight group-hover:text-primary transition-colors text-left",
+                                    asset.ended_at && "text-muted-foreground line-through"
+                                  )}
+                                >
                                   {asset.name}
-                                </span>
+                                </button>
+                                {isRegistrationMonth ? (
+                                  <span className="px-1.5 py-0.5 rounded-md bg-blue-500/10 text-blue-500 text-[7px] font-black uppercase tracking-widest">
+                                    Mês de Registro
+                                  </span>
+                                ) : monthData ? (
+                                  <span className="px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-500 text-[7px] font-black uppercase tracking-widest flex items-center gap-1">
+                                    <div className="w-1 h-1 rounded-full bg-emerald-500" />
+                                    Atualizado
+                                  </span>
+                                ) : (
+                                  <span className="px-1.5 py-0.5 rounded-md bg-amber-500/10 text-amber-500 text-[7px] font-black uppercase tracking-widest flex items-center gap-1 animate-pulse">
+                                    <AlertCircle size={8} />
+                                    Pendente de Atualização
+                                  </span>
+                                )}
                                 {isEndedThisMonth && (
                                   <span className="px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-500 text-[8px] font-black uppercase tracking-widest">
                                     Encerrado
                                   </span>
                                 )}
                               </div>
-                              <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest truncate max-w-[200px]">
-                                {monthData?.observation || asset.observation || 'SEM OBSERVAÇÃO'}
-                              </span>
+                              <div className="mt-1 flex flex-col gap-0.5">
+                                {isRegistrationMonth ? (
+                                  asset.observation && (
+                                    <span className="text-[9px] font-medium text-muted-foreground uppercase tracking-widest leading-relaxed break-words">
+                                      {asset.observation}
+                                    </span>
+                                  )
+                                ) : monthData ? (
+                                  <span className="text-[9px] font-medium text-muted-foreground uppercase tracking-widest leading-relaxed break-words">
+                                    {monthData.observation || 'Sem observações novas'}
+                                  </span>
+                                ) : (
+                                  <span className="text-[9px] font-medium text-amber-500/60 uppercase tracking-widest italic">
+                                    Aguardando atualização de valor e observações...
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </td>
                           <td className="px-8 py-6">
@@ -558,7 +617,9 @@ export const Equity: React.FC = () => {
                                   onClick={() => setEditingValue({
                                     assetId: asset.id,
                                     value: displayValue,
-                                    observation: monthData?.observation || ''
+                                    observation: monthData?.observation || '',
+                                    monthYear: selectedMonth.toISOString().split('T')[0],
+                                    step: 'choice'
                                   })}
                                   title="Atualizar Valor Mensal"
                                   className="w-10 h-10 rounded-xl bg-emerald-500/5 text-emerald-500 border border-emerald-500/10 flex items-center justify-center hover:bg-emerald-500 hover:text-white transition-all shadow-sm"
@@ -805,7 +866,7 @@ export const Equity: React.FC = () => {
       {/* Edit Value Modal */}
       <AnimatePresence>
         {editingValue && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -827,7 +888,11 @@ export const Equity: React.FC = () => {
                     <span className="text-[10px] font-black uppercase tracking-[0.3em] text-primary">Atualização Mensal</span>
                   </div>
                   <h2 className="text-2xl font-black uppercase tracking-tighter text-foreground">Ajustar Valor</h2>
-                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Para o mês de {formattedSelectedMonth}</p>
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                    Para o mês de {editingValue.monthYear 
+                      ? new Date(editingValue.monthYear + 'T12:00:00').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
+                      : formattedSelectedMonth}
+                  </p>
                 </div>
                 <button 
                   onClick={() => setEditingValue(null)}
@@ -838,40 +903,126 @@ export const Equity: React.FC = () => {
               </div>
 
               <div className="space-y-6">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Novo Valor Atualizado</label>
-                  <div className="relative">
-                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground font-black text-xs opacity-40">R$</span>
-                     <input
-                       type="text"
-                       value={(editingValue.value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                       onChange={e => {
-                         const val = e.target.value.replace(/\D/g, '');
-                         setEditingValue({...editingValue, value: Number(val) / 100});
-                       }}
-                       className="w-full pl-10 pr-4 py-4 h-14 bg-muted border-none rounded-2xl font-mono font-black focus:ring-2 focus:ring-primary/20 outline-none transition-all text-foreground text-sm"
-                       placeholder="0,00"
-                     />
-                   </div>
-                </div>
+                {!editingValue.step || editingValue.step === 'choice' ? (
+                  <div className="grid gap-4">
+                    <button
+                      onClick={() => setEditingValue({ ...editingValue, step: 'confirm_keep' })}
+                      className="group p-6 bg-muted hover:bg-emerald-500/10 border-2 border-transparent hover:border-emerald-500/20 rounded-[2rem] transition-all text-left flex items-center gap-5"
+                    >
+                      <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-500">
+                        <CheckCircle2 size={24} />
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="text-[11px] font-black uppercase tracking-widest text-foreground group-hover:text-emerald-600 transition-colors">Manter Valor</h4>
+                        <p className="text-[9px] font-bold text-muted-foreground uppercase mt-0.5">Sem novas observações</p>
+                      </div>
+                      <ChevronRight size={16} className="text-muted-foreground group-hover:text-emerald-500 translate-x-0 group-hover:translate-x-1 transition-all" />
+                    </button>
 
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Observação do Mês</label>
-                  <textarea 
-                    value={editingValue.observation}
-                    onChange={e => setEditingValue({...editingValue, observation: e.target.value})}
-                    placeholder="POR QUE O VALOR MUDOU? (EX: VALORIZAÇÃO DE MERCADO, REFORMA...)"
-                    className="w-full h-32 bg-muted border-none rounded-2xl p-6 text-sm font-bold uppercase tracking-widest focus:ring-2 focus:ring-primary/20 resize-none"
-                  />
-                </div>
+                    <button
+                      onClick={() => setEditingValue({ ...editingValue, step: 'observation_only' })}
+                      className="group p-6 bg-muted hover:bg-blue-500/10 border-2 border-transparent hover:border-blue-500/20 rounded-[2rem] transition-all text-left flex items-center gap-5"
+                    >
+                      <div className="w-12 h-12 rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-500">
+                        <MessageSquare size={24} />
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="text-[11px] font-black uppercase tracking-widest text-foreground group-hover:text-blue-600 transition-colors">Manter Valor + Nota</h4>
+                        <p className="text-[9px] font-bold text-muted-foreground uppercase mt-0.5">Adicionar observação do mês</p>
+                      </div>
+                      <ChevronRight size={16} className="text-muted-foreground group-hover:text-blue-500 translate-x-0 group-hover:translate-x-1 transition-all" />
+                    </button>
 
-                <button 
-                  onClick={handleUpdateValue}
-                  className="w-full h-16 rounded-[2rem] bg-emerald-500 text-white text-[11px] font-black uppercase tracking-widest flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-emerald-500/30"
-                >
-                  <Save size={18} />
-                  Salvar Atualização
-                </button>
+                    <button
+                      onClick={() => setEditingValue({ ...editingValue, step: 'full_adjust' })}
+                      className="group p-6 bg-muted hover:bg-primary/10 border-2 border-transparent hover:border-primary/20 rounded-[2rem] transition-all text-left flex items-center gap-5"
+                    >
+                      <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
+                        <Settings2 size={24} />
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="text-[11px] font-black uppercase tracking-widest text-foreground group-hover:text-primary transition-colors">Ajustar Ativo</h4>
+                        <p className="text-[9px] font-bold text-muted-foreground uppercase mt-0.5">Mudar valor e observação</p>
+                      </div>
+                      <ChevronRight size={16} className="text-muted-foreground group-hover:text-primary translate-x-0 group-hover:translate-x-1 transition-all" />
+                    </button>
+                  </div>
+                ) : editingValue.step === 'confirm_keep' ? (
+                  <div className="space-y-6 py-4">
+                    <div className="bg-emerald-500/5 border border-emerald-500/10 p-8 rounded-[2rem] text-center">
+                      <div className="w-16 h-16 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500 mx-auto mb-4">
+                        <CheckCircle2 size={32} />
+                      </div>
+                      <h4 className="text-sm font-black uppercase tracking-widest text-foreground mb-2">Confirmar Manutenção</h4>
+                      <p className="text-xs text-muted-foreground leading-relaxed">
+                        Deseja manter o valor de <span className="font-black text-emerald-500">{formatCurrency(editingValue.value)}</span> para este mês, sem adicionar observações?
+                      </p>
+                    </div>
+                    <div className="flex gap-3">
+                      <button
+                        onClick={() => setEditingValue({ ...editingValue, step: 'choice' })}
+                        className="flex-1 h-14 rounded-2xl border-2 border-border font-black uppercase tracking-widest text-[10px] text-muted-foreground hover:bg-muted transition-all"
+                      >
+                        Voltar
+                      </button>
+                      <button
+                        onClick={() => handleUpdateValue()}
+                        className="flex-[1.5] h-14 rounded-2xl bg-emerald-500 text-white font-black uppercase tracking-widest text-[10px] transition-all shadow-xl shadow-emerald-500/20 active:scale-95"
+                      >
+                        Confirmar e Salvar
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    {editingValue.step === 'full_adjust' && (
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Novo Valor Atualizado</label>
+                        <div className="relative">
+                          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground font-black text-xs opacity-40">R$</span>
+                          <input
+                            type="text"
+                            value={(editingValue.value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            onChange={e => {
+                              const val = e.target.value.replace(/\D/g, '');
+                              setEditingValue({...editingValue, value: Number(val) / 100});
+                            }}
+                            className="w-full pl-10 pr-4 py-4 h-14 bg-muted border-none rounded-2xl font-mono font-black focus:ring-2 focus:ring-primary/20 outline-none transition-all text-foreground text-sm"
+                            placeholder="0,00"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">
+                        {editingValue.step === 'observation_only' ? 'Observação do Mês (Manter Valor)' : 'Observação do Mês'}
+                      </label>
+                      <textarea 
+                        value={editingValue.observation}
+                        onChange={e => setEditingValue({...editingValue, observation: e.target.value})}
+                        placeholder="POR QUE O VALOR MUDOU? (EX: VALORIZAÇÃO DE MERCADO, REFORMA...)"
+                        className="w-full h-32 bg-muted border-none rounded-2xl p-6 text-sm font-bold uppercase tracking-widest focus:ring-2 focus:ring-primary/20 resize-none"
+                      />
+                    </div>
+
+                    <div className="flex gap-3">
+                      <button
+                        onClick={() => setEditingValue({ ...editingValue, step: 'choice' })}
+                        className="flex-1 h-14 rounded-2xl border-2 border-border font-black uppercase tracking-widest text-[10px] text-muted-foreground hover:bg-muted transition-all"
+                      >
+                        Voltar
+                      </button>
+                      <button 
+                        onClick={handleUpdateValue}
+                        className="flex-[1.5] h-14 rounded-2xl bg-emerald-500 text-white text-[11px] font-black uppercase tracking-widest flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-emerald-500/30"
+                      >
+                        <Save size={18} />
+                        Salvar Atualização
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
             </motion.div>
           </div>
@@ -958,6 +1109,68 @@ export const Equity: React.FC = () => {
                   className="flex-[1.5] px-6 py-4 rounded-2xl bg-rose-500 text-white font-black uppercase tracking-widest text-[10px] transition-all shadow-xl shadow-rose-500/20 active:scale-95 disabled:opacity-30 disabled:grayscale disabled:scale-100"
                 >
                   Excluir Permanentemente
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Confirm History Delete Modal */}
+      <AnimatePresence>
+        {confirmDeleteHistory && (
+          <div className="fixed inset-0 z-[400] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-slate-950/60 backdrop-blur-md"
+              onClick={() => setConfirmDeleteHistory(null)}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-md bg-card border border-border rounded-[3rem] p-8 shadow-2xl overflow-hidden"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="h-2 w-full bg-rose-500 absolute top-0 left-0" />
+              
+              <div className="flex items-center gap-4 mb-6">
+                <div className="w-12 h-12 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-500 shadow-lg shadow-rose-500/10">
+                  <Trash2 size={24} />
+                </div>
+                <div>
+                  <h3 className="text-xl font-black uppercase tracking-tight text-foreground">Excluir Atualização</h3>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-rose-500">Resetar Mês</p>
+                </div>
+              </div>
+
+              <div className="space-y-4 mb-8">
+                <div className="bg-rose-500/5 border border-rose-500/10 p-6 rounded-3xl text-center">
+                  <p className="text-sm font-medium text-foreground leading-relaxed">
+                    Deseja realmente excluir a atualização de <span className="font-black text-rose-600">
+                      {new Date(confirmDeleteHistory.monthYear + 'T12:00:00').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
+                    </span>?
+                  </p>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-widest mt-4 font-bold text-center">
+                    O ATIVO SERÁ RESETADO PARA O ESTADO PENDENTE NESTE MÊS.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setConfirmDeleteHistory(null)}
+                  className="flex-1 px-6 py-4 rounded-2xl border-2 border-border font-black uppercase tracking-widest text-[10px] text-muted-foreground hover:bg-muted transition-all"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={() => handleDeleteHistoryEntry(confirmDeleteHistory.id)}
+                  className="flex-[1.5] px-6 py-4 rounded-2xl bg-rose-500 text-white font-black uppercase tracking-widest text-[10px] transition-all shadow-xl shadow-rose-500/20 active:scale-95"
+                >
+                  Excluir Agora
                 </button>
               </div>
             </motion.div>
@@ -1102,6 +1315,185 @@ export const Equity: React.FC = () => {
                   className="flex-[1.5] px-6 py-4 rounded-2xl bg-blue-500 text-white font-black uppercase tracking-widest text-[10px] transition-all shadow-xl shadow-blue-500/20 active:scale-95"
                 >
                   Reativar Agora
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+      
+      {/* Asset Details & History Modal */}
+      <AnimatePresence>
+        {viewingAssetDetails && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-slate-950/60 backdrop-blur-md"
+              onClick={() => setViewingAssetDetails(null)}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-2xl bg-card border border-border rounded-[3rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="p-8 border-b border-border bg-muted/20 shrink-0">
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center gap-4">
+                    <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-inner">
+                      <Gem size={28} />
+                    </div>
+                    <div>
+                      <h2 className="text-2xl font-black uppercase tracking-tighter text-foreground">{viewingAssetDetails.name}</h2>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">Detalhes do Ativo</span>
+                        {viewingAssetDetails.ended_at && (
+                          <span className="px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-500 text-[8px] font-black uppercase tracking-widest">
+                            Encerrado
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => setViewingAssetDetails(null)}
+                    className="w-12 h-12 rounded-xl bg-card border border-border flex items-center justify-center text-muted-foreground hover:text-rose-500 transition-all"
+                  >
+                    <X size={24} />
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="bg-card border border-border p-4 rounded-2xl">
+                    <p className="text-[8px] font-black uppercase tracking-widest text-muted-foreground mb-1">Registro</p>
+                    <p className="text-[11px] font-bold text-foreground">{new Date(viewingAssetDetails.registration_date + 'T12:00:00').toLocaleDateString('pt-BR')}</p>
+                  </div>
+                  <div className="bg-card border border-border p-4 rounded-2xl">
+                    <p className="text-[8px] font-black uppercase tracking-widest text-muted-foreground mb-1">Valor Inicial</p>
+                    <p className="text-[11px] font-bold text-primary">{formatCurrency(viewingAssetDetails.initial_value)}</p>
+                  </div>
+                  <div className="bg-card border border-border p-4 rounded-2xl">
+                    <p className="text-[8px] font-black uppercase tracking-widest text-muted-foreground mb-1">Valor Atualizado</p>
+                    {(() => {
+                      const assetHistory = equityHistory.filter(h => h.asset_id === viewingAssetDetails.id);
+                      const latestValue = assetHistory.length > 0 
+                        ? [...assetHistory].sort((a, b) => new Date(b.month_year).getTime() - new Date(a.month_year).getTime())[0].value 
+                        : viewingAssetDetails.initial_value;
+                      
+                      const isHigher = latestValue > viewingAssetDetails.initial_value;
+                      const isLower = latestValue < viewingAssetDetails.initial_value;
+
+                      return (
+                        <p className={`text-[11px] font-bold ${isHigher ? 'text-emerald-500' : isLower ? 'text-rose-500' : 'text-foreground'}`}>
+                          {formatCurrency(latestValue)}
+                        </p>
+                      );
+                    })()}
+                  </div>
+                  <div className="bg-card border border-border p-4 rounded-2xl">
+                    <p className="text-[8px] font-black uppercase tracking-widest text-muted-foreground mb-1">Espaço</p>
+                    <p className="text-[11px] font-bold text-foreground uppercase">{viewingAssetDetails.space === 'personal' ? 'Pessoal' : 'Empresarial'}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
+                <div className="space-y-8">
+                  {/* Original Observation */}
+                  {viewingAssetDetails.observation && (
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2 text-primary">
+                        <Info size={14} />
+                        <h3 className="text-[10px] font-black uppercase tracking-widest">Observação de Origem</h3>
+                      </div>
+                      <div className="bg-muted/30 p-5 rounded-2xl border border-border/50">
+                        <p className="text-xs text-muted-foreground leading-relaxed font-medium">
+                          {viewingAssetDetails.observation}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* History List */}
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2 text-primary">
+                      <History size={14} />
+                      <h3 className="text-[10px] font-black uppercase tracking-widest">Histórico de Atualizações</h3>
+                    </div>
+
+                    <div className="space-y-3">
+                      {equityHistory
+                        .filter(h => h.asset_id === viewingAssetDetails.id)
+                        .sort((a, b) => new Date(b.month_year).getTime() - new Date(a.month_year).getTime())
+                        .map((entry, idx) => (
+                          <div key={entry.id} className="relative pl-6 pb-6 last:pb-0">
+                            {/* Timeline Line */}
+                            <div className="absolute left-0 top-2 bottom-0 w-px bg-border" />
+                            <div className="absolute left-[-4px] top-2 w-2 h-2 rounded-full bg-primary shadow-[0_0_8px_rgba(var(--color-primary-rgb),0.5)]" />
+                            
+                            <div className="bg-card border border-border rounded-2xl p-4 hover:shadow-md transition-all group">
+                              <div className="flex items-center justify-between mb-2">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-primary">
+                                  {new Date(entry.month_year + 'T12:00:00').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
+                                </p>
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    onClick={() => {
+                                      setEditingValue({
+                                        assetId: viewingAssetDetails.id,
+                                        value: entry.value,
+                                        observation: entry.observation || '',
+                                        monthYear: entry.month_year,
+                                        step: 'full_adjust'
+                                      });
+                                    }}
+                                    className="p-1.5 rounded-lg bg-muted border border-border text-muted-foreground hover:text-primary transition-all"
+                                    title="Editar Atualização"
+                                  >
+                                    <Edit2 size={12} />
+                                  </button>
+                                  <button
+                                    onClick={() => setConfirmDeleteHistory({ id: entry.id, monthYear: entry.month_year })}
+                                    className="p-1.5 rounded-lg bg-muted border border-border text-muted-foreground hover:text-rose-500 transition-all"
+                                    title="Excluir Atualização"
+                                  >
+                                    <Trash2 size={12} />
+                                  </button>
+                                  <span className="text-xs font-black text-foreground">{formatCurrency(entry.value)}</span>
+                                </div>
+                              </div>
+                              {entry.observation && (
+                                <div className="mt-2 flex gap-2">
+                                  <FileText size={12} className="text-muted-foreground shrink-0 mt-0.5" />
+                                  <p className="text-[11px] text-muted-foreground leading-relaxed italic">
+                                    "{entry.observation}"
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+
+                      {equityHistory.filter(h => h.asset_id === viewingAssetDetails.id).length === 0 && (
+                        <div className="flex flex-col items-center justify-center py-12 text-center gap-3 bg-muted/20 rounded-[2rem] border border-dashed border-border">
+                          <AlertCircle className="text-muted-foreground/30" size={32} />
+                          <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/40">Nenhuma atualização registrada ainda.</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-6 border-t border-border bg-muted/10 shrink-0">
+                <button 
+                  onClick={() => setViewingAssetDetails(null)}
+                  className="w-full h-14 rounded-2xl bg-foreground text-background text-[11px] font-black uppercase tracking-widest hover:opacity-90 transition-all"
+                >
+                  Fechar Detalhes
                 </button>
               </div>
             </motion.div>
