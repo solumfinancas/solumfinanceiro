@@ -481,7 +481,7 @@ export const Categories: React.FC = () => {
                 />
                 <div className="flex flex-col flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="font-black text-sm block truncate leading-none uppercase tracking-tight">{c.name}</span>
+                    <span className="font-black text-sm block leading-tight uppercase tracking-tight break-words">{c.name}</span>
                     <Search size={12} className="text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                   </div>
 
@@ -646,7 +646,7 @@ export const Categories: React.FC = () => {
                           />
                           <div className="flex flex-col min-w-0 flex-1">
                             <div className="flex items-center gap-2">
-                              <span className="font-bold text-[13px] text-foreground leading-none uppercase tracking-tight truncate">{sub.name}</span>
+                              <span className="font-bold text-[13px] text-foreground leading-tight uppercase tracking-tight break-words">{sub.name}</span>
                               <Search size={10} className="text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                             </div>
                             <span className="text-[10px] font-black text-muted-foreground mt-1 opacity-60">
@@ -948,7 +948,7 @@ export const Categories: React.FC = () => {
                               className="w-3 h-3 rounded-full shrink-0 shadow-sm"
                               style={{ backgroundColor: COLORS[index % COLORS.length] }}
                             />
-                            <span className="text-[10px] font-black uppercase tracking-widest text-foreground/70 truncate group-hover:text-foreground transition-colors">
+                            <span className="text-[10px] font-black uppercase tracking-widest text-foreground/70 leading-tight group-hover:text-foreground transition-colors break-words">
                               {item.name}
                             </span>
                           </div>
@@ -1486,7 +1486,7 @@ export const Categories: React.FC = () => {
                     />
                   </div>
                   <div>
-                    <h2 className="text-xl font-black uppercase tracking-tight">{categoryForAction.name}</h2>
+                    <h2 className="text-xl font-black uppercase tracking-tight leading-tight break-words">{categoryForAction.name}</h2>
                     <p className="text-[10px] text-muted-foreground font-black uppercase tracking-widest opacity-60">O que deseja fazer?</p>
                   </div>
                 </div>

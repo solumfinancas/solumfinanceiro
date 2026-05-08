@@ -22,6 +22,9 @@ import { SuspensionBlock } from './components/SuspensionBlock';
 import { OverdueAlertModal } from './components/OverdueAlertModal';
 import { OverduePersistentReminder } from './components/OverduePersistentReminder';
 import { TaskPersistentReminder } from './components/TaskPersistentReminder';
+import { MobileFooterNav } from './components/ui/MobileFooterNav';
+import { TransactionModal } from './components/TransactionModal';
+
 
 
 const AppContent = () => {
@@ -38,6 +41,8 @@ const AppContent = () => {
   const [activeSessionView, setActiveSessionView] = useState<'finance' | 'management' | null>(() => {
     return sessionStorage.getItem('solum_session_view') as 'finance' | 'management' | null;
   });
+  const [isGlobalTxModalOpen, setIsGlobalTxModalOpen] = useState(false);
+
 
   // Reset scroll to top on tab change
   React.useEffect(() => {
@@ -278,7 +283,7 @@ const AppContent = () => {
         }} 
       />
 
-      <main className="flex-1 h-full overflow-y-auto p-4 lg:p-8 relative">
+      <main className="flex-1 h-full overflow-y-auto p-4 lg:p-8 relative pb-28 lg:pb-8">
         {/* Overdue Alert Modal */}
         <OverdueAlertModal />
 
@@ -411,6 +416,19 @@ const AppContent = () => {
       </main>
 
       <ProfileSetupModal isOpen={showSetup} onComplete={() => setShowSetup(false)} />
+
+      {!viewingManagement && (
+        <MobileFooterNav 
+          activeTab={activeTab} 
+          setActiveTab={setActiveTab} 
+          onOpenTransactionModal={() => setIsGlobalTxModalOpen(true)}
+        />
+      )}
+
+      <TransactionModal 
+        isOpen={isGlobalTxModalOpen} 
+        onClose={() => setIsGlobalTxModalOpen(false)} 
+      />
     </div>
   );
 };

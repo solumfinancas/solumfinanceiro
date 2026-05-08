@@ -114,17 +114,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
   return (
     <>
       {/* Mobile Header */}
-      <div className="lg:hidden flex items-center justify-between p-4 bg-card border-b sticky top-0 z-50">
+      <div className="lg:hidden flex items-center justify-between p-3 bg-card border-b sticky top-0 z-50">
         <div className="flex items-center gap-2">
           <img 
             src="/images/logo.png" 
             alt="Solum Logo" 
-            className="w-8 h-8 object-contain drop-shadow-[0_0_8px_rgba(249,115,22,0.6)]" 
+            className="w-6 h-6 object-contain drop-shadow-[0_0_8px_rgba(249,115,22,0.6)]" 
           />
-          <span className="font-bold text-lg tracking-tight">SOLUM</span>
+          <span className="font-bold text-base tracking-tight">SOLUM</span>
         </div>
-        <button onClick={toggleSidebar} className="p-2 hover:bg-accent rounded-md">
-          {isOpen ? <X size={24} /> : <Menu size={24} />}
+        <button onClick={toggleSidebar} className="p-1.5 hover:bg-accent rounded-md">
+          {isOpen ? <X size={20} /> : <Menu size={20} />}
         </button>
       </div>
 

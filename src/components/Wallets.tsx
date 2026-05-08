@@ -1022,8 +1022,8 @@ export const Wallets: React.FC = () => {
               </div>
 
               {/* Filters Row */}
-              <div className="px-5 py-4 md:px-8 md:py-5 border-b bg-muted/10 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 md:gap-6 shrink-0 relative">
-                <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3 md:gap-6 flex-1 min-w-0">
+              <div className="px-4 py-3 md:px-8 md:py-5 border-b bg-muted/10 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2 md:gap-6 shrink-0 relative">
+                <div className="grid grid-cols-2 md:flex md:flex-row items-stretch md:items-center gap-2 md:gap-6 flex-1 min-w-0">
                   <div className="w-full md:w-auto min-w-0 md:min-w-[180px]">
                     <CustomSelect
                       label="Filtrar por Tipo"
@@ -1043,7 +1043,7 @@ export const Wallets: React.FC = () => {
                         { id: 'provision', name: 'Provisões', icon: 'Clock', color: '#6366f1' },
                         { id: 'planned', name: 'Planejados', icon: 'CalendarClock', color: '#8b5cf6' }
                       ]}
-                      className="w-full h-11 md:h-auto"
+                      className="w-full h-10 md:h-auto"
                     />
                   </div>
 
@@ -1058,13 +1058,13 @@ export const Wallets: React.FC = () => {
                           { id: 'paid', name: 'Liquidados', icon: 'ThumbsUp', color: '#10b981' },
                           { id: 'pending', name: 'Pendentes', icon: 'ThumbsDown', color: '#fbbf24' }
                         ]}
-                        className="w-full h-11 md:h-auto"
+                        className="w-full h-10 md:h-auto"
                       />
                     </div>
                   )}
 
                   {viewingWallet.type === 'credit_card' ? (
-                    <div className="w-full md:w-auto min-w-0 md:min-w-[240px]">
+                    <div className="col-span-2 md:w-auto min-w-0 md:min-w-[240px]">
                       {availableInvoices.length > 0 ? (
                         <CustomSelect
                           label="Fatura"
@@ -1075,23 +1075,23 @@ export const Wallets: React.FC = () => {
                             setInvoiceYearFilter(y);
                           }}
                           options={availableInvoices}
-                          className="w-full h-11 md:h-auto"
+                          className="w-full h-10 md:h-auto"
                         />
                       ) : (
-                        <div className="px-3 py-4 md:px-4 md:py-8 bg-muted/20 border border-dashed border-border/40 rounded-2xl flex items-center justify-center">
+                        <div className="px-3 py-2 md:px-4 md:py-8 bg-muted/20 border border-dashed border-border/40 rounded-2xl flex items-center justify-center">
                           <span className="text-[8px] md:text-[10px] font-black uppercase text-muted-foreground/60 tracking-widest italic">Sem faturas</span>
                         </div>
                       )}
                     </div>
                   ) : (
-                    <div className="flex items-center gap-2 w-full md:w-auto">
+                    <div className="col-span-2 flex items-center gap-2 w-full md:w-auto">
                       <div className="w-1/3 md:w-[100px]">
                         <CustomSelect
                           label="Ano"
                           value={String(yearFilter)}
                           onChange={(val: any) => setYearFilter(Number(val))}
                           options={getAvailableYears(transactions).map(y => ({ id: String(y), name: String(y) }))}
-                          className="w-full h-11 md:h-auto"
+                          className="w-full h-10 md:h-auto"
                         />
                       </div>
                       <div className="flex-1 md:w-[150px]">
@@ -1100,7 +1100,7 @@ export const Wallets: React.FC = () => {
                           value={String(monthFilter)}
                           onChange={(val: any) => setMonthFilter(Number(val))}
                           options={[{ id: '0', name: 'ANO TODO' }, ...months.map((m, i) => ({ id: String(i + 1), name: m }))]}
-                          className="w-full h-11 md:h-auto"
+                          className="w-full h-10 md:h-auto"
                         />
                       </div>
                     </div>
@@ -1110,11 +1110,11 @@ export const Wallets: React.FC = () => {
 
               <div className="flex-1 overflow-y-auto p-5 md:p-8 custom-scrollbar relative">
                 {selectedTxIds.length > 0 && (
-                  <div className="sticky top-0 z-[160] mb-6 -mx-2 md:mx-0">
+                  <div className="sticky top-0 z-[160] mb-4 -mx-1 md:mx-0">
                     <motion.div
                       initial={{ opacity: 0, y: -20 }}
                       animate={{ opacity: 1, y: 0 }}
-                      className="flex items-center justify-between gap-2 bg-primary p-3 px-4 md:px-6 rounded-2xl shadow-xl shadow-primary/20 border border-primary/20 text-white"
+                      className="flex items-center justify-between gap-2 bg-primary p-2 px-3 md:px-6 rounded-xl shadow-xl shadow-primary/20 border border-primary/20 text-white"
                     >
                       <div className="flex items-center gap-2">
                         <span className="text-[10px] md:text-xs font-black uppercase tracking-widest">{selectedTxIds.length} Selecionado{selectedTxIds.length > 1 ? 's' : ''}</span>
