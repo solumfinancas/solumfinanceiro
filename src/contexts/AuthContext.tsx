@@ -14,6 +14,8 @@ export interface Profile {
   plan?: string | null;
   plan_expires_at?: string | null;
   can_activate_second_space?: boolean;
+  monthly_imports_count?: number;
+  last_import_reset?: string;
 }
 
 interface AuthContextType {
@@ -57,6 +59,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       let profileResult = { ...profileData } as Profile;
+      
+      // Reset de importações se o mês mudou
+      const now = new Date();
+      const lastReset = profileResult.last_import_reset ? new Date(profileResult.last_import_reset) : new Date(0);
+      
+      if (now.getMonth() !== lastReset.getMonth() || now.getFullYear() !== lastReset.getFullYear()) {
+         const { error: resetError } = await supabase.from('profiles')
+           .update({ monthly_imports_count: 0, last_import_reset: now.toISOString() })
+           .eq('id', uid);
+           
+         if (!resetError) {
+           profileResult.monthly_imports_count = 0;
+           profileResult.last_import_reset = now.toISOString();
+         }
+      }
 
       // Se solicitado, buscar metadados extras via Edge Function (Admin only)
       if (includeMetadata) {

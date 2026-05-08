@@ -24,7 +24,8 @@ import {
   Building2,
   ArrowRight,
   Briefcase,
-  Rocket
+  Rocket,
+  Settings
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../../../lib/utils';
@@ -37,6 +38,7 @@ interface ClientProfile extends Profile {
   linked_at: string;
   inactivated_at?: string;
   archived_at?: string;
+  tool_usage_only?: boolean;
 }
 
 interface ClientsTabProps {
@@ -75,7 +77,7 @@ export const ClientsTab: React.FC<ClientsTabProps> = ({
   const [activatingSpaceType, setActivatingSpaceType] = useState<'personal' | 'business' | null>(null);
   const [showActivationModal, setShowActivationModal] = useState(false);
 
-  const CLIENT_LIMIT = 10;
+  const CLIENT_LIMIT = profile?.plan === 'starter' ? 3 : (profile?.plan === 'professional' ? 30 : 10);
 
   const fetchClients = async () => {
     if (!profile) return;
@@ -88,6 +90,7 @@ export const ClientsTab: React.FC<ClientsTabProps> = ({
           created_at,
           inactivated_at,
           archived_at,
+          tool_usage_only,
           profiles:client_id (*)
         `)
         .eq('educator_id', profile.id);
@@ -101,7 +104,8 @@ export const ClientsTab: React.FC<ClientsTabProps> = ({
           link_status: item.status,
           linked_at: item.created_at,
           inactivated_at: item.inactivated_at,
-          archived_at: item.archived_at
+          archived_at: item.archived_at,
+          tool_usage_only: item.tool_usage_only
         }));
 
       setClients(formattedClients);
@@ -268,6 +272,37 @@ export const ClientsTab: React.FC<ClientsTabProps> = ({
     }
   };
 
+  const handleToggleToolUsage = async (client: ClientProfile) => {
+    if (!profile) return;
+    
+    setUpdatingId(client.id);
+    try {
+      const { error } = await supabase
+        .from('educator_clients')
+        .update({ tool_usage_only: !client.tool_usage_only })
+        .eq('educator_id', profile.id)
+        .eq('client_id', client.id);
+
+      if (error) throw error;
+
+      setClients(prev => prev.map(c => 
+        c.id === client.id ? { ...c, tool_usage_only: !c.tool_usage_only } : c
+      ));
+
+      showAlert(
+        "Sucesso", 
+        client.tool_usage_only ? "Categoria de uso removida." : "Cliente categorizado para uso apenas da ferramenta.", 
+        "success"
+      );
+    } catch (err) {
+      console.error("Erro ao atualizar categoria:", err);
+      showAlert("Erro", "Não foi possível atualizar a categoria do cliente.", "danger");
+    } finally {
+      setUpdatingId(null);
+      setActiveMenuId(null);
+    }
+  };
+
   const handleResetUserData = async (clientId: string) => {
     try {
       const { error } = await supabase.rpc('reset_user_data', { target_user_id: clientId });
@@ -346,7 +381,7 @@ export const ClientsTab: React.FC<ClientsTabProps> = ({
   }, [clients, activeStatusTab, searchQuery]);
 
   const activeCount = clients.filter(c => c.link_status === 'active').length;
-  const progressPercent = Math.min((clients.length / CLIENT_LIMIT) * 100, 100);
+  const progressPercent = Math.min((activeCount / CLIENT_LIMIT) * 100, 100);
 
   const getInitials = (name: string) => {
     return name?.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2) || '?';
@@ -372,7 +407,7 @@ export const ClientsTab: React.FC<ClientsTabProps> = ({
             <div className="flex justify-between items-end">
               <div className="space-y-1">
                 <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Ocupação da Carteira</p>
-                <p className="text-xl font-black text-foreground">{clients.length} <span className="text-muted-foreground/40 text-sm font-bold uppercase">de</span> {CLIENT_LIMIT} <span className="text-muted-foreground/40 text-sm font-bold uppercase tracking-tighter">clientes</span></p>
+                <p className="text-xl font-black text-foreground">{activeCount} <span className="text-muted-foreground/40 text-sm font-bold uppercase">de</span> {CLIENT_LIMIT} <span className="text-muted-foreground/40 text-sm font-bold uppercase tracking-tighter">clientes</span></p>
               </div>
               <div className={cn(
                 "px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border",
@@ -630,6 +665,21 @@ export const ClientsTab: React.FC<ClientsTabProps> = ({
                               {client.can_activate_second_space ? <Lock size={16} /> : <ShieldCheck size={16} />}
                               {client.can_activate_second_space ? 'Bloquear 2º Espaço' : 'Autorizar 2º Espaço'}
                             </button>
+
+                            <div className="h-px bg-border my-1 mx-2" />
+                            
+                            <button 
+                              onClick={() => handleToggleToolUsage(client)}
+                              className={cn(
+                                "w-full flex items-center gap-3 px-4 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all",
+                                client.tool_usage_only 
+                                  ? "text-rose-500 hover:bg-rose-500/10" 
+                                  : "text-blue-600 hover:bg-blue-600/10"
+                              )}
+                            >
+                              {client.tool_usage_only ? <X size={16} /> : <Settings size={16} />}
+                              {client.tool_usage_only ? 'Remover Categoria Uso' : 'Uso apenas da ferramenta'}
+                            </button>
                           </div>
                         </motion.div>
                       )}
@@ -648,13 +698,22 @@ export const ClientsTab: React.FC<ClientsTabProps> = ({
                         </p>
                       </div>
                     </div>
-                    <div className={cn(
-                      "text-[8px] font-black uppercase px-2 py-1 rounded-md border",
-                      client.link_status === 'active' ? "bg-emerald-500/20 border-emerald-500/30 text-emerald-500" : 
-                      client.link_status === 'inactive' ? "bg-amber-500/20 border-amber-500/30 text-amber-500" : 
-                      "bg-slate-500/20 border-slate-500/30 text-slate-500"
-                    )}>
-                      {client.link_status === 'active' ? 'Ativo' : client.link_status === 'inactive' ? 'Inativo' : 'Arquivado'}
+                    <div className="flex flex-col items-end gap-2">
+                      <div className={cn(
+                        "text-[8px] font-black uppercase px-2 py-1 rounded-md border",
+                        client.link_status === 'active' ? "bg-emerald-500/20 border-emerald-500/30 text-emerald-500" : 
+                        client.link_status === 'inactive' ? "bg-amber-500/20 border-amber-500/30 text-amber-500" : 
+                        "bg-slate-500/20 border-slate-500/30 text-slate-500"
+                      )}>
+                        {client.link_status === 'active' ? 'Ativo' : client.link_status === 'inactive' ? 'Inativo' : 'Arquivado'}
+                      </div>
+                      
+                      {client.tool_usage_only && (
+                        <div className="flex items-center gap-1 px-2 py-1 bg-blue-500/10 border border-blue-500/20 rounded-md">
+                          <Settings size={8} className="text-blue-500" />
+                          <span className="text-[7px] font-black uppercase tracking-wider text-blue-500">Ferramenta</span>
+                        </div>
+                      )}
                     </div>
                   </div>
 

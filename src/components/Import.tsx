@@ -1,6 +1,8 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { useFinance } from '../FinanceContext';
 import { useModal } from '../contexts/ModalContext';
+import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../lib/supabase';
 import { 
   FileSpreadsheet, 
   CheckCircle2, 
@@ -47,6 +49,7 @@ interface ImportProps {
 
 export const Import: React.FC<ImportProps> = ({ setActiveTab }) => {
   const { categories, wallets, addTransactions } = useFinance();
+  const { profile, refreshProfile } = useAuth();
   const { showAlert } = useModal();
   const [step, setStep] = useState<'upload' | 'configure' | 'organize' | 'success'>('upload');
   const [isProcessing, setIsProcessing] = useState(false);
@@ -60,7 +63,21 @@ export const Import: React.FC<ImportProps> = ({ setActiveTab }) => {
     wallets.find(w => w.id === selectedWalletId)
   , [wallets, selectedWalletId]);
 
+  const importLimit = useMemo(() => {
+    const plan = profile?.plan || 'starter';
+    if (plan === 'professional') return 50;
+    if (plan === 'unlimited') return 999;
+    return 5; // starter default
+  }, [profile?.plan]);
+
+  const remainingImports = Math.max(0, importLimit - (profile?.monthly_imports_count || 0));
+  const isLimitReached = remainingImports <= 0 && profile?.role === 'user';
+
   const processFile = (file: File) => {
+    if (isLimitReached) {
+      showAlert("Limite Atingido", `Você atingiu seu limite de ${importLimit} importações este mês no plano ${profile?.plan?.toUpperCase()}.`, "warning");
+      return;
+    }
     setIsProcessing(true);
     const reader = new FileReader();
 
@@ -242,6 +259,19 @@ export const Import: React.FC<ImportProps> = ({ setActiveTab }) => {
 
     try {
       await addTransactions(finalTxs);
+      
+      // Incrementar contador de importações
+      if (profile) {
+        const { error: updateError } = await supabase
+          .from('profiles')
+          .update({ monthly_imports_count: (profile.monthly_imports_count || 0) + 1 })
+          .eq('id', profile.id);
+        
+        if (!updateError) {
+          refreshProfile();
+        }
+      }
+
       setStep('success');
     } catch (err) {
       console.error("Erro ao salvar importação:", err);
@@ -329,6 +359,17 @@ export const Import: React.FC<ImportProps> = ({ setActiveTab }) => {
         <p className="text-muted-foreground text-lg">
           Transforme sua planilha em lançamentos organizados em segundos.
         </p>
+        {profile?.role === 'user' && (
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-card border rounded-full text-[10px] font-black uppercase tracking-widest mt-4">
+            <span className="text-muted-foreground">Uso este mês:</span>
+            <span className={cn(
+              "font-bold",
+              isLimitReached ? "text-rose-500" : "text-primary"
+            )}>
+              {profile?.monthly_imports_count || 0} / {importLimit}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Stepper */}

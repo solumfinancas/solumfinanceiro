@@ -68,6 +68,8 @@ export interface ProfileType {
   id: string;
   name: string;
   can_activate_second_space?: boolean;
+  monthly_imports_count?: number;
+  last_import_reset?: string;
 }
 
 export interface EquityAsset {
