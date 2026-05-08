@@ -11,9 +11,11 @@ import {
   UserCheck,
   MoreVertical,
   Mail,
+  Lock,
   Calendar,
   ChevronRight,
   Shield,
+  ShieldCheck,
   ShieldAlert,
   Trash2,
   X,
@@ -234,6 +236,35 @@ export const ClientsTab: React.FC<ClientsTabProps> = ({
       setUpdatingId(null);
       setActiveMenuId(null);
       setIsSyncing(false);
+    }
+  };
+
+  const handleToggleSecondSpace = async (client: ClientProfile) => {
+    const newValue = !client.can_activate_second_space;
+    setUpdatingId(client.id);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ can_activate_second_space: newValue })
+        .eq('id', client.id);
+
+      if (error) throw error;
+
+      setClients(prev => prev.map(c => 
+        c.id === client.id ? { ...c, can_activate_second_space: newValue } : c
+      ));
+      
+      showAlert(
+        'Sucesso', 
+        newValue ? 'Cliente autorizado a ativar segundo espaço.' : 'Autorização de segundo espaço revogada.', 
+        'success'
+      );
+    } catch (err: any) {
+      console.error('Erro ao alternar autorização:', err);
+      showAlert('Erro', 'Não foi possível atualizar a autorização.', 'danger');
+    } finally {
+      setUpdatingId(null);
+      setActiveMenuId(null);
     }
   };
 
@@ -473,6 +504,15 @@ export const ClientsTab: React.FC<ClientsTabProps> = ({
                             {client.email}
                           </span>
                         </div>
+
+                        {client.can_activate_second_space && (
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            <ShieldCheck size={10} className="text-emerald-500" />
+                            <span className="text-[8px] font-black uppercase tracking-widest text-emerald-500/80">
+                              Autorizado 2º Espaço
+                            </span>
+                          </div>
+                        )}
                         
                         {/* Space Tags */}
                         <div className="flex flex-wrap gap-1">
@@ -576,6 +616,19 @@ export const ClientsTab: React.FC<ClientsTabProps> = ({
                               className="w-full flex items-center gap-3 px-4 py-3 text-[10px] font-black uppercase tracking-widest text-primary hover:bg-primary/10 rounded-xl transition-all"
                             >
                               <Briefcase size={16} /> Serviços Contratados
+                            </button>
+
+                            <button 
+                              onClick={() => handleToggleSecondSpace(client)}
+                              className={cn(
+                                "w-full flex items-center gap-3 px-4 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all",
+                                client.can_activate_second_space 
+                                  ? "text-rose-500 hover:bg-rose-500/10" 
+                                  : "text-emerald-600 hover:bg-emerald-600/10"
+                              )}
+                            >
+                              {client.can_activate_second_space ? <Lock size={16} /> : <ShieldCheck size={16} />}
+                              {client.can_activate_second_space ? 'Bloquear 2º Espaço' : 'Autorizar 2º Espaço'}
                             </button>
                           </div>
                         </motion.div>

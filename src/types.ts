@@ -67,6 +67,7 @@ export interface Transaction {
 export interface ProfileType {
   id: string;
   name: string;
+  can_activate_second_space?: boolean;
 }
 
 export interface EquityAsset {

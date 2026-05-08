@@ -13,6 +13,7 @@ export interface Profile {
   user_metadata?: any;
   plan?: string | null;
   plan_expires_at?: string | null;
+  can_activate_second_space?: boolean;
 }
 
 interface AuthContextType {
