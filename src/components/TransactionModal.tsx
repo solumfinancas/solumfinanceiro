@@ -377,10 +377,10 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   }, [newTx.walletId, newTx.date, isOpen, wallets, newTx.type]);
 
   useEffect(() => {
-    if (!hasRecurrence && newTx.necessity) {
+    if ((!hasRecurrence || newTx.type !== 'expense') && newTx.necessity) {
       setNewTx(prev => ({ ...prev, necessity: undefined }));
     }
-  }, [hasRecurrence, newTx.necessity]);
+  }, [hasRecurrence, newTx.type, newTx.necessity]);
 
   return (
     <Portal>
@@ -654,58 +654,60 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                           exit={{ opacity: 0, height: 0, y: -10 }}
                           className="space-y-4 overflow-hidden"
                         >
-                          <div className="space-y-2">
-                            <label className={cn(
-                              "text-[10px] font-black uppercase tracking-widest ml-1 transition-colors",
-                              isFieldInvalid('necessity') ? "text-rose-500" : "text-muted-foreground"
-                            )}>
-                              Classificação {isFieldInvalid('necessity') && <span className="lowercase font-bold">(obrigatório)</span>}
-                            </label>
-                            <div className={cn(
-                              "flex gap-4 p-1 bg-muted/40 rounded-2xl border transition-all",
-                              isFieldInvalid('necessity') ? "border-rose-500 bg-rose-500/5 shadow-[0_0_10px_rgba(244,63,94,0.1)]" : "border-border/50"
-                            )}>
-                              <button
-                                type="button"
-                                onClick={() => setNewTx(prev => ({ ...prev, necessity: 'necessary' }))}
-                                className={cn(
-                                  "flex-1 flex flex-col items-center justify-center gap-1 py-4 rounded-xl transition-all",
-                                  newTx.necessity === 'necessary' ? "bg-primary text-white shadow-lg shadow-primary/20 scale-[1.02]" : "text-muted-foreground hover:bg-muted"
-                                )}
-                              >
-                                <div className="flex items-center gap-2">
-                                  <Check size={14} />
-                                  <span className="text-[10px] font-black uppercase tracking-widest">Necessário</span>
-                                </div>
-                                <span className={cn(
-                                  "text-[7px] font-bold uppercase opacity-60 leading-tight px-2 text-center",
-                                  newTx.necessity === 'necessary' ? "text-white" : "text-muted-foreground"
-                                )}>
-                                  Essencial. Não pode ser guardado para realizar (Ex: Aluguel, Internet).
-                                </span>
-                              </button>
+                          {newTx.type === 'expense' && (
+                            <div className="space-y-2">
+                              <label className={cn(
+                                "text-[10px] font-black uppercase tracking-widest ml-1 transition-colors",
+                                isFieldInvalid('necessity') ? "text-rose-500" : "text-muted-foreground"
+                              )}>
+                                Classificação {isFieldInvalid('necessity') && <span className="lowercase font-bold">(obrigatório)</span>}
+                              </label>
+                              <div className={cn(
+                                "flex gap-4 p-1 bg-muted/40 rounded-2xl border transition-all",
+                                isFieldInvalid('necessity') ? "border-rose-500 bg-rose-500/5 shadow-[0_0_10px_rgba(244,63,94,0.1)]" : "border-border/50"
+                              )}>
+                                <button
+                                  type="button"
+                                  onClick={() => setNewTx(prev => ({ ...prev, necessity: 'necessary' }))}
+                                  className={cn(
+                                    "flex-1 flex flex-col items-center justify-center gap-1 py-4 rounded-xl transition-all",
+                                    newTx.necessity === 'necessary' ? "bg-primary text-white shadow-lg shadow-primary/20 scale-[1.02]" : "text-muted-foreground hover:bg-muted"
+                                  )}
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <Check size={14} />
+                                    <span className="text-[10px] font-black uppercase tracking-widest">Necessário</span>
+                                  </div>
+                                  <span className={cn(
+                                    "text-[7px] font-bold uppercase opacity-60 leading-tight px-2 text-center",
+                                    newTx.necessity === 'necessary' ? "text-white" : "text-muted-foreground"
+                                  )}>
+                                    Essencial. Não pode ser guardado para realizar (Ex: Aluguel, Internet).
+                                  </span>
+                                </button>
 
-                              <button
-                                type="button"
-                                onClick={() => setNewTx(prev => ({ ...prev, necessity: 'unnecessary' }))}
-                                className={cn(
-                                  "flex-1 flex flex-col items-center justify-center gap-1 py-4 rounded-xl transition-all",
-                                  newTx.necessity === 'unnecessary' ? "bg-orange-500 text-white shadow-lg shadow-orange-500/20 scale-[1.02]" : "text-muted-foreground hover:bg-muted"
-                                )}
-                              >
-                                <div className="flex items-center gap-2">
-                                  <AlertCircle size={14} />
-                                  <span className="text-[10px] font-black uppercase tracking-widest">Desnecessário</span>
-                                </div>
-                                <span className={cn(
-                                  "text-[7px] font-bold uppercase opacity-60 leading-tight px-2 text-center",
-                                  newTx.necessity === 'unnecessary' ? "text-white" : "text-muted-foreground"
-                                )}>
-                                  Variável. Poderia ter sido planejado antes de realizar (Ex: Roupas, Móveis).
-                                </span>
-                              </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setNewTx(prev => ({ ...prev, necessity: 'unnecessary' }))}
+                                  className={cn(
+                                    "flex-1 flex flex-col items-center justify-center gap-1 py-4 rounded-xl transition-all",
+                                    newTx.necessity === 'unnecessary' ? "bg-orange-500 text-white shadow-lg shadow-orange-500/20 scale-[1.02]" : "text-muted-foreground hover:bg-muted"
+                                  )}
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <AlertCircle size={14} />
+                                    <span className="text-[10px] font-black uppercase tracking-widest">Desnecessário</span>
+                                  </div>
+                                  <span className={cn(
+                                    "text-[7px] font-bold uppercase opacity-60 leading-tight px-2 text-center",
+                                    newTx.necessity === 'unnecessary' ? "text-white" : "text-muted-foreground"
+                                  )}>
+                                    Variável. Poderia ter sido planejado antes de realizar (Ex: Roupas, Móveis).
+                                  </span>
+                                </button>
+                              </div>
                             </div>
-                          </div>
+                          )}
 
                           <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Configurar repetição</p>
                           <div className="flex gap-2">
