@@ -136,7 +136,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={toggleSidebar}
-            className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+            className="fixed inset-0 bg-black/50 z-[100] lg:hidden"
           />
         )}
       </AnimatePresence>
@@ -144,7 +144,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Sidebar Content */}
       <motion.aside 
         className={cn(
-          "fixed inset-y-0 left-0 z-50 w-64 bg-card border-r flex flex-col transition-transform duration-300 lg:translate-x-0 lg:static lg:h-screen",
+          "fixed inset-y-0 left-0 z-[110] w-64 bg-card border-r flex flex-col transition-transform duration-300 lg:translate-x-0 lg:static lg:h-screen",
           isOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
