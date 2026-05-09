@@ -92,3 +92,26 @@ export interface EquityHistory {
   observation: string;
   created_at: string;
 }
+export interface Debt {
+  id: string;
+  user_id: string;
+  space: 'personal' | 'business';
+  name: string;
+  total_value: number;
+  monthly_payment: number;
+  interest_rate: number;
+  installments_count: number;
+  due_date: string;
+  observation: string;
+  status: 'active' | 'paid';
+  created_at: string;
+}
+
+export interface DebtHistory {
+  id: string;
+  debt_id: string;
+  month_year: string;
+  value: number;
+  observation: string;
+  created_at: string;
+}

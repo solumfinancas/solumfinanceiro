@@ -46,6 +46,13 @@ interface FinanceContextType {
   deleteEquityAsset: (id: string) => Promise<void>;
   updateEquityValue: (assetId: string, monthYear: string, value: number, observation: string) => Promise<void>;
   deleteEquityValue: (id: string) => Promise<void>;
+  debts: any[];
+  debtHistory: any[];
+  addDebt: (debt: any) => Promise<void>;
+  updateDebt: (id: string, debt: any) => Promise<void>;
+  deleteDebt: (id: string) => Promise<void>;
+  updateDebtValue: (debtId: string, monthYear: string, value: number, observation: string) => Promise<void>;
+  deleteDebtValue: (id: string) => Promise<void>;
 }
 
 const FinanceContext = createContext<FinanceContextType | undefined>(undefined);
@@ -104,6 +111,8 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [tasks, setGlobalTasks] = useState<any[]>([]);
   const [equityAssets, setEquityAssets] = useState<EquityAsset[]>([]);
   const [equityHistory, setEquityHistory] = useState<EquityHistory[]>([]);
+  const [debts, setDebts] = useState<any[]>([]);
+  const [debtHistory, setDebtHistory] = useState<any[]>([]);
 
   const acknowledgeOverdue = () => {
     setHasAcknowledgedOverdue(true);
@@ -135,6 +144,8 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setGlobalTasks([]);
       setEquityAssets([]);
       setEquityHistory([]);
+      setDebts([]);
+      setDebtHistory([]);
       setOverdueServices([]);
       setOrderedCards([]);
       setOrderedAccounts([]);
@@ -284,6 +295,35 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       } else {
         setEquityHistory([]);
       }
+
+      // 8. Dívidas
+      const { data: dData, error: dErr } = await supabase
+        .from('debts')
+        .select('*')
+        .eq('user_id', effectiveUserId)
+        .eq('space', activeSpace)
+        .order('created_at', { ascending: false });
+
+      if (dErr) throw dErr;
+      const fetchedDebts = dData || [];
+      setDebts(prev => {
+        const optimistic = prev.filter(a => typeof a.id === 'string' && a.id.startsWith('temp-'));
+        const filteredOptimistic = optimistic.filter(opt => !fetchedDebts.some(a => a.name === opt.name));
+        return [...fetchedDebts, ...filteredOptimistic];
+      });
+
+      if (fetchedDebts.length > 0) {
+        const debtIds = fetchedDebts.map(a => a.id);
+        const { data: dHistory, error: dHistoryErr } = await supabase
+          .from('debt_history')
+          .select('*')
+          .in('debt_id', debtIds);
+
+        if (dHistoryErr) throw dHistoryErr;
+        setDebtHistory(dHistory || []);
+      } else {
+        setDebtHistory([]);
+      }
     } catch (err) {
       console.error('Erro ao buscar dados:', err);
     } finally {
@@ -415,6 +455,41 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
           });
         } else if (payload.eventType === 'DELETE') {
           setEquityHistory(prev => prev.filter(h => h.id !== payload.old.id));
+        }
+      })
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'debts',
+        filter: `user_id=eq.${effectiveUserId}`
+      }, (payload) => {
+        if (payload.eventType === 'INSERT') {
+          setDebts(prev => {
+            if (payload.new.space !== activeSpace) return prev;
+            if (prev.some(a => a.id === payload.new.id)) return prev;
+            return [...prev.filter(a => !(typeof a.id === 'string' && a.id.startsWith('temp-') && a.name === payload.new.name)), payload.new];
+          });
+        } else if (payload.eventType === 'UPDATE') {
+          setDebts(prev => prev.map(a => a.id === payload.new.id ? { ...a, ...payload.new } : a));
+        } else if (payload.eventType === 'DELETE') {
+          setDebts(prev => prev.filter(a => a.id !== payload.old.id));
+        }
+      })
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'debt_history',
+      }, (payload) => {
+        if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+          setDebtHistory(prev => {
+            const exists = prev.some(h => h.id === payload.new.id);
+            if (exists) {
+              return prev.map(h => h.id === payload.new.id ? payload.new : h);
+            }
+            return [...prev, payload.new];
+          });
+        } else if (payload.eventType === 'DELETE') {
+          setDebtHistory(prev => prev.filter(h => h.id !== payload.old.id));
         }
       })
       .subscribe();
@@ -993,6 +1068,107 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     updateActivity('update');
   };
 
+  const addDebt = async (debt: any) => {
+    const tempId = 'temp-' + Math.random().toString(36).substr(2, 9);
+    const newDebt = { 
+      ...debt, 
+      id: tempId, 
+      user_id: effectiveUserId, 
+      created_at: new Date().toISOString() 
+    };
+
+    setDebts(prev => [newDebt, ...prev]);
+
+    try {
+      const { data, error } = await supabase
+        .from('debts')
+        .insert([{
+          user_id: effectiveUserId,
+          space: activeSpace,
+          name: debt.name,
+          total_value: debt.total_value,
+          monthly_payment: debt.monthly_payment,
+          installments_count: debt.installments_count,
+          interest_rate: debt.interest_rate,
+          due_date: debt.due_date,
+          observation: debt.observation,
+          status: debt.status || 'active'
+        }])
+        .select()
+        .single();
+
+      if (error) throw error;
+      setDebts(prev => prev.map(a => a.id === tempId ? data : a));
+      updateActivity('update');
+    } catch (err) {
+      setDebts(prev => prev.filter(a => a.id !== tempId));
+      throw err;
+    }
+  };
+
+  const updateDebt = async (id: string, debt: any) => {
+    setDebts(prev => prev.map(a => a.id === id ? { ...a, ...debt } : a));
+
+    const { data, error } = await supabase
+      .from('debts')
+      .update(debt)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    setDebts(prev => prev.map(a => a.id === id ? data : a));
+    updateActivity('update');
+  };
+
+  const deleteDebt = async (id: string) => {
+    await supabase.from('debt_history').delete().eq('debt_id', id);
+    
+    const { error } = await supabase
+      .from('debts')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+    setDebts(prev => prev.filter(a => a.id !== id));
+    setDebtHistory(prev => prev.filter(h => h.debt_id !== id));
+    updateActivity('update');
+  };
+
+  const updateDebtValue = async (debtId: string, monthYear: string, value: number, observation: string) => {
+    const { data, error } = await supabase
+      .from('debt_history')
+      .upsert({
+        debt_id: debtId,
+        month_year: monthYear,
+        value: value,
+        observation: observation
+      }, {
+        onConflict: 'debt_id, month_year'
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    
+    setDebtHistory(prev => {
+      const filtered = prev.filter(h => !(h.debt_id === debtId && h.month_year === monthYear));
+      return [...filtered, data];
+    });
+    updateActivity('update');
+  };
+
+  const deleteDebtValue = async (id: string) => {
+    const { error } = await supabase
+      .from('debt_history')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+    setDebtHistory(prev => prev.filter(h => h.id !== id));
+    updateActivity('update');
+  };
+
   return (
     <FinanceContext.Provider value={{
       transactions, categories, wallets, activeSpace, theme, loading,
@@ -1013,6 +1189,13 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       deleteEquityAsset,
       updateEquityValue,
       deleteEquityValue,
+      debts,
+      debtHistory,
+      addDebt,
+      updateDebt,
+      deleteDebt,
+      updateDebtValue,
+      deleteDebtValue,
       saveWalletOrder: async (cards: string[], accounts: string[]) => {
         if (!user) return;
         
