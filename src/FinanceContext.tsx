@@ -1144,7 +1144,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         value: value,
         observation: observation
       }, {
-        onConflict: 'debt_id, month_year'
+        onConflict: 'debt_id,month_year'
       })
       .select()
       .single();

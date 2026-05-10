@@ -12,6 +12,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Edit2,
+  Edit3,
   Trash2,
   PowerOff,
   ArrowDownRight,
@@ -20,7 +21,9 @@ import {
   Percent,
   Calculator,
   Layout,
-  RotateCcw
+  RotateCcw,
+  Info,
+  FileText
 } from 'lucide-react';
 import { 
   AreaChart, 
@@ -97,7 +100,7 @@ export const Debts: React.FC = () => {
     value: number;
     observation: string;
     monthYear: string;
-    step?: 'choice' | 'confirm_keep' | 'observation_only' | 'full_adjust';
+    step?: 'choice' | 'confirm_keep' | 'pay_installment_simple' | 'pay_installment_obs' | 'full_adjust';
   } | null>(null);
 
   const [chartRange, setChartRange] = useState<'12m' | '24m' | 'all'>('12m');
@@ -280,15 +283,46 @@ export const Debts: React.FC = () => {
   const debtSummary = useMemo(() => {
     let totalDebtValue = 0;
     let monthlyInstallments = 0;
+    let paidInMonth = 0;
 
     filteredDebts.forEach(debt => {
+      // Valor das parcelas previstas para o mês (dívidas ativas)
       if (debt.status === 'active') {
         monthlyInstallments += debt.monthly_payment;
       }
 
+      // Cálculo do Saldo Devedor Total e Valor Pago
       const hist = debtHistory.find(h => h.debt_id === debt.id && h.month_year === monthStr);
+      let currentVal = 0;
+      
       if (hist) {
-        totalDebtValue += hist.value;
+        currentVal = hist.value;
+        totalDebtValue += currentVal;
+
+        // Cálculo do quanto foi pago este mês
+        const registrationDate = new Date(debt.due_date + 'T12:00:00');
+        const isRegMonth = registrationDate.getMonth() === selectedMonth.getMonth() && 
+                          registrationDate.getFullYear() === selectedMonth.getFullYear();
+
+        const prevVal = isRegMonth ? debt.total_value : (() => {
+          const prevMonth = new Date(selectedMonth);
+          prevMonth.setMonth(prevMonth.getMonth() - 1);
+          const prevMonthStr = `${prevMonth.getFullYear()}-${String(prevMonth.getMonth() + 1).padStart(2, '0')}-01`;
+          const prevHist = debtHistory.find(h => h.debt_id === debt.id && h.month_year === prevMonthStr);
+          
+          if (prevHist) return prevHist.value;
+          
+          const past = debtHistory
+            .filter(h => h.debt_id === debt.id && new Date(h.month_year + 'T12:00:00') < selectedMonth)
+            .sort((a, b) => new Date(b.month_year + 'T12:00:00').getTime() - new Date(a.month_year + 'T12:00:00').getTime());
+          
+          return past.length > 0 ? past[0].value : debt.total_value;
+        })();
+
+        const diff = prevVal - currentVal;
+        if (diff > 0.01) {
+          paidInMonth += diff;
+        }
       } else {
         const pastHistories = debtHistory
           .filter(h => h.debt_id === debt.id && new Date(h.month_year) <= selectedMonth)
@@ -305,6 +339,7 @@ export const Debts: React.FC = () => {
     return {
       total: totalDebtValue,
       monthly: monthlyInstallments,
+      paid: paidInMonth,
       count: filteredDebts.filter(d => d.status === 'active').length
     };
   }, [filteredDebts, debtHistory, selectedMonth, monthStr]);
@@ -451,7 +486,7 @@ export const Debts: React.FC = () => {
       ) : (
         <>
           {/* Summary Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <div className="relative group overflow-hidden bg-card border border-border rounded-[2.5rem] p-8 shadow-xl shadow-slate-200/40 dark:shadow-none flex flex-col justify-center">
               <div className="absolute top-0 right-0 w-32 h-32 bg-rose-500/5 rounded-full blur-3xl -mr-16 -mt-16 transition-all group-hover:scale-110" />
               <div className="relative flex items-center justify-between">
@@ -486,12 +521,30 @@ export const Debts: React.FC = () => {
               <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 rounded-full blur-3xl -mr-16 -mt-16 transition-all group-hover:scale-110" />
               <div className="relative flex items-center justify-between">
                 <div>
-                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-500 mb-2">Dívidas Ativas</p>
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-500 mb-2">Pago no Mês</p>
+                  <h2 className="text-3xl font-black tracking-tighter text-foreground">
+                    {formatCurrency(debtSummary.paid)}
+                  </h2>
+                </div>
+                <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-500 shadow-inner">
+                  <div className="relative">
+                    <TrendingDown size={24} className="rotate-180" />
+                    <div className="absolute inset-0 bg-emerald-500 blur-md opacity-20" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="relative group overflow-hidden bg-card border border-border rounded-[2.5rem] p-8 shadow-xl shadow-slate-200/40 dark:shadow-none flex flex-col justify-center">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 rounded-full blur-3xl -mr-16 -mt-16 transition-all group-hover:scale-110" />
+              <div className="relative flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-500 mb-2">Dívidas Ativas</p>
                   <h2 className="text-3xl font-black tracking-tighter text-foreground">
                     {debtSummary.count} <span className="text-sm font-bold text-muted-foreground uppercase ml-2 tracking-widest">Contratos</span>
                   </h2>
                 </div>
-                <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-500 shadow-inner">
+                <div className="w-12 h-12 rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-500 shadow-inner">
                   <Layout size={24} />
                 </div>
               </div>
@@ -549,8 +602,8 @@ export const Debts: React.FC = () => {
                       const monthData = debtHistory.find(h => h.debt_id === debt.id && h.month_year === monthStr);
                       const displayValue = monthData ? monthData.value : (() => {
                         const past = debtHistory
-                          .filter(h => h.debt_id === debt.id && new Date(h.month_year) <= selectedMonth)
-                          .sort((a, b) => new Date(b.month_year).getTime() - new Date(a.month_year).getTime());
+                          .filter(h => h.debt_id === debt.id && new Date(h.month_year + 'T12:00:00') < selectedMonth)
+                          .sort((a, b) => new Date(b.month_year + 'T12:00:00').getTime() - new Date(a.month_year + 'T12:00:00').getTime());
                         return past.length > 0 ? past[0].value : debt.total_value;
                       })();
 
@@ -576,14 +629,19 @@ export const Debts: React.FC = () => {
                                   <span className="px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-500 text-[7px] font-black uppercase tracking-widest">
                                     Quitada
                                   </span>
-                                ) : isRegistrationMonth ? (
-                                  <span className="px-1.5 py-0.5 rounded-md bg-blue-500/10 text-blue-500 text-[7px] font-black uppercase tracking-widest">
-                                    Mês de Registro
-                                  </span>
                                 ) : monthData ? (
-                                  <span className="px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-500 text-[7px] font-black uppercase tracking-widest flex items-center gap-1">
-                                    <div className="w-1 h-1 rounded-full bg-emerald-500" />
-                                    Saldo Atualizado
+                                  <span className={cn(
+                                    "px-1.5 py-0.5 rounded-md text-[7px] font-black uppercase tracking-widest flex items-center gap-1",
+                                    isRegistrationMonth ? "bg-blue-500/10 text-blue-500" : "bg-emerald-500/10 text-emerald-500"
+                                  )}>
+                                    {isRegistrationMonth ? (
+                                      <>Mês de Registro</>
+                                    ) : (
+                                      <>
+                                        <div className="w-1 h-1 rounded-full bg-emerald-500" />
+                                        Saldo Atualizado
+                                      </>
+                                    )}
                                   </span>
                                 ) : (
                                   <span className="px-1.5 py-0.5 rounded-md bg-amber-500/10 text-amber-500 text-[7px] font-black uppercase tracking-widest flex items-center gap-1 animate-pulse">
@@ -594,8 +652,14 @@ export const Debts: React.FC = () => {
                               </div>
                               <div className="mt-1 flex flex-col gap-0.5">
                                 <span className="text-[9px] font-medium text-muted-foreground uppercase tracking-widest leading-relaxed break-words">
-                                  {debt.observation || 'Sem observações'}
+                                  {debt.observation || 'Sem observações de origem'}
                                 </span>
+                                {monthData?.observation && 
+                                 monthData.observation.trim() !== '' && (
+                                  <span className="text-[9px] font-black text-rose-500 uppercase tracking-widest leading-relaxed break-words">
+                                    Mês: {monthData.observation}
+                                  </span>
+                                )}
                               </div>
                             </div>
                           </td>
@@ -616,15 +680,59 @@ export const Debts: React.FC = () => {
                             </div>
                           </td>
                           <td className="px-8 py-6 text-right">
-                            <div className={cn(
-                              "inline-flex items-center gap-3 px-4 py-2 rounded-xl border",
-                              monthData 
-                                ? "bg-emerald-500/5 border-emerald-500/20 text-emerald-500" 
-                                : "bg-muted border-transparent text-muted-foreground"
-                            )}>
-                              <span className="text-sm font-black">
-                                {formatCurrency(displayValue)}
-                              </span>
+                            <div className="flex flex-col items-end gap-1">
+                              <div className={cn(
+                                "inline-flex items-center gap-3 px-4 py-2 rounded-xl border",
+                                monthData 
+                                  ? "bg-emerald-500/5 border-emerald-500/20 text-emerald-500" 
+                                  : "bg-muted border-transparent text-muted-foreground"
+                              )}>
+                                <span className="text-sm font-black">
+                                  {formatCurrency(displayValue)}
+                                </span>
+                              </div>
+                              {monthData && (() => {
+                                const registrationDate = new Date(debt.due_date + 'T12:00:00');
+                                const isRegMonth = registrationDate.getMonth() === selectedMonth.getMonth() && 
+                                                  registrationDate.getFullYear() === selectedMonth.getFullYear();
+
+                                const prevVal = isRegMonth ? debt.total_value : (() => {
+                                  const prevMonth = new Date(selectedMonth);
+                                  prevMonth.setMonth(prevMonth.getMonth() - 1);
+                                  const prevMonthStr = `${prevMonth.getFullYear()}-${String(prevMonth.getMonth() + 1).padStart(2, '0')}-01`;
+                                  const prevHist = debtHistory.find(h => h.debt_id === debt.id && h.month_year === prevMonthStr);
+                                  
+                                  if (prevHist) return prevHist.value;
+                                  
+                                  const past = debtHistory
+                                    .filter(h => h.debt_id === debt.id && new Date(h.month_year + 'T12:00:00') < selectedMonth)
+                                    .sort((a, b) => new Date(b.month_year + 'T12:00:00').getTime() - new Date(a.month_year + 'T12:00:00').getTime());
+                                  
+                                  return past.length > 0 ? past[0].value : debt.total_value;
+                                })();
+                                
+                                const diff = prevVal - monthData.value;
+                                
+                                if (diff > 0.01) {
+                                  return (
+                                    <span className="text-[9px] font-black text-emerald-500 uppercase tracking-widest mr-2">
+                                      Pago: {formatCurrency(diff)}
+                                    </span>
+                                  );
+                                } else if (Math.abs(diff) <= 0.01) {
+                                  return (
+                                    <span className="text-[9px] font-black text-amber-500 uppercase tracking-widest mr-2">
+                                      Saldo Mantido
+                                    </span>
+                                  );
+                                } else {
+                                  return (
+                                    <span className="text-[9px] font-black text-rose-500 uppercase tracking-widest mr-2">
+                                      Saldo Aumentou: {formatCurrency(Math.abs(diff))}
+                                    </span>
+                                  );
+                                }
+                              })()}
                             </div>
                           </td>
                           <td className="px-8 py-6">
@@ -639,19 +747,29 @@ export const Debts: React.FC = () => {
                                 </button>
                               )}
 
-                              <button 
-                                onClick={() => setEditingValue({
-                                  debtId: debt.id,
-                                  value: displayValue,
-                                  observation: monthData?.observation || '',
-                                  monthYear: selectedMonth.toISOString().split('T')[0],
-                                  step: 'choice'
-                                })}
-                                title="Atualizar Saldo Devedor Mensal"
-                                className="w-10 h-10 rounded-xl bg-emerald-500/5 text-emerald-500 border border-emerald-500/10 flex items-center justify-center hover:bg-emerald-500 hover:text-white transition-all shadow-sm"
-                              >
-                                <TrendingDown size={16} />
-                              </button>
+                              {monthData ? (
+                                <button 
+                                  onClick={() => setConfirmDeleteHistory({ id: monthData.id, monthYear: monthStr })}
+                                  title="Remover Atualização do Mês"
+                                  className="w-10 h-10 rounded-xl bg-orange-500/5 text-orange-500 border border-orange-500/10 flex items-center justify-center hover:bg-orange-500 hover:text-white transition-all shadow-sm"
+                                >
+                                  <RotateCcw size={16} />
+                                </button>
+                              ) : (
+                                <button 
+                                  onClick={() => setEditingValue({
+                                    debtId: debt.id,
+                                    value: displayValue,
+                                    observation: '',
+                                    monthYear: monthStr,
+                                    step: 'choice'
+                                  })}
+                                  title="Atualizar Saldo Devedor Mensal"
+                                  className="w-10 h-10 rounded-xl bg-emerald-500/5 text-emerald-500 border border-emerald-500/10 flex items-center justify-center hover:bg-emerald-500 hover:text-white transition-all shadow-sm"
+                                >
+                                  <TrendingDown size={16} />
+                                </button>
+                              )}
 
                               {debt.status === 'active' && (
                                 <button 
@@ -973,7 +1091,18 @@ export const Debts: React.FC = () => {
 
                   <div className="grid grid-cols-1 gap-3">
                     <button 
-                      onClick={() => setEditingValue({ ...editingValue, step: 'confirm_keep' })}
+                      onClick={() => {
+                        const currentDebt = debts.find(d => d.id === editingValue.debtId);
+                        const registrationDate = new Date((currentDebt?.due_date || '') + 'T12:00:00');
+                        const isRegMonth = registrationDate.getMonth() === selectedMonth.getMonth() && 
+                                          registrationDate.getFullYear() === selectedMonth.getFullYear();
+                        
+                        const msg = isRegMonth 
+                          ? "Manutenção do saldo inicial (sem pagamento)" 
+                          : "Manutenção do saldo anterior (sem pagamento)";
+                          
+                        setEditingValue({ ...editingValue, step: 'confirm_keep', observation: msg });
+                      }}
                       className="h-16 px-6 rounded-2xl bg-muted border border-border flex items-center justify-between group hover:bg-emerald-500/5 hover:border-emerald-500/20 transition-all"
                     >
                       <div className="flex items-center gap-4">
@@ -988,7 +1117,56 @@ export const Debts: React.FC = () => {
                     </button>
 
                     <button 
-                      onClick={() => setEditingValue({ ...editingValue, step: 'full_adjust' })}
+                      onClick={() => {
+                        const currentDebt = debts.find(d => d.id === editingValue.debtId);
+                        const newValue = Math.max(0, (editingValue.value || 0) - (currentDebt?.monthly_payment || 0));
+                        setEditingValue({ ...editingValue, value: newValue, step: 'pay_installment_simple', observation: 'Pagamento da parcela do mês' });
+                      }}
+                      className="h-16 px-6 rounded-2xl bg-muted border border-border flex items-center justify-between group hover:bg-blue-500/5 hover:border-blue-500/20 transition-all"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-500">
+                          <CreditCard size={18} />
+                        </div>
+                        <div className="text-left">
+                          <p className="text-[10px] font-black uppercase tracking-widest text-foreground">Pagar Parcela (Simples)</p>
+                          <p className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest">Abater uma parcela sem observação</p>
+                        </div>
+                      </div>
+                    </button>
+
+                    <button 
+                      onClick={() => {
+                        const currentDebt = debts.find(d => d.id === editingValue.debtId);
+                        const newValue = Math.max(0, (editingValue.value || 0) - (currentDebt?.monthly_payment || 0));
+                        setEditingValue({ ...editingValue, value: newValue, step: 'pay_installment_obs', observation: 'Pagamento da parcela do mês' });
+                      }}
+                      className="h-16 px-6 rounded-2xl bg-muted border border-border flex items-center justify-between group hover:bg-amber-500/5 hover:border-amber-500/20 transition-all"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-500">
+                          <Calculator size={18} />
+                        </div>
+                        <div className="text-left">
+                          <p className="text-[10px] font-black uppercase tracking-widest text-foreground">Pagar Parcela + Obs</p>
+                          <p className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest">Abater uma parcela com observação</p>
+                        </div>
+                      </div>
+                    </button>
+
+                    <button 
+                      onClick={() => {
+                        const currentDebt = debts.find(d => d.id === editingValue.debtId);
+                        const registrationDate = new Date((currentDebt?.due_date || '') + 'T12:00:00');
+                        const isRegMonth = registrationDate.getMonth() === selectedMonth.getMonth() && 
+                                          registrationDate.getFullYear() === selectedMonth.getFullYear();
+                        
+                        const msg = isRegMonth 
+                          ? "Pagamento parcial / Ajuste no mês de registro" 
+                          : "Pagamento parcial / Ajuste de saldo";
+                          
+                        setEditingValue({ ...editingValue, step: 'full_adjust', observation: msg });
+                      }}
                       className="h-16 px-6 rounded-2xl bg-muted border border-border flex items-center justify-between group hover:bg-primary/5 hover:border-primary/20 transition-all"
                     >
                       <div className="flex items-center gap-4">
@@ -996,7 +1174,7 @@ export const Debts: React.FC = () => {
                           <Edit2 size={18} />
                         </div>
                         <div className="text-left">
-                          <p className="text-[10px] font-black uppercase tracking-widest text-foreground">Novo Valor</p>
+                          <p className="text-[10px] font-black uppercase tracking-widest text-foreground">Novo Valor / Amortização</p>
                           <p className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest">Informar o saldo exato deste mês</p>
                         </div>
                       </div>
@@ -1014,7 +1192,10 @@ export const Debts: React.FC = () => {
                 <div className="space-y-6">
                   <div className="flex items-center justify-between">
                     <h3 className="text-lg font-black uppercase tracking-tighter text-foreground">
-                      {editingValue.step === 'confirm_keep' ? 'Confirmar Manutenção' : 'Informar Novo Saldo'}
+                      {editingValue.step === 'confirm_keep' && 'Confirmar Manutenção'}
+                      {editingValue.step === 'pay_installment_simple' && 'Confirmar Pagamento'}
+                      {editingValue.step === 'pay_installment_obs' && 'Pagamento com Obs'}
+                      {editingValue.step === 'full_adjust' && 'Informar Novo Saldo'}
                     </h3>
                     <button onClick={() => setEditingValue({ ...editingValue, step: 'choice' })} className="text-muted-foreground hover:text-foreground">
                       <ChevronLeft size={20} />
@@ -1033,21 +1214,30 @@ export const Debts: React.FC = () => {
                             const val = e.target.value.replace(/\D/g, '');
                             setEditingValue({ ...editingValue, value: Number(val) / 100 });
                           }}
-                          disabled={editingValue.step === 'confirm_keep'}
-                          className="w-full h-14 bg-muted border border-border rounded-2xl pl-12 pr-6 text-sm font-black focus:ring-2 focus:ring-primary/20 transition-all"
+                          disabled={editingValue.step === 'confirm_keep' || editingValue.step === 'pay_installment_simple' || editingValue.step === 'pay_installment_obs'}
+                          className={cn(
+                            "w-full h-14 bg-muted border border-border rounded-2xl pl-12 pr-6 text-sm font-black focus:ring-2 focus:ring-primary/20 transition-all",
+                            (editingValue.step === 'confirm_keep' || editingValue.step === 'pay_installment_simple' || editingValue.step === 'pay_installment_obs') && "opacity-70 cursor-not-allowed"
+                          )}
                         />
                       </div>
                     </div>
 
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Observação deste mês</label>
-                      <textarea 
-                        placeholder="Ex: Amortização extra, renegociação..."
-                        value={editingValue.observation}
-                        onChange={e => setEditingValue({ ...editingValue, observation: e.target.value })}
-                        className="w-full h-24 bg-muted border border-border rounded-2xl p-6 text-sm font-medium focus:ring-2 focus:ring-primary/20 transition-all resize-none"
-                      />
-                    </div>
+                    {editingValue.step !== 'pay_installment_simple' && (
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Observação deste mês</label>
+                        <textarea 
+                          placeholder={
+                            editingValue.step === 'confirm_keep' 
+                              ? "Descreva o motivo da manutenção (ex: imprevisto financeiro)..." 
+                              : "Descreva detalhes (ex: amortização extra, renegociação)..."
+                          }
+                          value={editingValue.observation}
+                          onChange={e => setEditingValue({ ...editingValue, observation: e.target.value })}
+                          className="w-full h-24 bg-muted border border-border rounded-2xl p-6 text-sm font-medium focus:ring-2 focus:ring-primary/20 transition-all resize-none"
+                        />
+                      </div>
+                    )}
                   </div>
 
                   <button 
@@ -1130,63 +1320,173 @@ export const Debts: React.FC = () => {
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative w-full max-w-2xl bg-card border border-border rounded-[3rem] p-8 shadow-2xl overflow-hidden flex flex-col max-h-[80vh]"
+              className="relative w-full max-w-2xl bg-card border border-border rounded-[3rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
               onClick={e => e.stopPropagation()}
             >
-              <div className="flex items-center justify-between mb-8">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2 text-rose-500">
-                    <History size={20} />
-                    <span className="text-[10px] font-black uppercase tracking-[0.3em]">Histórico de Saldo</span>
+              {/* Header Section with Cards */}
+              <div className="p-8 pb-0 space-y-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="w-14 h-14 rounded-2xl bg-rose-500/10 flex items-center justify-center text-rose-500 border border-rose-500/20">
+                      <CreditCard size={28} />
+                    </div>
+                    <div>
+                      <h2 className="text-2xl font-black uppercase tracking-tighter text-foreground">{viewingDebtDetails.name}</h2>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">Detalhes do Compromisso</span>
+                        {viewingDebtDetails.status === 'paid' && (
+                          <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 text-[8px] font-black uppercase tracking-widest">
+                            Quitada
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                  <h2 className="text-2xl font-black uppercase tracking-tighter text-foreground">
-                    {viewingDebtDetails.name}
-                  </h2>
+                  <button 
+                    onClick={() => setViewingDebtDetails(null)}
+                    className="w-12 h-12 rounded-xl bg-muted border border-border flex items-center justify-center text-muted-foreground hover:text-rose-500 transition-all"
+                  >
+                    <X size={24} />
+                  </button>
                 </div>
-                <button 
-                  onClick={() => setViewingDebtDetails(null)}
-                  className="w-10 h-10 rounded-xl bg-muted border border-border flex items-center justify-center text-muted-foreground hover:text-rose-500 transition-all"
-                >
-                  <X size={20} />
-                </button>
+
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="bg-muted/30 border border-border p-4 rounded-2xl">
+                    <p className="text-[8px] font-black uppercase tracking-widest text-muted-foreground mb-1">Registro</p>
+                    <p className="text-[11px] font-bold text-foreground">
+                      {new Date(viewingDebtDetails.due_date + 'T12:00:00').toLocaleDateString('pt-BR')}
+                    </p>
+                  </div>
+                  <div className="bg-muted/30 border border-border p-4 rounded-2xl">
+                    <p className="text-[8px] font-black uppercase tracking-widest text-muted-foreground mb-1">Valor Inicial</p>
+                    <p className="text-[11px] font-bold text-primary">{formatCurrency(viewingDebtDetails.total_value)}</p>
+                  </div>
+                  <div className="bg-muted/30 border border-border p-4 rounded-2xl">
+                    <p className="text-[8px] font-black uppercase tracking-widest text-muted-foreground mb-1">Valor Atualizado</p>
+                    {(() => {
+                      const history = debtHistory.filter(h => h.debt_id === viewingDebtDetails.id);
+                      const latestValue = history.length > 0 
+                        ? [...history].sort((a, b) => new Date(b.month_year).getTime() - new Date(a.month_year).getTime())[0].value 
+                        : viewingDebtDetails.total_value;
+                      
+                      const isLower = latestValue < viewingDebtDetails.total_value;
+                      const isHigher = latestValue > viewingDebtDetails.total_value;
+
+                      return (
+                        <p className={cn(
+                          "text-[11px] font-bold",
+                          isLower ? "text-emerald-500" : isHigher ? "text-rose-500" : "text-foreground"
+                        )}>
+                          {formatCurrency(latestValue)}
+                        </p>
+                      );
+                    })()}
+                  </div>
+                  <div className="bg-muted/30 border border-border p-4 rounded-2xl">
+                    <p className="text-[8px] font-black uppercase tracking-widest text-muted-foreground mb-1">Espaço</p>
+                    <p className="text-[11px] font-bold text-foreground uppercase">
+                      {viewingDebtDetails.space === 'personal' ? 'Pessoal' : 'Empresarial'}
+                    </p>
+                  </div>
+                </div>
               </div>
 
-              <div className="flex-1 overflow-y-auto space-y-4 pr-2 custom-scrollbar">
-                {debtHistory
-                  .filter(h => h.debt_id === viewingDebtDetails.id)
-                  .sort((a, b) => new Date(b.month_year).getTime() - new Date(a.month_year).getTime())
-                  .map(entry => (
-                    <div key={entry.id} className="group relative bg-muted/30 border border-border rounded-2xl p-5 hover:bg-muted/50 transition-all">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">
-                            {new Date(entry.month_year + 'T12:00:00').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
-                          </p>
-                          <p className="text-lg font-black text-foreground">{formatCurrency(entry.value)}</p>
-                        </div>
-                        <button 
-                          onClick={() => setConfirmDeleteHistory({ id: entry.id, monthYear: entry.month_year })}
-                          className="w-8 h-8 rounded-lg bg-rose-500/10 text-rose-500 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center hover:bg-rose-500 hover:text-white"
-                        >
-                          <Trash2 size={14} />
-                        </button>
+              <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
+                <div className="space-y-8">
+                  {/* Original Observation */}
+                  {viewingDebtDetails.observation && (
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2 text-primary">
+                        <Info size={14} />
+                        <h3 className="text-[10px] font-black uppercase tracking-widest">Observação de Origem</h3>
                       </div>
-                      {entry.observation && (
-                        <div className="mt-3 pt-3 border-t border-border/50">
-                          <p className="text-[9px] font-medium text-muted-foreground leading-relaxed uppercase tracking-widest italic">
-                            "{entry.observation}"
-                          </p>
+                      <div className="bg-muted/30 p-5 rounded-2xl border border-border/50">
+                        <p className="text-xs text-muted-foreground leading-relaxed font-medium">
+                          {viewingDebtDetails.observation}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* History List */}
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2 text-primary">
+                      <History size={14} />
+                      <h3 className="text-[10px] font-black uppercase tracking-widest">Histórico de Atualizações</h3>
+                    </div>
+
+                    <div className="space-y-3">
+                      {debtHistory
+                        .filter(h => h.debt_id === viewingDebtDetails.id)
+                        .sort((a, b) => new Date(b.month_year).getTime() - new Date(a.month_year).getTime())
+                        .map((entry, idx) => (
+                          <div key={entry.id} className="relative pl-6 pb-6 last:pb-0">
+                            {/* Timeline Line */}
+                            <div className="absolute left-0 top-2 bottom-0 w-px bg-border" />
+                            <div className="absolute left-[-4px] top-2 w-2 h-2 rounded-full bg-primary shadow-[0_0_8px_rgba(var(--color-primary-rgb),0.5)]" />
+                            
+                            <div className="bg-card border border-border rounded-2xl p-4 hover:shadow-md transition-all group">
+                              <div className="flex items-center justify-between mb-2">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-primary">
+                                  {new Date(entry.month_year + 'T12:00:00').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
+                                </p>
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    onClick={() => {
+                                      setEditingValue({
+                                        debtId: viewingDebtDetails.id,
+                                        value: entry.value,
+                                        observation: entry.observation || '',
+                                        monthYear: entry.month_year,
+                                        step: 'input'
+                                      });
+                                    }}
+                                    className="p-1.5 rounded-lg bg-muted border border-border text-muted-foreground hover:text-primary transition-all"
+                                    title="Editar Atualização"
+                                  >
+                                    <Edit2 size={12} />
+                                  </button>
+                                  <button
+                                    onClick={() => setConfirmDeleteHistory({ id: entry.id, monthYear: entry.month_year })}
+                                    className="p-1.5 rounded-lg bg-muted border border-border text-muted-foreground hover:text-rose-500 transition-all"
+                                    title="Excluir Atualização"
+                                  >
+                                    <Trash2 size={12} />
+                                  </button>
+                                  <span className="text-xs font-black text-foreground">{formatCurrency(entry.value)}</span>
+                                </div>
+                              </div>
+                              {entry.observation && (
+                                <div className="mt-2 flex gap-2">
+                                  <FileText size={12} className="text-muted-foreground shrink-0 mt-0.5" />
+                                  <p className="text-[11px] text-muted-foreground leading-relaxed italic">
+                                    "{entry.observation}"
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+
+                      {debtHistory.filter(h => h.debt_id === viewingDebtDetails.id).length === 0 && (
+                        <div className="text-center py-12 text-muted-foreground">
+                          <History size={48} className="mx-auto opacity-10 mb-4" />
+                          <p className="text-[10px] font-black uppercase tracking-widest">Nenhuma atualização registrada.</p>
                         </div>
                       )}
                     </div>
-                  ))}
-                
-                {debtHistory.filter(h => h.debt_id === viewingDebtDetails.id).length === 0 && (
-                  <div className="text-center py-12 text-muted-foreground">
-                    <History size={48} className="mx-auto opacity-10 mb-4" />
-                    <p className="text-[10px] font-black uppercase tracking-widest">Nenhuma atualização de saldo registrada.</p>
                   </div>
-                )}
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="p-8 pt-0 mt-auto">
+                <button 
+                  onClick={() => setViewingDebtDetails(null)}
+                  className="w-full h-14 rounded-2xl bg-slate-950 text-white text-[10px] font-black uppercase tracking-[0.3em] hover:bg-slate-900 transition-all"
+                >
+                  Fechar Detalhes
+                </button>
               </div>
             </motion.div>
           </div>
