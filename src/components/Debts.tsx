@@ -102,6 +102,7 @@ export const Debts: React.FC = () => {
     monthYear: string;
     step?: 'choice' | 'confirm_keep' | 'pay_installment_simple' | 'pay_installment_obs' | 'full_adjust';
   } | null>(null);
+  const [showUpdateSuccessAfterQuittance, setShowUpdateSuccessAfterQuittance] = useState(false);
 
   const [chartRange, setChartRange] = useState<'12m' | '24m' | 'all'>('12m');
   const [confirmDeleteHistory, setConfirmDeleteHistory] = useState<{
@@ -207,6 +208,7 @@ export const Debts: React.FC = () => {
     try {
       await updateDebt(id, { status: 'paid' });
       setConfirmPaid(null);
+      setShowUpdateSuccessAfterQuittance(false);
       showAlert('Sucesso', 'Dívida marcada como paga', 'success');
     } catch (error) {
       showAlert('Erro', 'Não foi possível atualizar a dívida', 'danger');
@@ -225,6 +227,8 @@ export const Debts: React.FC = () => {
 
   const handleUpdateValue = async () => {
     if (!editingValue) return;
+    const finalValue = editingValue.value;
+    const debtId = editingValue.debtId;
 
     try {
       await updateDebtValue(
@@ -235,7 +239,19 @@ export const Debts: React.FC = () => {
       );
 
       setEditingValue(null);
-      showAlert('Sucesso', 'Saldo devedor atualizado com sucesso', 'success');
+
+      // Sugerir quitação se o saldo for 0
+      if (finalValue <= 0) {
+        const debt = debts.find(d => d.id === debtId);
+        if (debt && debt.status === 'active') {
+          setShowUpdateSuccessAfterQuittance(true);
+          setConfirmPaid(debt);
+        } else {
+          showAlert('Sucesso', 'Saldo devedor atualizado com sucesso', 'success');
+        }
+      } else {
+        showAlert('Sucesso', 'Saldo devedor atualizado com sucesso', 'success');
+      }
     } catch (error) {
       console.error('Error updating value:', error);
       showAlert('Erro', 'Não foi possível atualizar o saldo', 'danger');
@@ -271,21 +287,37 @@ export const Debts: React.FC = () => {
       if (selMonth < regMonth) return false;
       
       if (debt.status === 'paid') {
-        // Se estiver paga, podemos decidir se mostramos ou não. 
-        // Geralmente dívidas pagas param de aparecer no mês seguinte à quitação total.
-        // Por simplicidade agora, vamos mostrar todas as ativas e as pagas no mês.
+        // Encontrar o último mês com histórico (mês da quitação)
+        const debtHistories = debtHistory
+          .filter(h => h.debt_id === debt.id)
+          .sort((a, b) => new Date(b.month_year + 'T12:00:00').getTime() - new Date(a.month_year + 'T12:00:00').getTime());
+        
+        if (debtHistories.length > 0) {
+          const lastHistDate = new Date(debtHistories[0].month_year + 'T12:00:00');
+          const lastMonth = new Date(lastHistDate.getFullYear(), lastHistDate.getMonth(), 1);
+          
+          // Se o mês selecionado for após o mês da última atualização (quitação), oculta
+          if (selMonth > lastMonth) return false;
+        }
       }
       
       return true;
     });
-  }, [debts, selectedMonth, searchQuery]);
+  }, [debts, debtHistory, selectedMonth, searchQuery]);
 
   const debtSummary = useMemo(() => {
     let totalDebtValue = 0;
     let monthlyInstallments = 0;
     let paidInMonth = 0;
+    let pendingUpdates = 0;
 
     filteredDebts.forEach(debt => {
+      // Se for ativa e não tiver histórico no mês, conta como pendente
+      if (debt.status === 'active') {
+        const hasHistory = debtHistory.some(h => h.debt_id === debt.id && h.month_year === monthStr);
+        if (!hasHistory) pendingUpdates++;
+      }
+
       // Valor das parcelas previstas para o mês (dívidas ativas)
       if (debt.status === 'active') {
         monthlyInstallments += debt.monthly_payment;
@@ -340,7 +372,8 @@ export const Debts: React.FC = () => {
       total: totalDebtValue,
       monthly: monthlyInstallments,
       paid: paidInMonth,
-      count: filteredDebts.filter(d => d.status === 'active').length
+      count: filteredDebts.filter(d => d.status === 'active').length,
+      pending: pendingUpdates
     };
   }, [filteredDebts, debtHistory, selectedMonth, monthStr]);
 
@@ -543,6 +576,12 @@ export const Debts: React.FC = () => {
                   <h2 className="text-3xl font-black tracking-tighter text-foreground">
                     {debtSummary.count} <span className="text-sm font-bold text-muted-foreground uppercase ml-2 tracking-widest">Contratos</span>
                   </h2>
+                  {debtSummary.pending > 0 && (
+                    <p className="text-[9px] font-bold text-amber-500 uppercase tracking-widest mt-1 flex items-center gap-1 animate-pulse">
+                      <AlertCircle size={10} />
+                      {debtSummary.pending} Atualização{debtSummary.pending > 1 ? 'ões' : 'ª'} Pendente{debtSummary.pending > 1 ? 's' : ''}
+                    </p>
+                  )}
                 </div>
                 <div className="w-12 h-12 rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-500 shadow-inner">
                   <Layout size={24} />
@@ -1272,9 +1311,9 @@ export const Debts: React.FC = () => {
               <input 
                 type="text"
                 value={deleteInput}
-                onChange={e => setDeleteInput(e.target.value)}
+                onChange={e => setDeleteInput(e.target.value.toUpperCase())}
                 placeholder="Digite APAGAR"
-                className="w-full h-12 bg-card border border-rose-500/30 rounded-xl px-4 text-sm font-black text-rose-500 text-center placeholder:text-rose-500/30 focus:ring-0"
+                className="w-full h-12 bg-card border border-rose-500/30 rounded-xl px-4 text-sm font-black text-rose-500 text-center placeholder:text-rose-500/30 focus:ring-0 uppercase"
               />
             </div>
           </div>
@@ -1287,10 +1326,16 @@ export const Debts: React.FC = () => {
       {/* Paid Confirmation Modal */}
       <ConfirmModal
         isOpen={!!confirmPaid}
-        onClose={() => setConfirmPaid(null)}
+        onClose={() => {
+          setConfirmPaid(null);
+          if (showUpdateSuccessAfterQuittance) {
+            showAlert('Sucesso', 'Saldo devedor atualizado com sucesso', 'success');
+            setShowUpdateSuccessAfterQuittance(false);
+          }
+        }}
         onConfirm={() => confirmPaid && handlePaidDebt(confirmPaid.id)}
         title="Marcar como Quitada"
-        message={`Deseja marcar a dívida "${confirmPaid?.name}" como totalmente quitada? Ela não aparecerá mais nos cálculos de parcelas mensais.`}
+        message={confirmPaid ? `Deseja marcar a dívida "${confirmPaid.name}" como totalmente quitada? Ela não aparecerá mais nos cálculos de parcelas mensais.` : ''}
         confirmText="Sim, Quitar Dívida"
         variant="success"
       />
@@ -1300,7 +1345,7 @@ export const Debts: React.FC = () => {
         onClose={() => setConfirmReactivate(null)}
         onConfirm={() => confirmReactivate && handleReactivateDebt(confirmReactivate.id)}
         title="Reativar Dívida"
-        message={`Deseja reativar a dívida "${confirmReactivate?.name}"? Ela voltará a ser considerada nos cálculos de parcelas mensais.`}
+        message={confirmReactivate ? `Deseja reativar a dívida "${confirmReactivate.name}"? Ela voltará a ser considerada nos cálculos de parcelas mensais.` : ''}
         confirmText="Sim, Reativar"
         variant="warning"
       />
@@ -1498,7 +1543,7 @@ export const Debts: React.FC = () => {
         onClose={() => setConfirmDeleteHistory(null)}
         onConfirm={() => confirmDeleteHistory && handleDeleteHistoryEntry(confirmDeleteHistory.id)}
         title="Remover Atualização"
-        message={`Deseja realmente excluir a atualização de ${new Date(confirmDeleteHistory?.monthYear + 'T12:00:00').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}?`}
+        message={confirmDeleteHistory ? `Deseja realmente excluir a atualização de ${new Date(confirmDeleteHistory.monthYear + 'T12:00:00').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}?` : ''}
         confirmText="Sim, Remover"
         variant="danger"
       />

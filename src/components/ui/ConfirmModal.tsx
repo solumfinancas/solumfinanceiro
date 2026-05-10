@@ -9,11 +9,12 @@ interface ConfirmModalProps {
   onClose: () => void;
   onConfirm: () => void;
   title: string;
-  message: string;
+  message: string | React.ReactNode;
   confirmText?: string;
   cancelText?: string;
   variant?: 'danger' | 'info' | 'success' | 'warning';
   hideCancel?: boolean;
+  disabled?: boolean;
 }
 
 export const ConfirmModal: React.FC<ConfirmModalProps> = ({
@@ -25,7 +26,8 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
   confirmText = 'Confirmar',
   cancelText = 'Cancelar',
   variant = 'danger',
-  hideCancel = false
+  hideCancel = false,
+  disabled = false
 }) => {
   if (!isOpen) return null;
 
@@ -115,9 +117,9 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
             </div>
 
             <div className="bg-muted/30 p-6 rounded-3xl border border-border/50 mb-8">
-              <p className="text-muted-foreground leading-relaxed text-sm font-medium">
+              <div className="text-muted-foreground leading-relaxed text-sm font-medium">
                 {message}
-              </p>
+              </div>
             </div>
 
             <div className="flex gap-4">
@@ -130,6 +132,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
                 </button>
               )}
               <button
+                disabled={disabled}
                 onClick={() => {
                   onConfirm();
                   onClose();
@@ -139,7 +142,8 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
                   config.bg,
                   config.hover,
                   hideCancel ? "w-full" : "flex-[1.5]",
-                  `shadow-${variant === 'danger' ? 'rose' : variant === 'info' ? 'blue' : variant === 'warning' ? 'amber' : 'emerald'}-500/30`
+                  `shadow-${variant === 'danger' ? 'rose' : variant === 'info' ? 'blue' : variant === 'warning' ? 'amber' : 'emerald'}-500/30`,
+                  disabled && "opacity-50 cursor-not-allowed grayscale pointer-events-none"
                 )}
               >
                 {confirmText}
