@@ -1358,12 +1358,24 @@ export const Equity: React.FC = () => {
                       </div>
                     </div>
                   </div>
-                  <button 
-                    onClick={() => setViewingAssetDetails(null)}
-                    className="w-12 h-12 rounded-xl bg-card border border-border flex items-center justify-center text-muted-foreground hover:text-rose-500 transition-all"
-                  >
-                    <X size={24} />
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button 
+                      onClick={() => {
+                        handleOpenEditModal(viewingAssetDetails);
+                        setViewingAssetDetails(null);
+                      }}
+                      title="Editar Origem do Ativo"
+                      className="w-12 h-12 rounded-xl bg-primary/5 text-primary border border-primary/10 flex items-center justify-center hover:bg-primary hover:text-white transition-all shadow-sm"
+                    >
+                      <Edit2 size={20} />
+                    </button>
+                    <button 
+                      onClick={() => setViewingAssetDetails(null)}
+                      className="w-12 h-12 rounded-xl bg-card border border-border flex items-center justify-center text-muted-foreground hover:text-rose-500 transition-all"
+                    >
+                      <X size={24} />
+                    </button>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

@@ -2,11 +2,11 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useFinance } from '../FinanceContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useModal } from '../contexts/ModalContext';
-import { 
-  Plus, 
-  Calendar, 
-  Search, 
-  TrendingDown, 
+import {
+  Plus,
+  Calendar,
+  Search,
+  TrendingDown,
   History,
   X,
   ChevronLeft,
@@ -25,14 +25,14 @@ import {
   Info,
   FileText
 } from 'lucide-react';
-import { 
-  AreaChart, 
-  Area, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer 
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer
 } from 'recharts';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -42,10 +42,12 @@ import { Debt } from '../types';
 export const Debts: React.FC = () => {
   const { user } = useAuth();
   const { viewingUserId } = useAuth();
-  const { 
-    activeSpace, 
-    debts, 
+  const {
+    activeSpace,
+    debts,
     debtHistory,
+    equityAssets,
+    equityHistory,
     addDebt,
     updateDebt,
     deleteDebt,
@@ -54,7 +56,7 @@ export const Debts: React.FC = () => {
     loading: contextLoading
   } = useFinance();
   const { showAlert } = useModal();
-  
+
   const targetUserId = viewingUserId || user?.id;
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -115,10 +117,13 @@ export const Debts: React.FC = () => {
   };
 
   const oldestDate = useMemo(() => {
-    if (debts.length === 0) return new Date();
-    const dates = debts.map(a => new Date(a.due_date + 'T12:00:00'));
-    return new Date(Math.min(...dates.map(d => d.getTime())));
-  }, [debts]);
+    const debtDates = debts.map(a => new Date(a.due_date + 'T12:00:00'));
+    const equityDates = equityAssets.map(a => new Date(a.registration_date + 'T12:00:00'));
+    const allDates = [...debtDates, ...equityDates];
+
+    if (allDates.length === 0) return new Date();
+    return new Date(Math.min(...allDates.map(d => d.getTime())));
+  }, [debts, equityAssets]);
 
   const oldestMonthDate = useMemo(() => {
     return new Date(oldestDate.getFullYear(), oldestDate.getMonth(), 1);
@@ -283,24 +288,24 @@ export const Debts: React.FC = () => {
       const regDate = new Date(debt.due_date + 'T12:00:00');
       const regMonth = new Date(regDate.getFullYear(), regDate.getMonth(), 1);
       const selMonth = new Date(selectedMonth.getFullYear(), selectedMonth.getMonth(), 1);
-      
+
       if (selMonth < regMonth) return false;
-      
+
       if (debt.status === 'paid') {
         // Encontrar o último mês com histórico (mês da quitação)
         const debtHistories = debtHistory
           .filter(h => h.debt_id === debt.id)
           .sort((a, b) => new Date(b.month_year + 'T12:00:00').getTime() - new Date(a.month_year + 'T12:00:00').getTime());
-        
+
         if (debtHistories.length > 0) {
           const lastHistDate = new Date(debtHistories[0].month_year + 'T12:00:00');
           const lastMonth = new Date(lastHistDate.getFullYear(), lastHistDate.getMonth(), 1);
-          
+
           // Se o mês selecionado for após o mês da última atualização (quitação), oculta
           if (selMonth > lastMonth) return false;
         }
       }
-      
+
       return true;
     });
   }, [debts, debtHistory, selectedMonth, searchQuery]);
@@ -326,28 +331,28 @@ export const Debts: React.FC = () => {
       // Cálculo do Saldo Devedor Total e Valor Pago
       const hist = debtHistory.find(h => h.debt_id === debt.id && h.month_year === monthStr);
       let currentVal = 0;
-      
+
       if (hist) {
         currentVal = hist.value;
         totalDebtValue += currentVal;
 
         // Cálculo do quanto foi pago este mês
         const registrationDate = new Date(debt.due_date + 'T12:00:00');
-        const isRegMonth = registrationDate.getMonth() === selectedMonth.getMonth() && 
-                          registrationDate.getFullYear() === selectedMonth.getFullYear();
+        const isRegMonth = registrationDate.getMonth() === selectedMonth.getMonth() &&
+          registrationDate.getFullYear() === selectedMonth.getFullYear();
 
         const prevVal = isRegMonth ? debt.total_value : (() => {
           const prevMonth = new Date(selectedMonth);
           prevMonth.setMonth(prevMonth.getMonth() - 1);
           const prevMonthStr = `${prevMonth.getFullYear()}-${String(prevMonth.getMonth() + 1).padStart(2, '0')}-01`;
           const prevHist = debtHistory.find(h => h.debt_id === debt.id && h.month_year === prevMonthStr);
-          
+
           if (prevHist) return prevHist.value;
-          
+
           const past = debtHistory
             .filter(h => h.debt_id === debt.id && new Date(h.month_year + 'T12:00:00') < selectedMonth)
             .sort((a, b) => new Date(b.month_year + 'T12:00:00').getTime() - new Date(a.month_year + 'T12:00:00').getTime());
-          
+
           return past.length > 0 ? past[0].value : debt.total_value;
         })();
 
@@ -359,7 +364,7 @@ export const Debts: React.FC = () => {
         const pastHistories = debtHistory
           .filter(h => h.debt_id === debt.id && new Date(h.month_year) <= selectedMonth)
           .sort((a, b) => new Date(b.month_year).getTime() - new Date(a.month_year).getTime());
-        
+
         if (pastHistories.length > 0) {
           totalDebtValue += pastHistories[0].value;
         } else {
@@ -380,10 +385,10 @@ export const Debts: React.FC = () => {
   const changeMonth = (delta: number) => {
     const newDate = new Date(selectedMonth);
     newDate.setMonth(newDate.getMonth() + delta);
-    
+
     if (delta < 0 && newDate < oldestMonthDate) {
       showAlert(
-        'Período Indisponível', 
+        'Período Indisponível',
         `Não existem dívidas cadastradas antes de ${oldestMonthDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}.`,
         'info'
       );
@@ -399,7 +404,7 @@ export const Debts: React.FC = () => {
     const data = [];
     const now = new Date();
     const currentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    
+
     let startDate = new Date(currentMonth);
     if (chartRange === '12m') {
       startDate.setMonth(startDate.getMonth() - 11);
@@ -413,33 +418,81 @@ export const Debts: React.FC = () => {
     const monthsNames = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
     while (tempDate <= currentMonth) {
       const mStr = tempDate.toISOString().split('T')[0];
-      let totalForMonth = 0;
+      let totalDebtForMonth = 0;
+      let totalInstallmentsForMonth = 0;
+      let totalEquityForMonth = 0;
 
+      // Cálculo Dívidas
       debts.forEach(debt => {
         const regDate = new Date(debt.due_date + 'T12:00:00');
         const regMonth = new Date(regDate.getFullYear(), regDate.getMonth(), 1);
-        
+
         if (tempDate >= regMonth) {
+          // Saldo Devedor
           const hist = debtHistory.find(h => h.debt_id === debt.id && h.month_year === mStr);
           if (hist) {
-            totalForMonth += hist.value;
+            totalDebtForMonth += hist.value;
           } else {
             const pastHistories = debtHistory
               .filter(h => h.debt_id === debt.id && new Date(h.month_year) <= tempDate)
               .sort((a, b) => new Date(b.month_year).getTime() - new Date(a.month_year).getTime());
-            
+
             if (pastHistories.length > 0) {
-              totalForMonth += pastHistories[0].value;
+              totalDebtForMonth += pastHistories[0].value;
             } else {
-              totalForMonth += debt.total_value;
+              totalDebtForMonth += debt.total_value;
             }
+          }
+
+          // Parcelas Mensais
+          if (debt.status === 'active') {
+            totalInstallmentsForMonth += (debt.monthly_payment || 0);
+          } else if (debt.status === 'paid') {
+            const dHist = debtHistory
+              .filter(h => h.debt_id === debt.id)
+              .sort((a, b) => new Date(b.month_year).getTime() - new Date(a.month_year).getTime());
+
+            if (dHist.length > 0) {
+              const lastMonth = new Date(dHist[0].month_year + 'T12:00:00');
+              const lastMonthNormalized = new Date(lastMonth.getFullYear(), lastMonth.getMonth(), 1);
+              if (tempDate <= lastMonthNormalized) {
+                totalInstallmentsForMonth += (debt.monthly_payment || 0);
+              }
+            }
+          }
+        }
+      });
+
+      // Cálculo Patrimônio
+      equityAssets.forEach(asset => {
+        const regDate = new Date(asset.registration_date + 'T12:00:00');
+        const regMonth = new Date(regDate.getFullYear(), regDate.getMonth(), 1);
+
+        if (tempDate >= regMonth) {
+          if (asset.ended_at) {
+            const endDate = new Date(asset.ended_at + 'T12:00:00');
+            const endMonth = new Date(endDate.getFullYear(), endDate.getMonth(), 1);
+            if (tempDate > endMonth) return;
+          }
+
+          const hist = equityHistory.find(h => h.asset_id === asset.id && h.month_year === mStr);
+          if (hist) {
+            totalEquityForMonth += hist.value;
+          } else {
+            const past = equityHistory
+              .filter(h => h.asset_id === asset.id && new Date(h.month_year) <= tempDate)
+              .sort((a, b) => new Date(b.month_year).getTime() - new Date(a.month_year).getTime());
+
+            totalEquityForMonth += past.length > 0 ? past[0].value : asset.initial_value;
           }
         }
       });
 
       data.push({
         name: `${monthsNames[tempDate.getMonth()]}/${tempDate.getFullYear().toString().slice(-2)}`,
-        valor: totalForMonth,
+        valor: totalDebtForMonth,
+        parcelas: totalInstallmentsForMonth,
+        patrimonio: totalEquityForMonth,
         rawDate: new Date(tempDate)
       });
 
@@ -447,7 +500,7 @@ export const Debts: React.FC = () => {
     }
 
     return data;
-  }, [debts, debtHistory, chartRange, oldestMonthDate]);
+  }, [debts, debtHistory, equityAssets, equityHistory, chartRange, oldestMonthDate]);
 
   return (
     <div className="p-4 lg:p-8 space-y-8 max-w-7xl mx-auto">
@@ -465,7 +518,7 @@ export const Debts: React.FC = () => {
 
         <div className="flex items-center gap-3">
           <div className="flex items-center bg-card border border-border rounded-2xl p-1 shadow-sm">
-            <button 
+            <button
               onClick={() => changeMonth(-1)}
               className="w-10 h-10 rounded-xl hover:bg-muted flex items-center justify-center text-muted-foreground transition-all"
             >
@@ -474,7 +527,7 @@ export const Debts: React.FC = () => {
             <div className="px-4 text-[10px] font-black uppercase tracking-widest text-foreground min-w-[140px] text-center">
               {formattedSelectedMonth}
             </div>
-            <button 
+            <button
               onClick={() => changeMonth(1)}
               className="w-10 h-10 rounded-xl hover:bg-muted flex items-center justify-center text-muted-foreground transition-all"
             >
@@ -482,7 +535,7 @@ export const Debts: React.FC = () => {
             </button>
           </div>
 
-          <button 
+          <button
             onClick={handleOpenAddModal}
             className="h-12 px-6 rounded-2xl bg-rose-500 text-white text-[10px] font-black uppercase tracking-widest flex items-center gap-3 hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-rose-500/20"
           >
@@ -493,7 +546,7 @@ export const Debts: React.FC = () => {
       </div>
 
       {debts.length === 0 && !contextLoading ? (
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="bg-card border border-dashed border-border rounded-[3rem] p-20 flex flex-col items-center text-center gap-6 shadow-2xl shadow-slate-200/20 dark:shadow-none"
@@ -508,7 +561,7 @@ export const Debts: React.FC = () => {
               Você ainda não cadastrou nenhuma dívida ou financiamento. Comece agora para traçar sua estratégia de quitação e liberdade financeira.
             </p>
           </div>
-          <button 
+          <button
             onClick={handleOpenAddModal}
             className="h-16 px-10 rounded-2xl bg-rose-500 text-white text-[11px] font-black uppercase tracking-widest flex items-center gap-4 hover:scale-[1.05] active:scale-95 transition-all shadow-2xl shadow-rose-500/30 mt-4"
           >
@@ -539,7 +592,7 @@ export const Debts: React.FC = () => {
               <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 rounded-full blur-3xl -mr-16 -mt-16 transition-all group-hover:scale-110" />
               <div className="relative flex items-center justify-between">
                 <div>
-                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-500 mb-2">Parcelas do Mês</p>
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-500 mb-2">Parcelas do Mês (ATUALIZADO)</p>
                   <h2 className="text-3xl font-black tracking-tighter text-foreground">
                     {formatCurrency(debtSummary.monthly)}
                   </h2>
@@ -600,7 +653,7 @@ export const Debts: React.FC = () => {
               </div>
               <div className="relative w-full md:w-64">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
-                <input 
+                <input
                   type="text"
                   placeholder="BUSCAR CREDOR..."
                   value={searchQuery}
@@ -647,8 +700,8 @@ export const Debts: React.FC = () => {
                       })();
 
                       const regDate = new Date(debt.due_date + 'T12:00:00');
-                      const isRegistrationMonth = regDate.getMonth() === selectedMonth.getMonth() && 
-                                                 regDate.getFullYear() === selectedMonth.getFullYear();
+                      const isRegistrationMonth = regDate.getMonth() === selectedMonth.getMonth() &&
+                        regDate.getFullYear() === selectedMonth.getFullYear();
 
                       return (
                         <tr key={debt.id} className="group border-b border-border last:border-none hover:bg-muted/30 transition-all">
@@ -693,12 +746,12 @@ export const Debts: React.FC = () => {
                                 <span className="text-[9px] font-medium text-muted-foreground uppercase tracking-widest leading-relaxed break-words">
                                   {debt.observation || 'Sem observações de origem'}
                                 </span>
-                                {monthData?.observation && 
-                                 monthData.observation.trim() !== '' && (
-                                  <span className="text-[9px] font-black text-rose-500 uppercase tracking-widest leading-relaxed break-words">
-                                    Mês: {monthData.observation}
-                                  </span>
-                                )}
+                                {monthData?.observation &&
+                                  monthData.observation.trim() !== '' && (
+                                    <span className="text-[9px] font-black text-rose-500 uppercase tracking-widest leading-relaxed break-words">
+                                      Mês: {monthData.observation}
+                                    </span>
+                                  )}
                               </div>
                             </div>
                           </td>
@@ -722,8 +775,8 @@ export const Debts: React.FC = () => {
                             <div className="flex flex-col items-end gap-1">
                               <div className={cn(
                                 "inline-flex items-center gap-3 px-4 py-2 rounded-xl border",
-                                monthData 
-                                  ? "bg-emerald-500/5 border-emerald-500/20 text-emerald-500" 
+                                monthData
+                                  ? "bg-emerald-500/5 border-emerald-500/20 text-emerald-500"
                                   : "bg-muted border-transparent text-muted-foreground"
                               )}>
                                 <span className="text-sm font-black">
@@ -732,26 +785,26 @@ export const Debts: React.FC = () => {
                               </div>
                               {monthData && (() => {
                                 const registrationDate = new Date(debt.due_date + 'T12:00:00');
-                                const isRegMonth = registrationDate.getMonth() === selectedMonth.getMonth() && 
-                                                  registrationDate.getFullYear() === selectedMonth.getFullYear();
+                                const isRegMonth = registrationDate.getMonth() === selectedMonth.getMonth() &&
+                                  registrationDate.getFullYear() === selectedMonth.getFullYear();
 
                                 const prevVal = isRegMonth ? debt.total_value : (() => {
                                   const prevMonth = new Date(selectedMonth);
                                   prevMonth.setMonth(prevMonth.getMonth() - 1);
                                   const prevMonthStr = `${prevMonth.getFullYear()}-${String(prevMonth.getMonth() + 1).padStart(2, '0')}-01`;
                                   const prevHist = debtHistory.find(h => h.debt_id === debt.id && h.month_year === prevMonthStr);
-                                  
+
                                   if (prevHist) return prevHist.value;
-                                  
+
                                   const past = debtHistory
                                     .filter(h => h.debt_id === debt.id && new Date(h.month_year + 'T12:00:00') < selectedMonth)
                                     .sort((a, b) => new Date(b.month_year + 'T12:00:00').getTime() - new Date(a.month_year + 'T12:00:00').getTime());
-                                  
+
                                   return past.length > 0 ? past[0].value : debt.total_value;
                                 })();
-                                
+
                                 const diff = prevVal - monthData.value;
-                                
+
                                 if (diff > 0.01) {
                                   return (
                                     <span className="text-[9px] font-black text-emerald-500 uppercase tracking-widest mr-2">
@@ -777,7 +830,7 @@ export const Debts: React.FC = () => {
                           <td className="px-8 py-6">
                             <div className="flex items-center justify-end gap-2">
                               {isRegistrationMonth && (
-                                <button 
+                                <button
                                   onClick={() => handleOpenEditModal(debt)}
                                   title="Editar Configurações da Dívida"
                                   className="w-10 h-10 rounded-xl bg-rose-500/5 text-rose-500 border border-rose-500/10 flex items-center justify-center hover:bg-rose-500 hover:text-white transition-all shadow-sm"
@@ -787,7 +840,7 @@ export const Debts: React.FC = () => {
                               )}
 
                               {monthData ? (
-                                <button 
+                                <button
                                   onClick={() => setConfirmDeleteHistory({ id: monthData.id, monthYear: monthStr })}
                                   title="Remover Atualização do Mês"
                                   className="w-10 h-10 rounded-xl bg-orange-500/5 text-orange-500 border border-orange-500/10 flex items-center justify-center hover:bg-orange-500 hover:text-white transition-all shadow-sm"
@@ -795,7 +848,7 @@ export const Debts: React.FC = () => {
                                   <RotateCcw size={16} />
                                 </button>
                               ) : (
-                                <button 
+                                <button
                                   onClick={() => setEditingValue({
                                     debtId: debt.id,
                                     value: displayValue,
@@ -811,7 +864,7 @@ export const Debts: React.FC = () => {
                               )}
 
                               {debt.status === 'active' && (
-                                <button 
+                                <button
                                   onClick={() => setConfirmPaid(debt)}
                                   title="Marcar como Quitada"
                                   className="w-10 h-10 rounded-xl bg-emerald-500/5 text-emerald-500 border border-emerald-500/10 flex items-center justify-center hover:bg-emerald-500 hover:text-white transition-all shadow-sm"
@@ -821,7 +874,7 @@ export const Debts: React.FC = () => {
                               )}
 
                               {debt.status === 'paid' && (
-                                <button 
+                                <button
                                   onClick={() => setConfirmReactivate(debt)}
                                   title="Reativar Dívida"
                                   className="w-10 h-10 rounded-xl bg-amber-500/5 text-amber-500 border border-amber-500/10 flex items-center justify-center hover:bg-amber-500 hover:text-white transition-all shadow-sm"
@@ -830,7 +883,7 @@ export const Debts: React.FC = () => {
                                 </button>
                               )}
 
-                              <button 
+                              <button
                                 onClick={() => setConfirmDelete(debt)}
                                 title="Excluir Dívida Permanente"
                                 className="w-10 h-10 rounded-xl bg-slate-500/5 text-slate-500 border border-slate-500/10 flex items-center justify-center hover:bg-slate-500 hover:text-white transition-all shadow-sm"
@@ -848,97 +901,318 @@ export const Debts: React.FC = () => {
             </div>
           </div>
 
-          {/* Evolution Chart at the Bottom */}
-          <div className="relative group bg-card border border-border rounded-[2.5rem] p-8 shadow-xl shadow-slate-200/40 dark:shadow-none">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h3 className="text-xs font-black uppercase tracking-widest text-foreground flex items-center gap-2">
-                  <ArrowDownRight size={14} className="text-rose-500" />
-                  Evolução do Saldo Devedor
-                </h3>
-                <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest mt-1">Acompanhe a redução das suas dívidas</p>
+          {/* Charts Section */}
+          <div className="space-y-6">
+            {/* 1. Monthly Installments Chart */}
+            <div className="relative group bg-card border border-border rounded-[2.5rem] p-8 shadow-xl shadow-slate-200/40 dark:shadow-none">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h3 className="text-xs font-black uppercase tracking-widest text-foreground flex items-center gap-2">
+                    <CreditCard size={14} className="text-blue-500" />
+                    Evolução das Parcelas Mensais
+                  </h3>
+                  <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest mt-1">Peso das parcelas no seu orçamento mensal</p>
+                </div>
+                <div className="flex bg-muted/50 p-1 rounded-xl">
+                  {[
+                    { id: '12m', label: '12M' },
+                    { id: '24m', label: '24M' },
+                    { id: 'all', label: 'TUDO' }
+                  ].map(range => (
+                    <button
+                      key={range.id}
+                      onClick={() => setChartRange(range.id as any)}
+                      className={cn(
+                        "px-3 py-1.5 rounded-lg text-[9px] font-black tracking-widest transition-all",
+                        chartRange === range.id
+                          ? "bg-card text-blue-500 shadow-sm"
+                          : "text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      {range.label}
+                    </button>
+                  ))}
+                </div>
               </div>
-              <div className="flex bg-muted/50 p-1 rounded-xl">
-                {[
-                  { id: '12m', label: '12M' },
-                  { id: '24m', label: '24M' },
-                  { id: 'all', label: 'TUDO' }
-                ].map(range => (
-                  <button
-                    key={range.id}
-                    onClick={() => setChartRange(range.id as any)}
-                    className={cn(
-                      "px-3 py-1.5 rounded-lg text-[9px] font-black tracking-widest transition-all",
-                      chartRange === range.id 
-                        ? "bg-card text-rose-500 shadow-sm" 
-                        : "text-muted-foreground hover:text-foreground"
-                    )}
-                  >
-                    {range.label}
-                  </button>
-                ))}
+
+              <div className="h-[200px] w-full">
+                {chartData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={chartData} margin={{ left: 10, right: 10, bottom: 20, top: 10 }}>
+                      <defs>
+                        <linearGradient id="colorParcelas" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
+                          <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
+                      <XAxis
+                        dataKey="name"
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fontSize: 9, fontWeight: 900, fill: 'var(--muted-foreground)' }}
+                        dy={15}
+                        interval={chartRange === 'all' ? 'preserveStartEnd' : 0}
+                        minTickGap={10}
+                        padding={{ left: 20, right: 20 }}
+                      />
+                      <YAxis hide domain={['auto', 'auto']} />
+                      <Tooltip
+                        content={({ active, payload }) => {
+                          if (active && payload && payload.length) {
+                            return (
+                              <div className="bg-card/95 backdrop-blur-md border border-border p-4 rounded-2xl shadow-2xl">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">
+                                  {payload[0].payload.rawDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }).toUpperCase()}
+                                </p>
+                                <p className="text-lg font-black text-blue-500 tracking-tighter">
+                                  {formatCurrency(payload[0].value as number)}
+                                </p>
+                              </div>
+                            );
+                          }
+                          return null;
+                        }}
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="parcelas"
+                        stroke="#3b82f6"
+                        strokeWidth={3}
+                        fillOpacity={1}
+                        fill="url(#colorParcelas)"
+                        animationDuration={1500}
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-full flex flex-col items-center justify-center gap-3 text-muted-foreground/30">
+                    <History size={48} />
+                    <p className="text-[10px] font-black uppercase tracking-widest">Dados Insuficientes</p>
+                  </div>
+                )}
               </div>
             </div>
 
-            <div className="h-[250px] w-full">
-              {chartData.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={chartData} margin={{ left: 10, right: 10, bottom: 20, top: 10 }}>
-                    <defs>
-                      <linearGradient id="colorDebt" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.3}/>
-                        <stop offset="95%" stopColor="#f43f5e" stopOpacity={0}/>
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
-                    <XAxis 
-                      dataKey="name" 
-                      axisLine={false}
-                      tickLine={false}
-                      tick={{ fontSize: 9, fontWeight: 900, fill: 'var(--muted-foreground)' }}
-                      dy={15}
-                      padding={{ left: 30, right: 30 }}
-                      interval={chartRange === 'all' ? 'preserveStartEnd' : 0}
-                      minTickGap={10}
-                    />
-                    <YAxis 
-                      hide
-                      domain={['auto', 'auto']}
-                    />
-                    <Tooltip 
-                      content={({ active, payload }) => {
-                        if (active && payload && payload.length) {
-                          return (
-                            <div className="bg-card/95 backdrop-blur-md border border-border p-4 rounded-2xl shadow-2xl">
-                              <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">
-                                {payload[0].payload.rawDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }).toUpperCase()}
-                              </p>
-                              <p className="text-lg font-black text-rose-500 tracking-tighter">
-                                {formatCurrency(payload[0].value as number)}
-                              </p>
-                            </div>
-                          );
-                        }
-                        return null;
-                      }}
-                    />
-                    <Area 
-                      type="monotone" 
-                      dataKey="valor" 
-                      stroke="#f43f5e" 
-                      strokeWidth={3}
-                      fillOpacity={1} 
-                      fill="url(#colorDebt)" 
-                      animationDuration={1500}
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="h-full flex flex-col items-center justify-center gap-3 text-muted-foreground/30">
-                  <History size={48} />
-                  <p className="text-[10px] font-black uppercase tracking-widest">Dados Insuficientes</p>
+            {/* 2. Debt Balance Chart (Existing) */}
+            <div className="relative group bg-card border border-border rounded-[2.5rem] p-8 shadow-xl shadow-slate-200/40 dark:shadow-none">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h3 className="text-xs font-black uppercase tracking-widest text-foreground flex items-center gap-2">
+                    <ArrowDownRight size={14} className="text-rose-500" />
+                    Evolução do Saldo Devedor
+                  </h3>
+                  <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest mt-1">Acompanhe a redução das suas dívidas</p>
                 </div>
-              )}
+                <div className="flex bg-muted/50 p-1 rounded-xl">
+                  {[
+                    { id: '12m', label: '12M' },
+                    { id: '24m', label: '24M' },
+                    { id: 'all', label: 'TUDO' }
+                  ].map(range => (
+                    <button
+                      key={range.id}
+                      onClick={() => setChartRange(range.id as any)}
+                      className={cn(
+                        "px-3 py-1.5 rounded-lg text-[9px] font-black tracking-widest transition-all",
+                        chartRange === range.id
+                          ? "bg-card text-rose-500 shadow-sm"
+                          : "text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      {range.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="h-[200px] w-full">
+                {chartData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={chartData} margin={{ left: 10, right: 10, bottom: 20, top: 10 }}>
+                      <defs>
+                        <linearGradient id="colorDebt" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.3} />
+                          <stop offset="95%" stopColor="#f43f5e" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
+                      <XAxis
+                        dataKey="name"
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fontSize: 9, fontWeight: 900, fill: 'var(--muted-foreground)' }}
+                        dy={15}
+                        interval={chartRange === 'all' ? 'preserveStartEnd' : 0}
+                        minTickGap={10}
+                        padding={{ left: 20, right: 20 }}
+                      />
+                      <YAxis hide domain={['auto', 'auto']} />
+                      <Tooltip
+                        content={({ active, payload }) => {
+                          if (active && payload && payload.length) {
+                            return (
+                              <div className="bg-card/95 backdrop-blur-md border border-border p-4 rounded-2xl shadow-2xl">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">
+                                  {payload[0].payload.rawDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }).toUpperCase()}
+                                </p>
+                                <p className="text-lg font-black text-rose-500 tracking-tighter">
+                                  {formatCurrency(payload[0].value as number)}
+                                </p>
+                              </div>
+                            );
+                          }
+                          return null;
+                        }}
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="valor"
+                        stroke="#f43f5e"
+                        strokeWidth={3}
+                        fillOpacity={1}
+                        fill="url(#colorDebt)"
+                        animationDuration={1500}
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-full flex flex-col items-center justify-center gap-3 text-muted-foreground/30">
+                    <History size={48} />
+                    <p className="text-[10px] font-black uppercase tracking-widest">Dados Insuficientes</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* 3. Debt vs Equity Comparison Chart */}
+            <div className="relative group bg-card border border-border rounded-[2.5rem] p-8 shadow-xl shadow-slate-200/40 dark:shadow-none">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h3 className="text-xs font-black uppercase tracking-widest text-foreground flex items-center gap-2">
+                    <Layout size={14} className="text-emerald-500" />
+                    Dívidas vs. Patrimônio
+                  </h3>
+                  <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest mt-1">Comparativo entre o que você deve e o que você possui</p>
+                </div>
+                <div className="flex bg-muted/50 p-1 rounded-xl">
+                  {[
+                    { id: '12m', label: '12M' },
+                    { id: '24m', label: '24M' },
+                    { id: 'all', label: 'TUDO' }
+                  ].map(range => (
+                    <button
+                      key={range.id}
+                      onClick={() => setChartRange(range.id as any)}
+                      className={cn(
+                        "px-3 py-1.5 rounded-lg text-[9px] font-black tracking-widest transition-all",
+                        chartRange === range.id
+                          ? "bg-card text-emerald-500 shadow-sm"
+                          : "text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      {range.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="h-[250px] w-full">
+                {chartData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={chartData} margin={{ left: 10, right: 10, bottom: 20, top: 10 }}>
+                      <defs>
+                        <linearGradient id="colorDebtComp" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.1} />
+                          <stop offset="95%" stopColor="#f43f5e" stopOpacity={0} />
+                        </linearGradient>
+                        <linearGradient id="colorEquityComp" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#10b981" stopOpacity={0.2} />
+                          <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
+                      <XAxis
+                        dataKey="name"
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fontSize: 9, fontWeight: 900, fill: 'var(--muted-foreground)' }}
+                        dy={15}
+                        interval={chartRange === 'all' ? 'preserveStartEnd' : 0}
+                        minTickGap={10}
+                        padding={{ left: 20, right: 20 }}
+                      />
+                      <YAxis hide domain={['auto', 'auto']} />
+                      <Tooltip
+                        content={({ active, payload }) => {
+                          if (active && payload && payload.length) {
+                            const equity = payload.find(p => p.dataKey === 'patrimonio')?.value as number || 0;
+                            const debt = payload.find(p => p.dataKey === 'valor')?.value as number || 0;
+                            const netValue = equity - debt;
+
+                            return (
+                              <div className="bg-card/95 backdrop-blur-md border border-border p-4 rounded-2xl shadow-2xl min-w-[200px]">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-3 pb-2 border-b border-border">
+                                  {payload[0].payload.rawDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }).toUpperCase()}
+                                </p>
+                                <div className="space-y-3">
+                                  <div>
+                                    <p className="text-[8px] font-black uppercase tracking-widest text-emerald-500 opacity-80">Patrimônio Total</p>
+                                    <p className="text-base font-black text-emerald-500 tracking-tighter">
+                                      {formatCurrency(equity)}
+                                    </p>
+                                  </div>
+                                  <div>
+                                    <p className="text-[8px] font-black uppercase tracking-widest text-rose-500 opacity-80">Saldo Devedor</p>
+                                    <p className="text-base font-black text-rose-500 tracking-tighter">
+                                      {formatCurrency(debt)}
+                                    </p>
+                                  </div>
+                                  
+                                  <div className="pt-3 border-t border-border/50">
+                                    <p className="text-[8px] font-black uppercase tracking-widest text-muted-foreground">Saldo Líquido</p>
+                                    <p className={cn(
+                                      "text-base font-black tracking-tighter",
+                                      netValue >= 0 ? "text-emerald-500" : "text-rose-500"
+                                    )}>
+                                      {formatCurrency(netValue)}
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          }
+                          return null;
+                        }}
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="patrimonio"
+                        stroke="#10b981"
+                        strokeWidth={4}
+                        fillOpacity={1}
+                        fill="url(#colorEquityComp)"
+                        animationDuration={1500}
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="valor"
+                        stroke="#f43f5e"
+                        strokeWidth={3}
+                        strokeDasharray="5 5"
+                        fillOpacity={1}
+                        fill="url(#colorDebtComp)"
+                        animationDuration={1500}
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-full flex flex-col items-center justify-center gap-3 text-muted-foreground/30">
+                    <History size={48} />
+                    <p className="text-[10px] font-black uppercase tracking-widest">Dados Insuficientes</p>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </>
@@ -974,7 +1248,7 @@ export const Debts: React.FC = () => {
                     {editingDebt ? 'Editar Dívida' : 'Cadastrar Dívida'}
                   </h2>
                 </div>
-                <button 
+                <button
                   onClick={() => setIsAddModalOpen(false)}
                   className="w-10 h-10 rounded-xl bg-muted border border-border flex items-center justify-center text-muted-foreground hover:text-rose-500 transition-all"
                 >
@@ -986,7 +1260,7 @@ export const Debts: React.FC = () => {
                 <div className="grid grid-cols-1 gap-6">
                   <div className="space-y-2">
                     <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Credor / Instituição</label>
-                    <input 
+                    <input
                       required
                       type="text"
                       placeholder="Ex: Banco do Brasil, Nubank..."
@@ -1001,7 +1275,7 @@ export const Debts: React.FC = () => {
                       <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Valor da Parcela</label>
                       <div className="relative">
                         <span className="absolute left-6 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground">R$</span>
-                        <input 
+                        <input
                           required
                           type="text"
                           placeholder="0,00"
@@ -1016,7 +1290,7 @@ export const Debts: React.FC = () => {
                     </div>
                     <div className="space-y-2">
                       <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Qtd. de Parcelas</label>
-                      <input 
+                      <input
                         required
                         type="number"
                         placeholder="Ex: 12"
@@ -1032,7 +1306,7 @@ export const Debts: React.FC = () => {
                       <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Valor Total (Auto)</label>
                       <div className="relative">
                         <span className="absolute left-6 top-1/2 -translate-y-1/2 text-xs font-bold text-rose-500">R$</span>
-                        <input 
+                        <input
                           readOnly
                           type="text"
                           value={(debtForm.total_value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -1042,7 +1316,7 @@ export const Debts: React.FC = () => {
                     </div>
                     <div className="space-y-2">
                       <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Taxa de Juros (%)</label>
-                      <input 
+                      <input
                         type="number"
                         step="0.01"
                         placeholder="Ex: 1.5"
@@ -1056,7 +1330,7 @@ export const Debts: React.FC = () => {
                   <div className="grid grid-cols-1 gap-4">
                     <div className="space-y-2">
                       <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Data da Primeira Parcela</label>
-                      <input 
+                      <input
                         required
                         type="date"
                         value={debtForm.due_date}
@@ -1068,7 +1342,7 @@ export const Debts: React.FC = () => {
 
                   <div className="space-y-2">
                     <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Observações</label>
-                    <textarea 
+                    <textarea
                       placeholder="Algum detalhe importante sobre esta dívida..."
                       value={debtForm.observation}
                       onChange={e => setDebtForm({ ...debtForm, observation: e.target.value })}
@@ -1078,14 +1352,14 @@ export const Debts: React.FC = () => {
                 </div>
 
                 <div className="flex gap-4 pt-4">
-                  <button 
+                  <button
                     type="button"
                     onClick={() => setIsAddModalOpen(false)}
                     className="flex-1 h-14 rounded-2xl border border-border text-[10px] font-black uppercase tracking-widest hover:bg-muted transition-all"
                   >
                     Cancelar
                   </button>
-                  <button 
+                  <button
                     type="submit"
                     className="flex-2 h-14 px-10 rounded-2xl bg-rose-500 text-white text-[10px] font-black uppercase tracking-widest shadow-lg shadow-rose-500/20 hover:scale-[1.02] active:scale-95 transition-all"
                   >
@@ -1129,17 +1403,17 @@ export const Debts: React.FC = () => {
                   </div>
 
                   <div className="grid grid-cols-1 gap-3">
-                    <button 
+                    <button
                       onClick={() => {
                         const currentDebt = debts.find(d => d.id === editingValue.debtId);
                         const registrationDate = new Date((currentDebt?.due_date || '') + 'T12:00:00');
-                        const isRegMonth = registrationDate.getMonth() === selectedMonth.getMonth() && 
-                                          registrationDate.getFullYear() === selectedMonth.getFullYear();
-                        
-                        const msg = isRegMonth 
-                          ? "Manutenção do saldo inicial (sem pagamento)" 
+                        const isRegMonth = registrationDate.getMonth() === selectedMonth.getMonth() &&
+                          registrationDate.getFullYear() === selectedMonth.getFullYear();
+
+                        const msg = isRegMonth
+                          ? "Manutenção do saldo inicial (sem pagamento)"
                           : "Manutenção do saldo anterior (sem pagamento)";
-                          
+
                         setEditingValue({ ...editingValue, step: 'confirm_keep', observation: msg });
                       }}
                       className="h-16 px-6 rounded-2xl bg-muted border border-border flex items-center justify-between group hover:bg-emerald-500/5 hover:border-emerald-500/20 transition-all"
@@ -1155,11 +1429,11 @@ export const Debts: React.FC = () => {
                       </div>
                     </button>
 
-                    <button 
+                    <button
                       onClick={() => {
                         const currentDebt = debts.find(d => d.id === editingValue.debtId);
                         const newValue = Math.max(0, (editingValue.value || 0) - (currentDebt?.monthly_payment || 0));
-                        setEditingValue({ ...editingValue, value: newValue, step: 'pay_installment_simple', observation: 'Pagamento da parcela do mês' });
+                        setEditingValue({ ...editingValue, value: newValue, step: 'pay_installment_simple', observation: '' });
                       }}
                       className="h-16 px-6 rounded-2xl bg-muted border border-border flex items-center justify-between group hover:bg-blue-500/5 hover:border-blue-500/20 transition-all"
                     >
@@ -1174,7 +1448,7 @@ export const Debts: React.FC = () => {
                       </div>
                     </button>
 
-                    <button 
+                    <button
                       onClick={() => {
                         const currentDebt = debts.find(d => d.id === editingValue.debtId);
                         const newValue = Math.max(0, (editingValue.value || 0) - (currentDebt?.monthly_payment || 0));
@@ -1193,17 +1467,17 @@ export const Debts: React.FC = () => {
                       </div>
                     </button>
 
-                    <button 
+                    <button
                       onClick={() => {
                         const currentDebt = debts.find(d => d.id === editingValue.debtId);
                         const registrationDate = new Date((currentDebt?.due_date || '') + 'T12:00:00');
-                        const isRegMonth = registrationDate.getMonth() === selectedMonth.getMonth() && 
-                                          registrationDate.getFullYear() === selectedMonth.getFullYear();
-                        
-                        const msg = isRegMonth 
-                          ? "Pagamento parcial / Ajuste no mês de registro" 
+                        const isRegMonth = registrationDate.getMonth() === selectedMonth.getMonth() &&
+                          registrationDate.getFullYear() === selectedMonth.getFullYear();
+
+                        const msg = isRegMonth
+                          ? "Pagamento parcial / Ajuste no mês de registro"
                           : "Pagamento parcial / Ajuste de saldo";
-                          
+
                         setEditingValue({ ...editingValue, step: 'full_adjust', observation: msg });
                       }}
                       className="h-16 px-6 rounded-2xl bg-muted border border-border flex items-center justify-between group hover:bg-primary/5 hover:border-primary/20 transition-all"
@@ -1220,7 +1494,7 @@ export const Debts: React.FC = () => {
                     </button>
                   </div>
 
-                  <button 
+                  <button
                     onClick={() => setEditingValue(null)}
                     className="w-full py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-foreground transition-all"
                   >
@@ -1246,7 +1520,7 @@ export const Debts: React.FC = () => {
                       <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Saldo Devedor Atual</label>
                       <div className="relative">
                         <span className="absolute left-6 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground">R$</span>
-                        <input 
+                        <input
                           type="text"
                           value={(editingValue.value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           onChange={e => {
@@ -1265,10 +1539,10 @@ export const Debts: React.FC = () => {
                     {editingValue.step !== 'pay_installment_simple' && (
                       <div className="space-y-2">
                         <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Observação deste mês</label>
-                        <textarea 
+                        <textarea
                           placeholder={
-                            editingValue.step === 'confirm_keep' 
-                              ? "Descreva o motivo da manutenção (ex: imprevisto financeiro)..." 
+                            editingValue.step === 'confirm_keep'
+                              ? "Descreva o motivo da manutenção (ex: imprevisto financeiro)..."
                               : "Descreva detalhes (ex: amortização extra, renegociação)..."
                           }
                           value={editingValue.observation}
@@ -1279,7 +1553,7 @@ export const Debts: React.FC = () => {
                     )}
                   </div>
 
-                  <button 
+                  <button
                     onClick={handleUpdateValue}
                     className="w-full h-14 rounded-2xl bg-primary text-white text-[10px] font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all"
                   >
@@ -1308,7 +1582,7 @@ export const Debts: React.FC = () => {
             </p>
             <div className="p-4 bg-rose-500/10 rounded-2xl border border-rose-500/20">
               <p className="text-[10px] font-black uppercase tracking-widest text-rose-500 mb-2">Para confirmar, digite APAGAR abaixo:</p>
-              <input 
+              <input
                 type="text"
                 value={deleteInput}
                 onChange={e => setDeleteInput(e.target.value.toUpperCase())}
@@ -1387,12 +1661,24 @@ export const Debts: React.FC = () => {
                       </div>
                     </div>
                   </div>
-                  <button 
-                    onClick={() => setViewingDebtDetails(null)}
-                    className="w-12 h-12 rounded-xl bg-muted border border-border flex items-center justify-center text-muted-foreground hover:text-rose-500 transition-all"
-                  >
-                    <X size={24} />
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button 
+                      onClick={() => {
+                        handleOpenEditModal(viewingDebtDetails);
+                        setViewingDebtDetails(null);
+                      }}
+                      title="Editar Origem da Dívida"
+                      className="w-12 h-12 rounded-xl bg-rose-500/5 text-rose-500 border border-rose-500/10 flex items-center justify-center hover:bg-rose-500 hover:text-white transition-all shadow-sm"
+                    >
+                      <Edit2 size={20} />
+                    </button>
+                    <button 
+                      onClick={() => setViewingDebtDetails(null)}
+                      className="w-12 h-12 rounded-xl bg-muted border border-border flex items-center justify-center text-muted-foreground hover:text-rose-500 transition-all"
+                    >
+                      <X size={24} />
+                    </button>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -1410,10 +1696,10 @@ export const Debts: React.FC = () => {
                     <p className="text-[8px] font-black uppercase tracking-widest text-muted-foreground mb-1">Valor Atualizado</p>
                     {(() => {
                       const history = debtHistory.filter(h => h.debt_id === viewingDebtDetails.id);
-                      const latestValue = history.length > 0 
-                        ? [...history].sort((a, b) => new Date(b.month_year).getTime() - new Date(a.month_year).getTime())[0].value 
+                      const latestValue = history.length > 0
+                        ? [...history].sort((a, b) => new Date(b.month_year).getTime() - new Date(a.month_year).getTime())[0].value
                         : viewingDebtDetails.total_value;
-                      
+
                       const isLower = latestValue < viewingDebtDetails.total_value;
                       const isHigher = latestValue > viewingDebtDetails.total_value;
 
@@ -1469,7 +1755,7 @@ export const Debts: React.FC = () => {
                             {/* Timeline Line */}
                             <div className="absolute left-0 top-2 bottom-0 w-px bg-border" />
                             <div className="absolute left-[-4px] top-2 w-2 h-2 rounded-full bg-primary shadow-[0_0_8px_rgba(var(--color-primary-rgb),0.5)]" />
-                            
+
                             <div className="bg-card border border-border rounded-2xl p-4 hover:shadow-md transition-all group">
                               <div className="flex items-center justify-between mb-2">
                                 <p className="text-[10px] font-black uppercase tracking-widest text-primary">
@@ -1526,7 +1812,7 @@ export const Debts: React.FC = () => {
 
               {/* Footer */}
               <div className="p-8 pt-0 mt-auto">
-                <button 
+                <button
                   onClick={() => setViewingDebtDetails(null)}
                   className="w-full h-14 rounded-2xl bg-slate-950 text-white text-[10px] font-black uppercase tracking-[0.3em] hover:bg-slate-900 transition-all"
                 >
