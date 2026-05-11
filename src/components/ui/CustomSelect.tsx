@@ -185,7 +185,6 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/40" size={16} />
                   <input
-                    autoFocus
                     type="text"
                     placeholder={searchPlaceholder}
                     className="w-full pl-10 pr-4 py-2.5 bg-background/50 border border-border/20 rounded-xl text-xs outline-none focus:ring-1 ring-primary/20 transition-all font-bold"

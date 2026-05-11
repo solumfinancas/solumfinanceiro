@@ -451,8 +451,8 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                   </div>
                 )}
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
+                <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                  <div className="space-y-1.5 min-w-0">
                     <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Valor</label>
                     <input
                       type="text"
@@ -467,7 +467,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                       placeholder="0,00"
                     />
                   </div>
-                  <div className="space-y-1.5">
+                  <div className="space-y-1.5 min-w-0">
                     <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Data Competência</label>
                     <input
                       type="date"
@@ -498,8 +498,8 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
+                <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                  <div className="space-y-1.5 min-w-0">
                     <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">
                       {(newTx.type === 'transfer' || newTx.type === 'provision') ? 'Origem' : 'Carteira'}
                     </label>
@@ -514,7 +514,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                   </div>
 
                   {!isInvoicePayment && ['income', 'expense'].includes(newTx.type || '') && (
-                    <div className="space-y-1.5">
+                    <div className="space-y-1.5 min-w-0">
                       <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Categoria</label>
                       <CustomSelect
                         options={categoryOptions}
@@ -558,7 +558,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                   )}
 
                   {(newTx.type === 'transfer' || newTx.type === 'provision') && (
-                    <div className="space-y-1.5">
+                    <div className="space-y-1.5 min-w-0">
                       <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Destino</label>
                       <CustomSelect
                         options={targetWalletOptions}
