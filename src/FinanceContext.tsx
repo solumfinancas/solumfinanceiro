@@ -53,6 +53,10 @@ interface FinanceContextType {
   deleteDebt: (id: string) => Promise<void>;
   updateDebtValue: (debtId: string, monthYear: string, value: number, observation: string) => Promise<void>;
   deleteDebtValue: (id: string) => Promise<void>;
+  nonRecurringExpenses: NonRecurringExpense[];
+  addNonRecurringExpense: (expense: Omit<NonRecurringExpense, 'id' | 'user_id' | 'created_at'>) => Promise<void>;
+  updateNonRecurringExpense: (id: string, expense: Partial<NonRecurringExpense>) => Promise<void>;
+  deleteNonRecurringExpense: (id: string) => Promise<void>;
 }
 
 const FinanceContext = createContext<FinanceContextType | undefined>(undefined);
@@ -113,6 +117,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [equityHistory, setEquityHistory] = useState<EquityHistory[]>([]);
   const [debts, setDebts] = useState<any[]>([]);
   const [debtHistory, setDebtHistory] = useState<any[]>([]);
+  const [nonRecurringExpenses, setNonRecurringExpenses] = useState<NonRecurringExpense[]>([]);
 
   const acknowledgeOverdue = () => {
     setHasAcknowledgedOverdue(true);
@@ -146,6 +151,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setEquityHistory([]);
       setDebts([]);
       setDebtHistory([]);
+      setNonRecurringExpenses([]);
       setOverdueServices([]);
       setOrderedCards([]);
       setOrderedAccounts([]);
@@ -324,6 +330,22 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       } else {
         setDebtHistory([]);
       }
+
+      // 9. Gastos Não Recorrentes
+      const { data: nrData, error: nrErr } = await supabase
+        .from('non_recurring_expenses')
+        .select('*')
+        .eq('user_id', effectiveUserId)
+        .eq('space', activeSpace)
+        .order('created_at', { ascending: false });
+
+      if (nrErr) throw nrErr;
+      const fetchedNR = nrData || [];
+      setNonRecurringExpenses(prev => {
+        const optimistic = prev.filter(a => typeof a.id === 'string' && a.id.startsWith('temp-'));
+        const filteredOptimistic = optimistic.filter(opt => !fetchedNR.some(a => a.description === opt.description));
+        return [...fetchedNR, ...filteredOptimistic];
+      });
     } catch (err) {
       console.error('Erro ao buscar dados:', err);
     } finally {
@@ -490,6 +512,24 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
           });
         } else if (payload.eventType === 'DELETE') {
           setDebtHistory(prev => prev.filter(h => h.id !== payload.old.id));
+        }
+      })
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'non_recurring_expenses',
+        filter: `user_id=eq.${effectiveUserId}`
+      }, (payload) => {
+        if (payload.eventType === 'INSERT') {
+          setNonRecurringExpenses(prev => {
+            if (payload.new.space !== activeSpace) return prev;
+            if (prev.some(a => a.id === payload.new.id)) return prev;
+            return [...prev.filter(a => !(typeof a.id === 'string' && a.id.startsWith('temp-') && a.description === payload.new.description)), payload.new as NonRecurringExpense];
+          });
+        } else if (payload.eventType === 'UPDATE') {
+          setNonRecurringExpenses(prev => prev.map(a => a.id === payload.new.id ? { ...a, ...payload.new } : a));
+        } else if (payload.eventType === 'DELETE') {
+          setNonRecurringExpenses(prev => prev.filter(a => a.id !== payload.old.id));
         }
       })
       .subscribe();
@@ -1169,6 +1209,68 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     updateActivity('update');
   };
 
+  const addNonRecurringExpense = async (expense: Omit<NonRecurringExpense, 'id' | 'user_id' | 'created_at'>) => {
+    const tempId = 'temp-' + Math.random().toString(36).substr(2, 9);
+    const newExpense = { 
+      ...expense, 
+      id: tempId, 
+      user_id: effectiveUserId, 
+      created_at: new Date().toISOString() 
+    } as NonRecurringExpense;
+
+    setNonRecurringExpenses(prev => [newExpense, ...prev]);
+
+    try {
+      const { data, error } = await supabase
+        .from('non_recurring_expenses')
+        .insert([{
+          user_id: effectiveUserId,
+          space: activeSpace,
+          description: expense.description,
+          amount: expense.amount,
+          frequency_months: expense.frequency_months,
+          in_budget: expense.in_budget,
+          identification_date: expense.identification_date,
+          budget_entry_date: expense.budget_entry_date
+        }])
+        .select()
+        .single();
+
+      if (error) throw error;
+      setNonRecurringExpenses(prev => prev.map(a => a.id === tempId ? data : a));
+      updateActivity('update');
+    } catch (err) {
+      setNonRecurringExpenses(prev => prev.filter(a => a.id !== tempId));
+      throw err;
+    }
+  };
+
+  const updateNonRecurringExpense = async (id: string, expense: Partial<NonRecurringExpense>) => {
+    setNonRecurringExpenses(prev => prev.map(a => a.id === id ? { ...a, ...expense } : a));
+
+    const { data, error } = await supabase
+      .from('non_recurring_expenses')
+      .update(expense)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    setNonRecurringExpenses(prev => prev.map(a => a.id === id ? data : a));
+    updateActivity('update');
+  };
+
+  const deleteNonRecurringExpense = async (id: string) => {
+    const { error } = await supabase
+      .from('non_recurring_expenses')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+    setNonRecurringExpenses(prev => prev.filter(a => a.id !== id));
+    updateActivity('update');
+  };
+
   return (
     <FinanceContext.Provider value={{
       transactions, categories, wallets, activeSpace, theme, loading,
@@ -1196,6 +1298,10 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       deleteDebt,
       updateDebtValue,
       deleteDebtValue,
+      nonRecurringExpenses,
+      addNonRecurringExpense,
+      updateNonRecurringExpense,
+      deleteNonRecurringExpense,
       saveWalletOrder: async (cards: string[], accounts: string[]) => {
         if (!user) return;
         

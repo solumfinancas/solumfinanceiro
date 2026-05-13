@@ -18,6 +18,7 @@ import { Tasks } from './components/Tasks';
 import { Anamnesis } from './components/Anamnesis';
 import { Debts } from './components/Debts';
 import { Equity } from './components/Equity';
+import { NonRecurringExpenses } from './components/NonRecurringExpenses';
 import { SuspensionBlock } from './components/SuspensionBlock';
 import { OverdueAlertModal } from './components/OverdueAlertModal';
 import { OverduePersistentReminder } from './components/OverduePersistentReminder';
@@ -201,6 +202,8 @@ const AppContent = () => {
         return <Debts />;
       case 'patrimonio':
         return <Equity />;
+      case 'não-recorrente':
+        return <NonRecurringExpenses />;
       case 'management':
         return <ManagementPortal />;
       default:

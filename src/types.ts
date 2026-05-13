@@ -115,3 +115,16 @@ export interface DebtHistory {
   observation: string;
   created_at: string;
 }
+
+export interface NonRecurringExpense {
+  id: string;
+  user_id: string;
+  space: 'personal' | 'business';
+  description: string;
+  amount: number;
+  frequency_months: number;
+  in_budget: boolean;
+  identification_date: string | null;
+  budget_entry_date: string | null;
+  created_at: string;
+}
