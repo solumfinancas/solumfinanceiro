@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
-import { Transaction, Category, Wallet, ProfileType, EquityAsset, EquityHistory } from './types';
+import { Transaction, Category, Wallet, ProfileType, EquityAsset, EquityHistory, NonRecurringExpense } from './types';
 import { supabase } from './lib/supabase';
 import { useAuth } from './contexts/AuthContext';
 import { getInvoicePeriod } from './lib/utils';
@@ -1231,7 +1231,8 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
           frequency_months: expense.frequency_months,
           in_budget: expense.in_budget,
           identification_date: expense.identification_date,
-          budget_entry_date: expense.budget_entry_date
+          budget_entry_date: expense.budget_entry_date,
+          observation: expense.observation
         }])
         .select()
         .single();

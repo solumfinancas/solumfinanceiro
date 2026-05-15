@@ -2,12 +2,12 @@ import React, { useState, useMemo } from 'react';
 import { useFinance } from '../FinanceContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useModal } from '../contexts/ModalContext';
-import { 
-  Plus, 
-  Search, 
-  X, 
-  Edit2, 
-  Trash2, 
+import {
+  Plus,
+  Search,
+  X,
+  Edit2,
+  Trash2,
   AlertCircle,
   PiggyBank,
   CalendarClock,
@@ -15,7 +15,9 @@ import {
   TrendingUp,
   DollarSign,
   ChevronRight,
-  Info
+  Info,
+  Check,
+  RotateCcw
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -25,8 +27,8 @@ import { NonRecurringExpense } from '../types';
 export const NonRecurringExpenses: React.FC = () => {
   const { user } = useAuth();
   const { viewingUserId } = useAuth();
-  const { 
-    activeSpace, 
+  const {
+    activeSpace,
     nonRecurringExpenses,
     addNonRecurringExpense,
     updateNonRecurringExpense,
@@ -34,7 +36,7 @@ export const NonRecurringExpenses: React.FC = () => {
     loading: contextLoading
   } = useFinance();
   const { showAlert } = useModal();
-  
+
   const targetUserId = viewingUserId || user?.id;
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -43,6 +45,7 @@ export const NonRecurringExpenses: React.FC = () => {
 
   // Modals de confirmação
   const [confirmDelete, setConfirmDelete] = useState<NonRecurringExpense | null>(null);
+  const [confirmToggleBudget, setConfirmToggleBudget] = useState<NonRecurringExpense | null>(null);
 
   // Add/Edit Form State
   const [form, setForm] = useState({
@@ -51,7 +54,8 @@ export const NonRecurringExpenses: React.FC = () => {
     frequency_months: 12,
     in_budget: false,
     identification_date: new Date().toISOString().split('T')[0],
-    budget_entry_date: '' as string | null
+    budget_entry_date: '' as string | null,
+    observation: ''
   });
 
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -79,7 +83,8 @@ export const NonRecurringExpenses: React.FC = () => {
       frequency_months: 12,
       in_budget: false,
       identification_date: new Date().toISOString().split('T')[0],
-      budget_entry_date: ''
+      budget_entry_date: '',
+      observation: ''
     });
     setEditingExpense(null);
     setIsAddModalOpen(true);
@@ -92,7 +97,8 @@ export const NonRecurringExpenses: React.FC = () => {
       frequency_months: expense.frequency_months,
       in_budget: expense.in_budget,
       identification_date: expense.identification_date || '',
-      budget_entry_date: expense.budget_entry_date || ''
+      budget_entry_date: expense.budget_entry_date || '',
+      observation: expense.observation || ''
     });
     setEditingExpense(expense);
     setIsAddModalOpen(true);
@@ -125,7 +131,8 @@ export const NonRecurringExpenses: React.FC = () => {
           frequency_months: form.frequency_months,
           in_budget: form.in_budget,
           identification_date: form.identification_date || null,
-          budget_entry_date: form.in_budget ? (form.budget_entry_date || new Date().toISOString().split('T')[0]) : null
+          budget_entry_date: form.in_budget ? (form.budget_entry_date || new Date().toISOString().split('T')[0]) : null,
+          observation: form.observation || null
         });
         setIsAddModalOpen(false);
         setEditingExpense(null);
@@ -138,7 +145,8 @@ export const NonRecurringExpenses: React.FC = () => {
           frequency_months: form.frequency_months,
           in_budget: form.in_budget,
           identification_date: form.identification_date || null,
-          budget_entry_date: form.in_budget ? (form.budget_entry_date || new Date().toISOString().split('T')[0]) : null
+          budget_entry_date: form.in_budget ? (form.budget_entry_date || new Date().toISOString().split('T')[0]) : null,
+          observation: form.observation || null
         });
         setIsAddModalOpen(false);
         showAlert('Sucesso', 'Gasto adicionado com sucesso', 'success');
@@ -159,8 +167,28 @@ export const NonRecurringExpenses: React.FC = () => {
     }
   };
 
+  const handleToggleBudgetStatus = async (expense: NonRecurringExpense) => {
+    try {
+      const isEntering = !expense.in_budget;
+      await updateNonRecurringExpense(expense.id, {
+        description: expense.description,
+        amount: expense.amount,
+        frequency_months: expense.frequency_months,
+        in_budget: isEntering,
+        identification_date: expense.identification_date,
+        budget_entry_date: isEntering ? new Date().toISOString().split('T')[0] : null,
+        observation: expense.observation
+      });
+      setConfirmToggleBudget(null);
+      showAlert('Sucesso', isEntering ? 'Gasto movido para o orçamento' : 'Gasto removido do orçamento', 'success');
+    } catch (error) {
+      console.error('Error toggling expense budget status:', error);
+      showAlert('Erro', 'Não foi possível alterar o status do gasto', 'danger');
+    }
+  };
+
   const { inBudgetExpenses, outBudgetExpenses } = useMemo(() => {
-    const filtered = nonRecurringExpenses.filter(exp => 
+    const filtered = nonRecurringExpenses.filter(exp =>
       exp.description.toLowerCase().includes(searchQuery.toLowerCase())
     );
     return {
@@ -175,7 +203,7 @@ export const NonRecurringExpenses: React.FC = () => {
       monthly: list.reduce((sum, exp) => sum + (exp.amount / exp.frequency_months), 0),
       count: list.length
     });
-    
+
     return {
       inBudget: calc(inBudgetExpenses),
       outBudget: calc(outBudgetExpenses),
@@ -197,17 +225,17 @@ export const NonRecurringExpenses: React.FC = () => {
           <p className="text-muted-foreground text-[10px] font-bold uppercase tracking-[0.2em]">Planeje suas despesas periódicas e saiba quanto poupar</p>
         </div>
 
-        <button 
+        <button
           onClick={handleOpenAddModal}
           className="h-12 px-6 rounded-2xl bg-primary text-white text-[10px] font-black uppercase tracking-widest flex items-center gap-3 hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-primary/20"
         >
           <Plus size={18} />
-          Novo Gasto
+          Novo
         </button>
       </div>
 
       {nonRecurringExpenses.length === 0 && !contextLoading ? (
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="bg-card border border-dashed border-border rounded-[3rem] p-20 flex flex-col items-center text-center gap-6 shadow-2xl shadow-slate-200/20 dark:shadow-none"
@@ -222,7 +250,7 @@ export const NonRecurringExpenses: React.FC = () => {
               Você ainda não cadastrou nenhum gasto não recorrente (como IPVA, seguros anuais ou viagens). Cadastre-os para saber exatamente quanto precisa reservar por mês.
             </p>
           </div>
-          <button 
+          <button
             onClick={handleOpenAddModal}
             className="h-16 px-10 rounded-2xl bg-primary text-white text-[11px] font-black uppercase tracking-widest flex items-center gap-4 hover:scale-[1.05] active:scale-95 transition-all shadow-2xl shadow-primary/30 mt-4"
           >
@@ -297,7 +325,7 @@ export const NonRecurringExpenses: React.FC = () => {
                 </div>
                 <div className="relative w-full md:w-64">
                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
-                  <input 
+                  <input
                     type="text"
                     placeholder="BUSCAR..."
                     value={searchQuery}
@@ -338,9 +366,16 @@ export const NonRecurringExpenses: React.FC = () => {
                             </div>
                           </td>
                           <td className="px-8 py-6">
-                            <span className="text-sm font-black uppercase tracking-tight group-hover:text-primary transition-colors">
-                              {expense.description}
-                            </span>
+                            <div className="flex flex-col">
+                              <span className="text-sm font-black uppercase tracking-tight group-hover:text-primary transition-colors">
+                                {expense.description}
+                              </span>
+                              {expense.observation && (
+                                <span className="text-[10px] font-medium text-muted-foreground italic mt-1">
+                                  {expense.observation}
+                                </span>
+                              )}
+                            </div>
                           </td>
                           <td className="px-8 py-6 text-center">
                             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 text-blue-500 text-[10px] font-black uppercase tracking-widest">
@@ -362,13 +397,20 @@ export const NonRecurringExpenses: React.FC = () => {
                           </td>
                           <td className="px-8 py-6">
                             <div className="flex items-center justify-end gap-2">
-                              <button 
+                              <button
+                                onClick={() => setConfirmToggleBudget(expense)}
+                                className="w-10 h-10 rounded-xl bg-amber-500/5 text-amber-500 border border-amber-500/10 flex items-center justify-center hover:bg-amber-500 hover:text-white transition-all shadow-sm"
+                                title="Remover do Orçamento"
+                              >
+                                <RotateCcw size={16} />
+                              </button>
+                              <button
                                 onClick={() => handleOpenEditModal(expense)}
                                 className="w-10 h-10 rounded-xl bg-primary/5 text-primary border border-primary/10 flex items-center justify-center hover:bg-primary hover:text-white transition-all shadow-sm"
                               >
                                 <Edit2 size={16} />
                               </button>
-                              <button 
+                              <button
                                 onClick={() => setConfirmDelete(expense)}
                                 className="w-10 h-10 rounded-xl bg-rose-500/5 text-rose-500 border border-rose-500/10 flex items-center justify-center hover:bg-rose-500 hover:text-white transition-all shadow-sm"
                               >
@@ -424,9 +466,16 @@ export const NonRecurringExpenses: React.FC = () => {
                             </span>
                           </td>
                           <td className="px-8 py-6">
-                            <span className="text-sm font-black uppercase tracking-tight group-hover:text-amber-500 transition-colors text-muted-foreground">
-                              {expense.description}
-                            </span>
+                            <div className="flex flex-col">
+                              <span className="text-sm font-black uppercase tracking-tight group-hover:text-amber-500 transition-colors text-muted-foreground">
+                                {expense.description}
+                              </span>
+                              {expense.observation && (
+                                <span className="text-[10px] font-medium text-muted-foreground italic mt-1">
+                                  {expense.observation}
+                                </span>
+                              )}
+                            </div>
                           </td>
                           <td className="px-8 py-6 text-center">
                             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-muted text-muted-foreground text-[10px] font-black uppercase tracking-widest">
@@ -447,13 +496,20 @@ export const NonRecurringExpenses: React.FC = () => {
                           </td>
                           <td className="px-8 py-6">
                             <div className="flex items-center justify-end gap-2">
-                              <button 
+                              <button
+                                onClick={() => setConfirmToggleBudget(expense)}
+                                className="w-10 h-10 rounded-xl bg-emerald-500/5 text-emerald-500 border border-emerald-500/10 flex items-center justify-center hover:bg-emerald-500 hover:text-white transition-all shadow-sm"
+                                title="Mover para o Orçamento"
+                              >
+                                <Check size={16} />
+                              </button>
+                              <button
                                 onClick={() => handleOpenEditModal(expense)}
                                 className="w-10 h-10 rounded-xl bg-primary/5 text-primary border border-primary/10 flex items-center justify-center hover:bg-primary hover:text-white transition-all shadow-sm"
                               >
                                 <Edit2 size={16} />
                               </button>
-                              <button 
+                              <button
                                 onClick={() => setConfirmDelete(expense)}
                                 className="w-10 h-10 rounded-xl bg-rose-500/5 text-rose-500 border border-rose-500/10 flex items-center justify-center hover:bg-rose-500 hover:text-white transition-all shadow-sm"
                               >
@@ -502,7 +558,7 @@ export const NonRecurringExpenses: React.FC = () => {
                     {editingExpense ? 'Editar Gasto' : 'Cadastrar Gasto'}
                   </h2>
                 </div>
-                <button 
+                <button
                   onClick={() => setIsAddModalOpen(false)}
                   className="w-10 h-10 rounded-xl bg-muted border border-border flex items-center justify-center text-muted-foreground hover:text-rose-500 transition-all"
                 >
@@ -514,7 +570,7 @@ export const NonRecurringExpenses: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Identificado em</label>
-                    <input 
+                    <input
                       type="date"
                       required
                       value={form.identification_date || ''}
@@ -525,7 +581,7 @@ export const NonRecurringExpenses: React.FC = () => {
 
                   <div className="space-y-2">
                     <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1 text-primary">Descrição do Gasto</label>
-                    <input 
+                    <input
                       type="text"
                       required
                       placeholder="EX: IPVA, SEGURO, VIAGEM..."
@@ -541,7 +597,7 @@ export const NonRecurringExpenses: React.FC = () => {
                     <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Valor Total</label>
                     <div className="relative">
                       <span className="absolute left-6 top-1/2 -translate-y-1/2 text-[10px] font-black text-muted-foreground">R$</span>
-                      <input 
+                      <input
                         type="text"
                         inputMode="numeric"
                         required
@@ -554,7 +610,7 @@ export const NonRecurringExpenses: React.FC = () => {
 
                   <div className="space-y-2">
                     <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Frequência (Meses)</label>
-                    <input 
+                    <input
                       type="number"
                       min="1"
                       required
@@ -563,6 +619,16 @@ export const NonRecurringExpenses: React.FC = () => {
                       className="w-full h-14 bg-muted border-none rounded-2xl px-6 text-sm font-bold focus:ring-2 focus:ring-primary/20"
                     />
                   </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Observações (Opcional)</label>
+                  <textarea
+                    placeholder="DETALHES DO GASTO..."
+                    value={form.observation}
+                    onChange={e => setForm(prev => ({ ...prev, observation: e.target.value.toUpperCase() }))}
+                    className="w-full h-24 bg-muted border-none rounded-2xl p-6 text-sm font-bold uppercase tracking-widest focus:ring-2 focus:ring-primary/20 resize-none"
+                  />
                 </div>
 
                 <div className="p-6 rounded-[2rem] bg-muted/30 border border-border space-y-4">
@@ -583,8 +649,8 @@ export const NonRecurringExpenses: React.FC = () => {
                       type="button"
                       onClick={() => setForm(prev => {
                         const nextInBudget = !prev.in_budget;
-                        return { 
-                          ...prev, 
+                        return {
+                          ...prev,
                           in_budget: nextInBudget,
                           budget_entry_date: nextInBudget ? (prev.budget_entry_date || new Date().toISOString().split('T')[0]) : ''
                         };
@@ -594,21 +660,21 @@ export const NonRecurringExpenses: React.FC = () => {
                         form.in_budget ? "bg-emerald-500" : "bg-slate-300 dark:bg-slate-700"
                       )}
                     >
-                      <motion.div 
+                      <motion.div
                         animate={{ x: form.in_budget ? 24 : 0 }}
-                        className="w-4 h-4 rounded-full bg-white shadow-lg" 
+                        className="w-4 h-4 rounded-full bg-white shadow-lg"
                       />
                     </button>
                   </div>
 
                   {form.in_budget && (
-                    <motion.div 
+                    <motion.div
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: 'auto' }}
                       className="space-y-2 pt-4 border-t border-border"
                     >
                       <label className="text-[10px] font-black uppercase tracking-widest text-emerald-500 ml-1">Entrou no Orçamento em</label>
-                      <input 
+                      <input
                         type="date"
                         required
                         value={form.budget_entry_date || ''}
@@ -636,7 +702,7 @@ export const NonRecurringExpenses: React.FC = () => {
                   )}
                 </div>
 
-                <button 
+                <button
                   type="submit"
                   className="w-full h-16 bg-primary text-white rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] shadow-xl shadow-primary/30 hover:scale-[1.02] active:scale-95 transition-all mt-4"
                 >
@@ -648,7 +714,7 @@ export const NonRecurringExpenses: React.FC = () => {
         )}
       </AnimatePresence>
 
-      <ConfirmModal 
+      <ConfirmModal
         isOpen={!!confirmDelete}
         title="Excluir Gasto"
         message={`Tem certeza que deseja excluir o planejamento de "${confirmDelete?.description}"? Esta ação não pode ser desfeita.`}
@@ -656,6 +722,19 @@ export const NonRecurringExpenses: React.FC = () => {
         onConfirm={() => confirmDelete && handleDelete(confirmDelete.id)}
         onClose={() => setConfirmDelete(null)}
         variant="danger"
+      />
+
+      <ConfirmModal
+        isOpen={!!confirmToggleBudget}
+        title={confirmToggleBudget?.in_budget ? "Remover do Orçamento" : "Adicionar ao Orçamento"}
+        message={confirmToggleBudget?.in_budget
+          ? `Deseja remover "${confirmToggleBudget?.description}" do seu orçamento mensal?`
+          : `Deseja adicionar "${confirmToggleBudget?.description}" ao seu orçamento mensal?`
+        }
+        confirmText={confirmToggleBudget?.in_budget ? "Sim, Remover" : "Sim, Adicionar"}
+        onConfirm={() => confirmToggleBudget && handleToggleBudgetStatus(confirmToggleBudget)}
+        onClose={() => setConfirmToggleBudget(null)}
+        variant={confirmToggleBudget?.in_budget ? "warning" : "success"}
       />
     </div>
   );

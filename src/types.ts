@@ -126,5 +126,6 @@ export interface NonRecurringExpense {
   in_budget: boolean;
   identification_date: string | null;
   budget_entry_date: string | null;
+  observation: string | null;
   created_at: string;
 }
