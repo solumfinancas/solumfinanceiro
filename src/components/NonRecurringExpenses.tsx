@@ -46,6 +46,8 @@ export const NonRecurringExpenses: React.FC = () => {
   // Modals de confirmação
   const [confirmDelete, setConfirmDelete] = useState<NonRecurringExpense | null>(null);
   const [confirmToggleBudget, setConfirmToggleBudget] = useState<NonRecurringExpense | null>(null);
+  const [confirmFinish, setConfirmFinish] = useState<NonRecurringExpense | null>(null);
+  const [confirmReactivate, setConfirmReactivate] = useState<NonRecurringExpense | null>(null);
 
   // Add/Edit Form State
   const [form, setForm] = useState({
@@ -187,13 +189,44 @@ export const NonRecurringExpenses: React.FC = () => {
     }
   };
 
-  const { inBudgetExpenses, outBudgetExpenses } = useMemo(() => {
+  const handleFinishExpense = async (expense: NonRecurringExpense) => {
+    try {
+      await updateNonRecurringExpense(expense.id, {
+        status: 'finished',
+        finished_at: new Date().toISOString().split('T')[0]
+      });
+      setConfirmFinish(null);
+      showAlert('Sucesso', 'Gasto finalizado com sucesso', 'success');
+    } catch (error) {
+      console.error('Error finishing expense:', error);
+      showAlert('Erro', 'Não foi possível finalizar o gasto', 'danger');
+    }
+  };
+
+  const handleReactivateExpense = async (expense: NonRecurringExpense) => {
+    try {
+      await updateNonRecurringExpense(expense.id, {
+        status: 'active',
+        finished_at: null,
+        in_budget: false, // Reativa fora do orçamento para reavaliação
+        budget_entry_date: null
+      });
+      setConfirmReactivate(null);
+      showAlert('Sucesso', 'Gasto reativado com sucesso', 'success');
+    } catch (error) {
+      console.error('Error reactivating expense:', error);
+      showAlert('Erro', 'Não foi possível reativar o gasto', 'danger');
+    }
+  };
+
+  const { inBudgetExpenses, outBudgetExpenses, finishedExpenses } = useMemo(() => {
     const filtered = nonRecurringExpenses.filter(exp =>
       exp.description.toLowerCase().includes(searchQuery.toLowerCase())
     );
     return {
-      inBudgetExpenses: filtered.filter(e => e.in_budget),
-      outBudgetExpenses: filtered.filter(e => !e.in_budget)
+      inBudgetExpenses: filtered.filter(e => e.in_budget && e.status !== 'finished'),
+      outBudgetExpenses: filtered.filter(e => !e.in_budget && e.status !== 'finished'),
+      finishedExpenses: filtered.filter(e => e.status === 'finished')
     };
   }, [nonRecurringExpenses, searchQuery]);
 
@@ -204,10 +237,13 @@ export const NonRecurringExpenses: React.FC = () => {
       count: list.length
     });
 
+    const inBudget = calc(inBudgetExpenses);
+    const outBudget = calc(outBudgetExpenses);
+
     return {
-      inBudget: calc(inBudgetExpenses),
-      outBudget: calc(outBudgetExpenses),
-      totalMonthly: calc(inBudgetExpenses).monthly + calc(outBudgetExpenses).monthly
+      inBudget,
+      outBudget,
+      totalMonthly: inBudget.monthly + outBudget.monthly
     };
   }, [inBudgetExpenses, outBudgetExpenses]);
 
@@ -398,6 +434,13 @@ export const NonRecurringExpenses: React.FC = () => {
                           <td className="px-8 py-6">
                             <div className="flex items-center justify-end gap-2">
                               <button
+                                onClick={() => setConfirmFinish(expense)}
+                                className="w-10 h-10 rounded-xl bg-emerald-500/5 text-emerald-500 border border-emerald-500/10 flex items-center justify-center hover:bg-emerald-500 hover:text-white transition-all shadow-sm"
+                                title="Finalizar Gasto"
+                              >
+                                <Check size={16} />
+                              </button>
+                              <button
                                 onClick={() => setConfirmToggleBudget(expense)}
                                 className="w-10 h-10 rounded-xl bg-amber-500/5 text-amber-500 border border-amber-500/10 flex items-center justify-center hover:bg-amber-500 hover:text-white transition-all shadow-sm"
                                 title="Remover do Orçamento"
@@ -508,6 +551,100 @@ export const NonRecurringExpenses: React.FC = () => {
                                 className="w-10 h-10 rounded-xl bg-primary/5 text-primary border border-primary/10 flex items-center justify-center hover:bg-primary hover:text-white transition-all shadow-sm"
                               >
                                 <Edit2 size={16} />
+                              </button>
+                              <button
+                                onClick={() => setConfirmDelete(expense)}
+                                className="w-10 h-10 rounded-xl bg-rose-500/5 text-rose-500 border border-rose-500/10 flex items-center justify-center hover:bg-rose-500 hover:text-white transition-all shadow-sm"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Table: Finalizados */}
+            <div className="bg-card border border-border rounded-[3rem] overflow-hidden shadow-xl shadow-slate-200/20 dark:shadow-none">
+              <div className="p-8 border-b border-border bg-slate-500/5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="w-2 h-2 rounded-full bg-slate-500" />
+                    <h3 className="text-lg font-black uppercase tracking-tighter text-foreground">Gastos Finalizados</h3>
+                  </div>
+                  <p className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest">Histórico de despesas concluídas</p>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-border bg-muted/10">
+                      <th className="text-left px-8 py-5 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Ciclo</th>
+                      <th className="text-left px-8 py-5 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Descrição</th>
+                      <th className="text-center px-8 py-5 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Frequência</th>
+                      <th className="text-right px-8 py-5 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Valor Total</th>
+                      <th className="text-right px-8 py-5 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Status</th>
+                      <th className="text-right px-8 py-5 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {finishedExpenses.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="px-8 py-12 text-center">
+                          <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Nenhum gasto finalizado recentemente.</p>
+                        </td>
+                      </tr>
+                    ) : (
+                      finishedExpenses.map(expense => (
+                        <tr key={expense.id} className="group border-b border-border last:border-none hover:bg-muted/30 transition-all">
+                          <td className="px-8 py-6">
+                            <div className="flex flex-col">
+                              <span className="text-[10px] font-black uppercase tracking-tight text-muted-foreground">
+                                Entrou: {expense.budget_entry_date ? new Date(expense.budget_entry_date + 'T12:00:00').toLocaleDateString('pt-BR') : '-'}
+                              </span>
+                              <span className="text-[8px] font-bold text-emerald-500 uppercase tracking-widest mt-0.5">Finalizado: {expense.finished_at ? new Date(expense.finished_at + 'T12:00:00').toLocaleDateString('pt-BR') : '-'}</span>
+                            </div>
+                          </td>
+                          <td className="px-8 py-6">
+                            <div className="flex flex-col">
+                              <span className="text-sm font-black uppercase tracking-tight text-muted-foreground/60">
+                                {expense.description}
+                              </span>
+                              {expense.observation && (
+                                <span className="text-[10px] font-medium text-muted-foreground italic mt-1">
+                                  {expense.observation}
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-8 py-6 text-center">
+                            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-muted text-muted-foreground text-[10px] font-black uppercase tracking-widest">
+                              A cada {expense.frequency_months} meses
+                            </div>
+                          </td>
+                          <td className="px-8 py-6 text-right">
+                            <span className="text-sm font-bold text-muted-foreground/40 line-through">
+                              {formatCurrency(expense.amount)}
+                            </span>
+                          </td>
+                          <td className="px-8 py-6 text-right">
+                            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-500 text-[8px] font-black uppercase tracking-widest">
+                              Concluído
+                            </div>
+                          </td>
+                          <td className="px-8 py-6">
+                            <div className="flex items-center justify-end gap-2">
+                              <button
+                                onClick={() => setConfirmReactivate(expense)}
+                                className="w-10 h-10 rounded-xl bg-blue-500/5 text-blue-500 border border-blue-500/10 flex items-center justify-center hover:bg-blue-500 hover:text-white transition-all shadow-sm"
+                                title="Reativar Gasto"
+                              >
+                                <RotateCcw size={16} />
                               </button>
                               <button
                                 onClick={() => setConfirmDelete(expense)}
@@ -735,6 +872,26 @@ export const NonRecurringExpenses: React.FC = () => {
         onConfirm={() => confirmToggleBudget && handleToggleBudgetStatus(confirmToggleBudget)}
         onClose={() => setConfirmToggleBudget(null)}
         variant={confirmToggleBudget?.in_budget ? "warning" : "success"}
+      />
+
+      <ConfirmModal
+        isOpen={!!confirmFinish}
+        title="Finalizar Gasto"
+        message={`Deseja marcar "${confirmFinish?.description}" como finalizado? Ele será movido para o histórico e não será mais somado à reserva mensal.`}
+        confirmText="Sim, Finalizar"
+        onConfirm={() => confirmFinish && handleFinishExpense(confirmFinish)}
+        onClose={() => setConfirmFinish(null)}
+        variant="success"
+      />
+
+      <ConfirmModal
+        isOpen={!!confirmReactivate}
+        title="Reativar Gasto"
+        message={`Deseja reativar o gasto "${confirmReactivate?.description}"? Ele voltará para a lista de gastos fora do orçamento.`}
+        confirmText="Sim, Reativar"
+        onConfirm={() => confirmReactivate && handleReactivateExpense(confirmReactivate)}
+        onClose={() => setConfirmReactivate(null)}
+        variant="info"
       />
     </div>
   );

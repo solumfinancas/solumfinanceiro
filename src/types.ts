@@ -127,5 +127,7 @@ export interface NonRecurringExpense {
   identification_date: string | null;
   budget_entry_date: string | null;
   observation: string | null;
+  status: 'active' | 'finished';
+  finished_at: string | null;
   created_at: string;
 }
