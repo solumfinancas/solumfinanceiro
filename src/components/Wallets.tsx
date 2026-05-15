@@ -800,25 +800,34 @@ export const Wallets: React.FC = () => {
         <div className="space-y-10">
           {/* Grouped by Category */}
           {(() => {
-            let rowsCount = 0;
-            const categories = ['checking', 'savings', 'wishlist'] as const;
+            let currentRowsCount = 0;
+            let hasHiddenItems = false;
+            const accountCategories = ['checking', 'savings', 'wishlist'] as const;
 
-            return categories.map((catId) => {
+            const categorySections = accountCategories.map((catId) => {
               const catNames: Record<string, string> = {
                 checking: 'Conta Corrente',
                 savings: 'Cofrinhos',
                 wishlist: 'Lista de Desejos'
               };
 
-              const activeInCategory = orderedAccounts.filter(id => {
-                const w = wallets.find(wallet => wallet.id === id);
+              const activeInCategory = wallets.filter(w => {
                 if (!w) return false;
                 if (w.type === 'credit_card') return false;
+                if (w.isActive === false) return false;
+                if (w.isDeleted) return false;
                 if (searchTerm && !w.name.toLowerCase().includes(searchTerm.toLowerCase())) return false;
 
                 const wCat = w.walletCategory || 'checking';
-                return wCat === catId && w.isActive !== false && !w.isDeleted;
-              });
+                return wCat === catId;
+              }).sort((a, b) => {
+                const idxA = orderedAccounts.indexOf(a.id);
+                const idxB = orderedAccounts.indexOf(b.id);
+                if (idxA === -1 && idxB === -1) return 0;
+                if (idxA === -1) return 1;
+                if (idxB === -1) return -1;
+                return idxA - idxB;
+              }).map(w => w.id);
 
               const inactiveInCategory = showInactiveBanks
                 ? wallets.filter(w => {
@@ -831,18 +840,21 @@ export const Wallets: React.FC = () => {
                 })
                 : [];
 
-              const allIds = [...activeInCategory, ...inactiveInCategory.map(w => w.id)];
+              const allIdsInCat = [...activeInCategory, ...inactiveInCategory.map(w => w.id)];
 
-              if (allIds.length === 0) return null;
+              if (allIdsInCat.length === 0) return null;
 
-              const itemsToShow = isWalletsExpanded ? allIds : allIds.slice(0, Math.max(0, (2 - rowsCount) * 3));
+              const maxItemsVisible = isWalletsExpanded ? allIdsInCat.length : Math.max(0, (2 - currentRowsCount) * 3);
+              const itemsToShow = isWalletsExpanded ? allIdsInCat : allIdsInCat.slice(0, maxItemsVisible);
+              
+              if (!isWalletsExpanded && allIdsInCat.length > itemsToShow.length) {
+                hasHiddenItems = true;
+              }
+
               if (itemsToShow.length === 0 && !isWalletsExpanded) return null;
-              const itemsInThisCatCount = itemsToShow.length;
-              const rowsInThisCat = Math.ceil(itemsInThisCatCount / 3);
-
-              if (itemsInThisCatCount === 0) return null;
-
-              rowsCount += rowsInThisCat;
+              
+              const rowsInThisCat = Math.ceil(itemsToShow.length / 3);
+              currentRowsCount += rowsInThisCat;
 
               return (
                 <div key={catId} className="space-y-4 pt-4">
@@ -901,22 +913,28 @@ export const Wallets: React.FC = () => {
                 </div>
               );
             });
-          })()}
 
-          {activeBanks.length > 6 && !searchTerm && (
-            <div className="flex justify-center pt-4">
-              <button
-                onClick={() => setIsWalletsExpanded(!isWalletsExpanded)}
-                className="flex items-center gap-2 px-6 py-2 bg-muted/30 hover:bg-muted/50 rounded-full text-[10px] font-black uppercase tracking-widest transition-all text-muted-foreground group"
-              >
-                {isWalletsExpanded ? (
-                  <>Ocultar <ChevronUp size={14} className="group-hover:-translate-y-0.5 transition-transform" /></>
-                ) : (
-                  <>Mostrar Todas ({activeBanks.length}) <ChevronDown size={14} className="group-hover:translate-y-0.5 transition-transform" /></>
+            return (
+              <>
+                {categorySections}
+                
+                {(hasHiddenItems || (isWalletsExpanded && activeBanks.length > 3)) && !searchTerm && (
+                  <div className="flex justify-center pt-4">
+                    <button
+                      onClick={() => setIsWalletsExpanded(!isWalletsExpanded)}
+                      className="flex items-center gap-2 px-6 py-2 bg-muted/30 hover:bg-muted/50 rounded-full text-[10px] font-black uppercase tracking-widest transition-all text-muted-foreground group"
+                    >
+                      {isWalletsExpanded ? (
+                        <>Ocultar <ChevronUp size={14} className="group-hover:-translate-y-0.5 transition-transform" /></>
+                      ) : (
+                        <>Mostrar Todas ({activeBanks.length}) <ChevronDown size={14} className="group-hover:translate-y-0.5 transition-transform" /></>
+                      )}
+                    </button>
+                  </div>
                 )}
-              </button>
-            </div>
-          )}
+              </>
+            );
+          })()}
         </div>
       </section>
 
