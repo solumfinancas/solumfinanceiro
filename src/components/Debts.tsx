@@ -706,17 +706,18 @@ export const Debts: React.FC = () => {
                       return (
                         <tr key={debt.id} className="group border-b border-border last:border-none hover:bg-muted/30 transition-all">
                           <td className="px-8 py-6">
-                            <div className="flex flex-col">
-                              <div className="flex items-center gap-2">
-                                <button
-                                  onClick={() => setViewingDebtDetails(debt)}
-                                  className={cn(
-                                    "text-sm font-black uppercase tracking-tight group-hover:text-rose-500 transition-colors text-left",
-                                    debt.status === 'paid' && "text-muted-foreground line-through"
-                                  )}
-                                >
-                                  {debt.name}
-                                </button>
+                            <div className="flex flex-col gap-1 mb-2">
+                              <button
+                                onClick={() => setViewingDebtDetails(debt)}
+                                className={cn(
+                                  "text-sm font-black uppercase tracking-tight group-hover:text-rose-500 transition-colors text-left",
+                                  debt.status === 'paid' && "text-muted-foreground line-through"
+                                )}
+                              >
+                                {debt.name}
+                              </button>
+                              
+                              <div className="flex flex-wrap items-center gap-2">
                                 {debt.status === 'paid' ? (
                                   <span className="px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-500 text-[7px] font-black uppercase tracking-widest">
                                     Quitada
@@ -741,22 +742,38 @@ export const Debts: React.FC = () => {
                                     Pendente Atualização
                                   </span>
                                 )}
+
+                                {debt.status === 'active' && debt.monthly_payment > 0 && displayValue > 0 && (() => {
+                                  const remainingMonths = Math.floor(displayValue / debt.monthly_payment);
+                                  const targetDate = new Date(selectedMonth);
+                                  targetDate.setMonth(targetDate.getMonth() + remainingMonths);
+                                  const formattedTarget = targetDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+
+                                  return (
+                                    <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-blue-500/5 border border-blue-500/10 w-fit">
+                                      <div className="w-1 h-1 rounded-full bg-blue-500 animate-pulse" />
+                                      <span className="text-[8px] font-black uppercase tracking-[0.1em] text-blue-500">
+                                        QUITAÇÃO: {formattedTarget}
+                                      </span>
+                                    </div>
+                                  );
+                                })()}
                               </div>
-                              <div className="mt-1 flex flex-col gap-0.5">
+
+                              <div className="flex flex-col gap-0.5">
                                 <span className="text-[9px] font-medium text-muted-foreground uppercase tracking-widest leading-relaxed break-words">
                                   {debt.observation || 'Sem observações de origem'}
                                 </span>
-                                {monthData?.observation &&
-                                  monthData.observation.trim() !== '' && (
-                                    <span className="text-[9px] font-black text-rose-500 uppercase tracking-widest leading-relaxed break-words">
-                                      Mês: {monthData.observation}
-                                    </span>
-                                  )}
+                                {monthData?.observation && monthData.observation.trim() !== '' && (
+                                  <span className="text-[9px] font-black text-rose-500 uppercase tracking-widest leading-relaxed break-words mt-1">
+                                    Mês: {monthData.observation}
+                                  </span>
+                                )}
                               </div>
                             </div>
                           </td>
-                          <td className="px-8 py-6">
-                            <div className="flex flex-col gap-1">
+                          <td className="px-8 py-6 text-center">
+                            <div className="flex flex-col items-center gap-1">
                               <div className="flex items-center gap-2 text-muted-foreground">
                                 <Calendar size={12} />
                                 <span className="text-[10px] font-black uppercase tracking-widest">
@@ -765,10 +782,17 @@ export const Debts: React.FC = () => {
                               </div>
                               <div className="flex items-center gap-2 text-muted-foreground">
                                 <Percent size={12} />
-                                <span className="text-[10px] font-black uppercase tracking-widest">
+                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
                                   JUROS: {debt.interest_rate}%
                                 </span>
                               </div>
+                              {debt.status === 'active' && debt.monthly_payment > 0 && displayValue > 0 && (
+                                <div className="mt-1">
+                                  <span className="px-2 py-0.5 rounded-md bg-slate-500/10 text-slate-500 text-[8px] font-black uppercase tracking-widest">
+                                    {Math.floor(displayValue / debt.monthly_payment)} RESTANTES
+                                  </span>
+                                </div>
+                              )}
                             </div>
                           </td>
                           <td className="px-8 py-6 text-right">
@@ -827,7 +851,7 @@ export const Debts: React.FC = () => {
                               })()}
                             </div>
                           </td>
-                          <td className="px-8 py-6">
+                          <td className="px-8 py-6 text-right">
                             <div className="flex items-center justify-end gap-2">
                               {isRegistrationMonth && (
                                 <button
@@ -1168,7 +1192,7 @@ export const Debts: React.FC = () => {
                                       {formatCurrency(debt)}
                                     </p>
                                   </div>
-                                  
+
                                   <div className="pt-3 border-t border-border/50">
                                     <p className="text-[8px] font-black uppercase tracking-widest text-muted-foreground">Saldo Líquido</p>
                                     <p className={cn(
@@ -1662,7 +1686,7 @@ export const Debts: React.FC = () => {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <button 
+                    <button
                       onClick={() => {
                         handleOpenEditModal(viewingDebtDetails);
                         setViewingDebtDetails(null);
@@ -1672,7 +1696,7 @@ export const Debts: React.FC = () => {
                     >
                       <Edit2 size={20} />
                     </button>
-                    <button 
+                    <button
                       onClick={() => setViewingDebtDetails(null)}
                       className="w-12 h-12 rounded-xl bg-muted border border-border flex items-center justify-center text-muted-foreground hover:text-rose-500 transition-all"
                     >
