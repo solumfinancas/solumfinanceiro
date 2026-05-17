@@ -17,7 +17,7 @@ import { useFinance } from '../FinanceContext';
 import { useModal } from '../contexts/ModalContext';
 import { cn, formatCurrency, formatDate, getAvailableYears } from '../lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Category, Transaction } from '../types';
+import { Category, Transaction, Wallet } from '../types';
 import { CategoryModal } from './CategoryModal';
 import { TransactionModal } from './TransactionModal';
 import { RefundEditModal } from './RefundEditModal';
@@ -1339,6 +1339,36 @@ export const Categories: React.FC = () => {
                                 return null;
                               })()}
                             </div>
+                            <span className="hidden md:block text-[9px] text-muted-foreground font-black uppercase tracking-widest mt-1.5 opacity-60">
+                              {(() => {
+                                const isInvoicePayment = (t.description?.toLowerCase() || '').includes('pagamento de fatura');
+                                const showDouble = isInvoicePayment || t.type === 'transfer' || t.type === 'provision';
+
+                                const getWalletDisplayName = (w?: Wallet) => {
+                                  if (!w) return '';
+                                  if (w.type === 'credit_card') {
+                                    const hasCartao = w.name.toLowerCase().includes('cartão') || w.name.toLowerCase().includes('cartao');
+                                    return hasCartao ? w.name.toUpperCase() : `CARTÃO ${w.name.toUpperCase()}`;
+                                  }
+                                  return w.name.toUpperCase();
+                                };
+
+                                if (!showDouble) {
+                                  const w = wallets.find(item => item.id === t.walletId);
+                                  return w ? getWalletDisplayName(w) : 'CARTEIRA PADRÃO';
+                                }
+
+                                const sourceW = wallets.find(item => item.id === t.walletId);
+                                const destW = wallets.find(item => item.id === t.toWalletId);
+
+                                if (sourceW && destW) {
+                                  return `${getWalletDisplayName(sourceW)} ➔ ${getWalletDisplayName(destW)}`;
+                                }
+                                if (sourceW) return getWalletDisplayName(sourceW);
+                                if (destW) return getWalletDisplayName(destW);
+                                return 'CARTEIRA PADRÃO';
+                              })()}
+                            </span>
                             {t.groupId && t.type === 'expense' && (
                               <div className={cn(
                                 "mt-1 px-2 py-0.5 rounded-md text-[7px] font-black uppercase tracking-tighter w-fit border",
