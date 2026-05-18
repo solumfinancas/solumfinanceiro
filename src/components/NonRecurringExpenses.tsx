@@ -256,7 +256,7 @@ export const NonRecurringExpenses: React.FC = () => {
             <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-500">
               <CalendarClock size={20} />
             </div>
-            <h1 className="text-3xl font-black uppercase tracking-tighter text-foreground">Gastos Não Recorrentes</h1>
+            <h1 className="text-3xl font-black uppercase tracking-tighter text-foreground">Gastos Eventuais</h1>
           </div>
           <p className="text-muted-foreground text-[10px] font-bold uppercase tracking-[0.2em]">Planeje suas despesas periódicas e saiba quanto poupar</p>
         </div>
@@ -283,7 +283,7 @@ export const NonRecurringExpenses: React.FC = () => {
           <div className="space-y-3 max-w-md">
             <h3 className="text-2xl font-black uppercase tracking-tighter text-foreground">Sem gastos periódicos</h3>
             <p className="text-sm text-muted-foreground font-medium leading-relaxed">
-              Você ainda não cadastrou nenhum gasto não recorrente (como IPVA, seguros anuais ou viagens). Cadastre-os para saber exatamente quanto precisa reservar por mês.
+              Você ainda não cadastrou nenhum gasto eventual (como IPVA, seguros anuais ou viagens). Cadastre-os para saber exatamente quanto precisa reservar por mês.
             </p>
           </div>
           <button

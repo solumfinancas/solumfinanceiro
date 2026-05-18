@@ -331,7 +331,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setDebtHistory([]);
       }
 
-      // 9. Gastos Não Recorrentes
+      // 9. Gastos Eventuais
       const { data: nrData, error: nrErr } = await supabase
         .from('non_recurring_expenses')
         .select('*')
