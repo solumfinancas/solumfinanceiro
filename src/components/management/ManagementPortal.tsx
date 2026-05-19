@@ -30,6 +30,7 @@ import { useFinance } from '../../FinanceContext';
 import { SpaceActivationModal } from '../SpaceActivationModal';
 import { FinanceTab } from './tabs/FinanceTab';
 import { ClientsTab } from './tabs/ClientsTab';
+import { RegisterServiceModal } from '../RegisterServiceModal';
 import { TasksTab } from './tabs/TasksTab';
 import { SimulatorsTab, ReferralsTab } from './tabs/EmptyTabs';
 import { SettingsTab } from './tabs/SettingsTab';
@@ -111,6 +112,7 @@ export const ManagementPortal: React.FC<ManagementPortalProps> = ({ activeTab = 
   const [newUser, setNewUser] = useState({
     full_name: '',
     email: '',
+    phone: '',
     password: '',
     role: 'user' as UserRole
   });
@@ -118,6 +120,9 @@ export const ManagementPortal: React.FC<ManagementPortalProps> = ({ activeTab = 
   const [createSource, setCreateSource] = useState<'management' | 'clients'>('management');
   const [suspensionReason, setSuspensionReason] = useState('');
   const [showSuspendedInGroup, setShowSuspendedInGroup] = useState<Record<string, boolean>>({});
+  
+  // State for showing the RegisterServiceModal right after creating a new client
+  const [createdClientId, setCreatedClientId] = useState<string | null>(null);
 
   const fetchData = async () => {
     setLoading(true);
@@ -235,6 +240,19 @@ export const ManagementPortal: React.FC<ManagementPortalProps> = ({ activeTab = 
       const educatorIdToLink = createSource === 'clients' ? profile?.id : selectedEducatorId;
       const createdUserId = data.data?.user?.id || data.user?.id;
 
+      if (createdUserId && newUser.phone) {
+        await supabase.functions.invoke('admin-create-user', {
+          body: {
+            action: 'update',
+            userId: createdUserId,
+            userData: {
+              phone: newUser.phone,
+              personal_phone: newUser.phone
+            }
+          }
+        });
+      }
+
       if (educatorIdToLink && createdUserId && newUser.role === 'user') {
         const { error: linkError } = await supabase
           .from('educator_clients')
@@ -247,12 +265,19 @@ export const ManagementPortal: React.FC<ManagementPortalProps> = ({ activeTab = 
         if (linkError) console.error('Erro ao vincular cliente automaticamente:', linkError);
       }
 
-      showAlert('Sucesso', 'Perfil criado com sucesso!', 'success');
       setShowCreateModal(false);
-      setNewUser({ full_name: '', email: '', password: '', role: 'user' });
+      setNewUser({ full_name: '', email: '', phone: '', password: '', role: 'user' });
       setSelectedEducatorId('');
       setRefreshTrigger(prev => prev + 1);
       fetchData();
+      
+      // Abre o modal de Registro de Serviço para o novo cliente (se for cliente/user)
+      if (createdUserId && newUser.role === 'user') {
+        setCreatedClientId(createdUserId);
+      } else {
+        // Mostra o alerta de sucesso agora, pois não há modal secundário
+        showAlert('Sucesso', 'Perfil criado com sucesso!', 'success');
+      }
     } catch (err: any) {
       showAlert('Erro', 'Não foi possível criar o perfil: ' + err.message, 'danger');
     } finally {
@@ -940,11 +965,30 @@ export const ManagementPortal: React.FC<ManagementPortalProps> = ({ activeTab = 
                  <X size={20} />
                </button>
                
-               <h2 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tighter mb-8">Novo Perfil</h2>
+               <h2 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tighter mb-8">Novo Cliente</h2>
                <form onSubmit={handleCreateUser} className="space-y-6">
-                 <input required type="text" value={newUser.full_name} onChange={e => setNewUser(prev => ({ ...prev, full_name: e.target.value }))} placeholder="Nome Completo" className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/5 rounded-2xl h-14 px-6 text-sm text-slate-900 dark:text-white outline-none focus:border-primary/50 transition-all" />
-                 <input required type="email" value={newUser.email} onChange={e => setNewUser(prev => ({ ...prev, email: e.target.value }))} placeholder="E-mail" className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/5 rounded-2xl h-14 px-6 text-sm text-slate-900 dark:text-white outline-none focus:border-primary/50 transition-all" />
-                 <input required type="password" value={newUser.password} onChange={e => setNewUser(prev => ({ ...prev, password: e.target.value }))} placeholder="Senha" minLength={6} className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/5 rounded-2xl h-14 px-6 text-sm text-slate-900 dark:text-white outline-none focus:border-primary/50 transition-all" />
+                 <div className="space-y-2">
+                   <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-4 block">Nome Completo</label>
+                   <input required type="text" value={newUser.full_name} onChange={e => setNewUser(prev => ({ ...prev, full_name: e.target.value }))} placeholder="Ex: João da Silva" className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/5 rounded-2xl h-14 px-6 text-sm text-slate-900 dark:text-white outline-none focus:border-primary/50 transition-all" />
+                 </div>
+                 <div className="space-y-2">
+                   <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-4 block">E-mail</label>
+                   <input required type="email" value={newUser.email} onChange={e => setNewUser(prev => ({ ...prev, email: e.target.value }))} placeholder="Ex: joao@email.com" className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/5 rounded-2xl h-14 px-6 text-sm text-slate-900 dark:text-white outline-none focus:border-primary/50 transition-all" />
+                 </div>
+                 <div className="space-y-2">
+                   <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-4 block">Telefone (Opcional)</label>
+                   <input type="tel" value={newUser.phone} onChange={e => {
+                     let val = e.target.value.replace(/\D/g, '');
+                     if (val.length > 11) val = val.slice(0, 11);
+                     if (val.length > 2) val = `(${val.slice(0, 2)}) ${val.slice(2)}`;
+                     if (val.length > 9) val = `${val.slice(0, 9)}-${val.slice(9)}`;
+                     setNewUser(prev => ({ ...prev, phone: val }));
+                   }} placeholder="Ex: (11) 99999-9999" className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/5 rounded-2xl h-14 px-6 text-sm text-slate-900 dark:text-white outline-none focus:border-primary/50 transition-all" />
+                 </div>
+                 <div className="space-y-2">
+                   <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-4 block">Senha Provisória</label>
+                   <input required type="password" value={newUser.password} onChange={e => setNewUser(prev => ({ ...prev, password: e.target.value }))} placeholder="Ex: Mudar123" minLength={6} className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/5 rounded-2xl h-14 px-6 text-sm text-slate-900 dark:text-white outline-none focus:border-primary/50 transition-all" />
+                 </div>
                  <div className="space-y-4">
                   <AnimatePresence>
                     {createSource === 'management' && (
@@ -1052,7 +1096,7 @@ export const ManagementPortal: React.FC<ManagementPortalProps> = ({ activeTab = 
                     </div>
                   )}
 
-                  <button disabled={creatingUser} type="submit" className="w-full h-14 bg-primary text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all mt-4">{creatingUser ? 'Criando...' : 'Finalizar Cadastro'}</button>
+                  <button disabled={creatingUser} type="submit" className="w-full h-14 bg-primary text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all mt-4">{creatingUser ? 'Criando...' : 'Próxima Etapa'}</button>
                </form>
             </motion.div>
           </div>
@@ -1172,6 +1216,20 @@ export const ManagementPortal: React.FC<ManagementPortalProps> = ({ activeTab = 
           </div>
         )}
       </AnimatePresence>
+      
+      {/* Modal para Registrar Serviço Imediatamente Após a Criação */}
+      <RegisterServiceModal 
+        isOpen={!!createdClientId}
+        onClose={(reason) => {
+          setCreatedClientId(null);
+          // Se fechou no X sem salvar o serviço, exibimos o alerta do perfil que já havia sido criado
+          if (reason === 'cancel') {
+            showAlert('Sucesso', 'Perfil criado com sucesso!', 'success');
+          }
+        }}
+        clientId={createdClientId!}
+        spaceType="personal"
+      />
     </>
   );
 };

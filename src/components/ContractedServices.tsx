@@ -20,7 +20,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { useFinance } from '../FinanceContext';
 import { useModal } from '../contexts/ModalContext';
 import { formatCurrency, formatDate, cn } from '../lib/utils';
-import { addMonths, format } from 'date-fns';
+import { RegisterServiceModal } from './RegisterServiceModal';
+
 
 interface ContractedService {
   id: string;
@@ -48,14 +49,6 @@ export const ContractedServices: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Form states
-  const [type, setType] = useState<'Consultoria' | 'Mentoria' | 'Acompanhamento' | 'Uso do Aplicativo'>('Consultoria');
-  const [name, setName] = useState('');
-  const [totalValue, setTotalValue] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState<'vista' | 'parcelado'>('vista');
-  const [installments, setInstallments] = useState('1');
-  const [firstPaymentDate, setFirstPaymentDate] = useState(format(new Date(), 'yyyy-MM-dd'));
-  
   // Edit Installment state
   const [editingInstallment, setEditingInstallment] = useState<ContractedService | null>(null);
   const [editAmount, setEditAmount] = useState('');
@@ -63,6 +56,7 @@ export const ContractedServices: React.FC = () => {
   
   // Edit Contract state
   const [editingContractId, setEditingContractId] = useState<string | null>(null);
+  const [editingContractData, setEditingContractData] = useState<any>(null);
 
   const isEducator = profile?.role === 'educator' || profile?.role === 'admin' || profile?.role === 'master_admin';
   const isImpersonating = !!viewingUserId;
@@ -94,74 +88,9 @@ export const ContractedServices: React.FC = () => {
     fetchServices();
   }, [targetId, activeSpace]);
 
-  const handleSubmitService = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!isImpersonating || !isEducator) return;
-
-    if (!totalValue || parseFloat(totalValue) <= 0) {
-      showAlert('Atenção', 'Informe um valor válido.', 'warning');
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      const value = parseFloat(totalValue);
-      const numInstallments = paymentMethod === 'vista' ? 1 : parseInt(installments);
-      const monthlyAmount = value / numInstallments;
-      const contractId = editingContractId || crypto.randomUUID();
-      const startDate = new Date(firstPaymentDate + 'T12:00:00Z');
-
-      // If editing, delete old installments first
-      if (editingContractId) {
-        const { error: deleteError } = await supabase
-          .from('contracted_services')
-          .delete()
-          .eq('contract_id', editingContractId);
-        
-        if (deleteError) throw deleteError;
-      }
-
-      const records = [];
-      for (let i = 0; i < numInstallments; i++) {
-        const dueDate = addMonths(startDate, i);
-        records.push({
-          client_id: targetId,
-          educator_id: user?.id,
-          contract_id: contractId,
-          type,
-          name: name.trim() || null,
-          amount: monthlyAmount,
-          due_date: format(dueDate, 'yyyy-MM-dd'),
-          status: 'pending',
-          space_type: activeSpace,
-          installment_number: i + 1,
-          total_installments: numInstallments
-        });
-      }
-
-      const { error } = await supabase.from('contracted_services').insert(records);
-      if (error) throw error;
-
-      showAlert('Sucesso', editingContractId ? 'Serviço atualizado com sucesso.' : 'Serviço adicionado com sucesso.', 'success');
-      setIsModalOpen(false);
-      resetForm();
-      fetchServices();
-    } catch (err: any) {
-      console.error('Erro ao salvar serviço:', err);
-      showAlert('Erro', 'Falha ao salvar o serviço: ' + err.message, 'danger');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
   const resetForm = () => {
-    setType('Consultoria');
-    setName('');
-    setTotalValue('');
-    setPaymentMethod('vista');
-    setInstallments('1');
-    setFirstPaymentDate(format(new Date(), 'yyyy-MM-dd'));
     setEditingContractId(null);
+    setEditingContractData(null);
   };
 
   const toggleStatus = async (service: ContractedService) => {
@@ -375,12 +304,14 @@ export const ContractedServices: React.FC = () => {
                     <button 
                       onClick={() => {
                         const firstInst = contract.installments[0];
-                        setType(contract.type);
-                        setName(contract.name || '');
-                        setTotalValue(contract.totalValue.toString());
-                        setPaymentMethod(contract.installments.length > 1 ? 'parcelado' : 'vista');
-                        setInstallments(contract.installments.length.toString());
-                        setFirstPaymentDate(firstInst.due_date);
+                        setEditingContractData({
+                          type: contract.type,
+                          name: contract.name || '',
+                          totalValue: contract.totalValue.toString(),
+                          paymentMethod: contract.installments.length > 1 ? 'parcelado' : 'vista',
+                          installments: contract.installments.length.toString(),
+                          firstPaymentDate: firstInst.due_date
+                        });
                         setEditingContractId(contract.id);
                         setIsModalOpen(true);
                       }}
@@ -475,170 +406,20 @@ export const ContractedServices: React.FC = () => {
       </div>
 
       {/* Modal Add Service */}
-      <AnimatePresence>
-        {isModalOpen && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsModalOpen(false)} className="absolute inset-0 bg-slate-950/90 backdrop-blur-md" />
-            <motion.div 
-              initial={{ scale: 0.9, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="relative w-full max-w-lg bg-card border border-border rounded-[2.5rem] p-8 shadow-2xl overflow-hidden"
-            >
-              <div className="absolute -top-24 -right-24 w-48 h-48 bg-primary/20 blur-3xl rounded-full" />
-              
-              <div className="relative z-10 space-y-8">
-                <div className="flex items-center justify-between">
-                  <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
-                    <Briefcase size={28} />
-                  </div>
-                  <button onClick={() => {
-                    setIsModalOpen(false);
-                    resetForm();
-                  }} className="text-muted-foreground hover:text-white transition-colors">
-                    <X size={24} />
-                  </button>
-                </div>
-
-                <div>
-                  <h2 className="text-2xl font-black uppercase tracking-tighter">
-                    {editingContractId ? 'Editar Serviço' : 'Registrar Serviço'}
-                  </h2>
-                  <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
-                    {editingContractId ? 'Altere os dados do contrato atual.' : 'Defina o tipo e os valores do contrato.'}
-                  </p>
-                </div>
-
-                <form onSubmit={handleSubmitService} className="space-y-6">
-                  {/* Tipo de Serviço */}
-                  <div className="space-y-3">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-4">Tipo de Serviço</label>
-                    <div className="grid grid-cols-2 gap-3">
-                      {['Consultoria', 'Mentoria', 'Acompanhamento', 'Uso do Aplicativo'].map((t) => (
-                        <button 
-                          key={t}
-                          type="button"
-                          onClick={() => setType(t as any)}
-                          className={cn(
-                            "py-4 rounded-2xl border text-[9px] font-black uppercase tracking-widest transition-all",
-                            type === t ? "bg-primary text-white border-primary shadow-lg shadow-primary/20" : "bg-muted/20 border-border/50 text-muted-foreground hover:bg-muted/40"
-                          )}
-                        >
-                          {t}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Nome (Opcional) */}
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-4">Nome do Projeto/Serviço (Opcional)</label>
-                    <div className="relative">
-                      <Info className="absolute left-6 top-1/2 -translate-y-1/2 text-muted-foreground/40" size={18} />
-                      <input 
-                        type="text" 
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        className="w-full pl-14 pr-8 py-5 bg-muted/20 border border-border/50 rounded-2xl text-sm font-bold focus:ring-4 focus:ring-primary/10 outline-none transition-all"
-                        placeholder="Ex: Consultoria Financeira 2024"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    {/* Valor */}
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-4">Valor Total</label>
-                      <div className="relative">
-                        <DollarSign className="absolute left-6 top-1/2 -translate-y-1/2 text-muted-foreground/40" size={18} />
-                        <input 
-                          type="number" 
-                          step="0.01"
-                          value={totalValue}
-                          onChange={(e) => setTotalValue(e.target.value)}
-                          className="w-full pl-14 pr-8 py-5 bg-muted/20 border border-border/50 rounded-2xl text-sm font-bold focus:ring-4 focus:ring-primary/10 outline-none transition-all"
-                          placeholder="0,00"
-                          required
-                        />
-                      </div>
-                    </div>
-
-                    {/* Data de Pagamento */}
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-4">Data do {paymentMethod === 'vista' ? 'Pagamento' : '1º Pagamento'}</label>
-                      <div className="relative">
-                        <Calendar className="absolute left-6 top-1/2 -translate-y-1/2 text-muted-foreground/40" size={18} />
-                        <input 
-                          type="date" 
-                          value={firstPaymentDate}
-                          onChange={(e) => setFirstPaymentDate(e.target.value)}
-                          className="w-full pl-14 pr-8 py-5 bg-muted/20 border border-border/50 rounded-2xl text-sm font-bold focus:ring-4 focus:ring-primary/10 outline-none transition-all"
-                          required
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Forma de Pagamento */}
-                  <div className="space-y-3">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-4">Forma de Pagamento</label>
-                    <div className="flex gap-3">
-                      <button 
-                        type="button"
-                        onClick={() => setPaymentMethod('vista')}
-                        className={cn(
-                          "flex-1 py-4 rounded-2xl border text-[9px] font-black uppercase tracking-widest transition-all",
-                          paymentMethod === 'vista' ? "bg-emerald-500 text-white border-emerald-500 shadow-lg shadow-emerald-500/20" : "bg-muted/20 border-border/50 text-muted-foreground hover:bg-muted/40"
-                        )}
-                      >
-                        À Vista
-                      </button>
-                      <button 
-                        type="button"
-                        onClick={() => setPaymentMethod('parcelado')}
-                        className={cn(
-                          "flex-1 py-4 rounded-2xl border text-[9px] font-black uppercase tracking-widest transition-all",
-                          paymentMethod === 'parcelado' ? "bg-amber-500 text-white border-amber-500 shadow-lg shadow-amber-500/20" : "bg-muted/20 border-border/50 text-muted-foreground hover:bg-muted/40"
-                        )}
-                      >
-                        Parcelado
-                      </button>
-                    </div>
-                  </div>
-
-                  {paymentMethod === 'parcelado' && (
-                    <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="space-y-2">
-                      <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-4">Quantidade de Parcelas</label>
-                      <div className="relative">
-                        <ChevronRight className="absolute left-6 top-1/2 -translate-y-1/2 text-muted-foreground/40" size={18} />
-                        <input 
-                          type="number" 
-                          min="2"
-                          max="60"
-                          value={installments}
-                          onChange={(e) => setInstallments(e.target.value)}
-                          className="w-full pl-14 pr-8 py-5 bg-muted/20 border border-border/50 rounded-2xl text-sm font-bold focus:ring-4 focus:ring-primary/10 outline-none transition-all"
-                        />
-                      </div>
-                      {totalValue && installments && parseInt(installments) > 0 && (
-                        <p className="text-[9px] font-bold text-amber-500 uppercase tracking-widest ml-4">
-                          Valor mensal: {formatCurrency(parseFloat(totalValue) / parseInt(installments))}
-                        </p>
-                      )}
-                    </motion.div>
-                  )}
-
-                  <button 
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="w-full py-5 bg-primary text-white rounded-[1.8rem] text-xs font-black uppercase tracking-widest shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50"
-                  >
-                    {isSubmitting ? (editingContractId ? 'Atualizando...' : 'Registrando...') : (editingContractId ? 'Confirmar Alterações' : 'Confirmar Registro')}
-                  </button>
-                </form>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+      {targetId && (
+        <RegisterServiceModal 
+          isOpen={isModalOpen}
+          onClose={() => {
+            setIsModalOpen(false);
+            resetForm();
+          }}
+          clientId={targetId}
+          spaceType={activeSpace as 'personal' | 'business'}
+          onSuccess={fetchServices}
+          editingContractId={editingContractId}
+          initialData={editingContractData}
+        />
+      )}
       {/* Modal Edit Installment */}
       <AnimatePresence>
         {editingInstallment && (
