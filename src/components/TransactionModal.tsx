@@ -51,6 +51,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   const [recurrenceContinuous, setRecurrenceContinuous] = useState(false);
   const [recurrenceMonths, setRecurrenceMonths] = useState<number | ''>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showRecurrenceAlert, setShowRecurrenceAlert] = useState<number | null>(null);
 
   const [newTx, setNewTx] = useState<Partial<Transaction>>({
     type: initialType,
@@ -115,26 +116,10 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
     setRecurrenceContinuous(false);
     setRecurrenceMonths('');
     setTriedSubmit(false);
+    setShowRecurrenceAlert(null);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (isSubmitting) return;
-
-    setTriedSubmit(true);
-
-    if (!newTx.description || !newTx.amount || !newTx.walletId) return;
-    if (!isInvoicePayment && ['income', 'expense'].includes(newTx.type!) && !newTx.categoryId) return;
-    if (hasRecurrence && newTx.type === 'expense' && !newTx.necessity) {
-      showAlert('Classificação Obrigatória', 'Para lançamentos recorrentes, você deve informar se a despesa é Necessária ou Desnecessária.', 'warning');
-      return;
-    }
-
-    if ((newTx.type === 'transfer' || newTx.type === 'provision') && (!newTx.toWalletId || newTx.walletId === newTx.toWalletId)) {
-      showAlert('Campos Obrigatórios', 'A carteira de destino é obrigatória e deve ser diferente da origem.', 'warning');
-      return;
-    }
-
+  const executeSubmit = async (monthsToGenerate: number) => {
     try {
       setIsSubmitting(true);
       if (editingTransaction) {
@@ -146,16 +131,6 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
 
       const baseDate = new Date(newTx.date! + 'T12:00:00Z');
       const groupId = crypto.randomUUID?.() || Math.random().toString(36).substring(2, 11);
-
-      let monthsToGenerate = 1;
-      if (hasRecurrence) {
-        if (recurrenceContinuous) {
-          const month = baseDate.getUTCMonth();
-          monthsToGenerate = 12 - month;
-        } else {
-          monthsToGenerate = Number(recurrenceMonths) || 1;
-        }
-      }
 
       const txList: Omit<Transaction, 'id'>[] = [];
       const wallet = wallets.find(w => w.id === newTx.walletId);
@@ -230,6 +205,43 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isSubmitting) return;
+
+    setTriedSubmit(true);
+
+    if (!newTx.description || !newTx.amount || !newTx.walletId) return;
+    if (!isInvoicePayment && ['income', 'expense'].includes(newTx.type!) && !newTx.categoryId) return;
+    if (hasRecurrence && newTx.type === 'expense' && !newTx.necessity) {
+      showAlert('Classificação Obrigatória', 'Para lançamentos recorrentes, você deve informar se a despesa é Necessária ou Desnecessária.', 'warning');
+      return;
+    }
+
+    if ((newTx.type === 'transfer' || newTx.type === 'provision') && (!newTx.toWalletId || newTx.walletId === newTx.toWalletId)) {
+      showAlert('Campos Obrigatórios', 'A carteira de destino é obrigatória e deve ser diferente da origem.', 'warning');
+      return;
+    }
+
+    const baseDate = new Date(newTx.date! + 'T12:00:00Z');
+    let monthsToGenerate = 1;
+    if (hasRecurrence) {
+      if (recurrenceContinuous) {
+        const month = baseDate.getUTCMonth();
+        monthsToGenerate = 12 - month;
+      } else {
+        monthsToGenerate = Number(recurrenceMonths) || 1;
+      }
+    }
+
+    if (hasRecurrence && !recurrenceContinuous && monthsToGenerate > 12) {
+      setShowRecurrenceAlert(monthsToGenerate);
+      return;
+    }
+
+    await executeSubmit(monthsToGenerate);
   };
 
   const isEstorno = useMemo(() => newTx.description?.toLowerCase().startsWith('estorno'), [newTx.description]);
@@ -802,6 +814,59 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                       <p className="text-xs font-bold opacity-80 mt-1">A categoria {budgetAlert.categoryName} atingiu {budgetAlert.percent}% do limite mensal.</p>
                     </div>
                     <button onClick={() => { setBudgetAlert(null); onClose(); resetForm(); }} className={cn("w-full py-3 rounded-xl font-black uppercase text-[10px] tracking-widest text-white shadow-lg transition-transform active:scale-95", budgetAlert.threshold === '100' ? "bg-rose-500 shadow-rose-500/20" : "bg-amber-500 shadow-amber-500/20")}>Entendido</button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              <AnimatePresence>
+                {showRecurrenceAlert !== null && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                    className="absolute inset-x-0 bottom-0 m-4 p-6 rounded-[2rem] border-2 shadow-2xl backdrop-blur-xl z-[110] flex flex-col gap-4 bg-amber-500/10 border-amber-500/50 text-amber-600"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg bg-amber-500 text-white">
+                        <AlertTriangle size={24} />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowRecurrenceAlert(null)}
+                        className="p-2 hover:bg-black/5 rounded-xl transition-colors text-amber-600"
+                      >
+                        <X size={18} />
+                      </button>
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-black uppercase tracking-widest opacity-60">Aviso de Recorrência Longa</h4>
+                      <h2 className="text-lg font-black tracking-tight leading-tight">
+                        Confirmar {showRecurrenceAlert} parcelas?
+                      </h2>
+                      <p className="text-xs font-bold opacity-80 mt-1">
+                        Você está prestes a realizar um lançamento recorrente para {showRecurrenceAlert} meses. Tem certeza de que a quantidade está correta?
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowRecurrenceAlert(null)}
+                        className="flex-1 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest bg-background border border-border text-foreground hover:bg-muted transition-transform active:scale-95"
+                      >
+                        Não, Corrigir
+                      </button>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const months = showRecurrenceAlert;
+                          setShowRecurrenceAlert(null);
+                          await executeSubmit(months);
+                        }}
+                        className="flex-1 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest text-white bg-amber-500 shadow-lg shadow-amber-500/20 transition-transform active:scale-95"
+                      >
+                        Sim, Confirmar
+                      </button>
+                    </div>
                   </motion.div>
                 )}
               </AnimatePresence>
