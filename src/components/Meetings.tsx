@@ -32,6 +32,7 @@ import { useModal } from '../contexts/ModalContext';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Meeting, MeetingTopic, MeetingTemplate } from '../types';
+import { IconRenderer } from './ui/IconRenderer';
 
 const TemplateTopicItem: React.FC<{
   topic: { id: string; title: string; completed: boolean };
@@ -199,7 +200,7 @@ const STATIC_FALLBACK_TEMPLATES = [
 
 export const Meetings: React.FC = () => {
   const { user, profile, viewingUserId } = useAuth();
-  const { activeSpace } = useFinance();
+  const { activeSpace, transactions, categories } = useFinance();
   const { showAlert, showConfirm } = useModal();
 
   const [meetings, setMeetings] = useState<Meeting[]>([]);
@@ -220,6 +221,14 @@ export const Meetings: React.FC = () => {
   const [meetingNotes, setMeetingNotes] = useState('');
   const [savingNotes, setSavingNotes] = useState(false);
   const [templateSpaceTab, setTemplateSpaceTab] = useState<'personal' | 'business'>('personal');
+
+  // Estados para as Apresentações de Mentoria
+  const [showPresentationsModal, setShowPresentationsModal] = useState(false);
+  const [presentationMonth, setPresentationMonth] = useState<string>(() => format(new Date(), 'MM'));
+  const [presentationYear, setPresentationYear] = useState<string>(() => format(new Date(), 'yyyy'));
+  const [workSettings, setWorkSettings] = useState<Record<string, { days: number; hours: number }>>({});
+
+  const selectedPresentationMonth = `${presentationYear}-${presentationMonth}`;
 
   // Form states
   const [meetingForm, setMeetingForm] = useState({
@@ -246,6 +255,38 @@ export const Meetings: React.FC = () => {
   const effectiveUserId = viewingUserId || user?.id;
   const canManage = profile?.role && profile.role !== 'user';
   const isAdmin = profile?.role === 'master_admin' || profile?.role === 'admin';
+
+  const availableYears = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    let startYear = currentYear;
+    
+    if (user?.created_at) {
+      try {
+        const createdYear = new Date(user.created_at).getFullYear();
+        if (createdYear < startYear) {
+          startYear = createdYear;
+        }
+      } catch (e) {}
+    }
+    
+    // Check oldest transaction to verify history is covered
+    transactions.forEach(tx => {
+      if (tx.date) {
+        try {
+          const txYear = new Date(tx.date).getFullYear();
+          if (txYear < startYear) {
+            startYear = txYear;
+          }
+        } catch (e) {}
+      }
+    });
+
+    const years: number[] = [];
+    for (let y = currentYear; y >= startYear; y--) {
+      years.push(y);
+    }
+    return years;
+  }, [user, transactions]);
 
   // Buscar modelos do banco de dados
   const fetchTemplates = async () => {
@@ -361,6 +402,116 @@ export const Meetings: React.FC = () => {
       setMeetingNotes('');
     }
   }, [selectedMeeting]);
+
+  // Carregar configurações de trabalho do localStorage ao mudar de cliente
+  useEffect(() => {
+    if (!effectiveUserId) return;
+    const key = `solum_work_settings_${effectiveUserId}`;
+    const saved = localStorage.getItem(key);
+    if (saved) {
+      try {
+        setWorkSettings(JSON.parse(saved));
+      } catch (e) {
+        console.error('Erro ao carregar workSettings:', e);
+        setWorkSettings({});
+      }
+    } else {
+      setWorkSettings({});
+    }
+  }, [effectiveUserId]);
+
+  // Função para atualizar configurações de dias/horas de trabalho de um mês
+  const handleUpdateWorkSetting = (monthKey: string, field: 'days' | 'hours', value: number) => {
+    if (!effectiveUserId) return;
+    const current = workSettings[monthKey] || { days: 22, hours: 8 };
+    const updated = {
+      ...workSettings,
+      [monthKey]: {
+        ...current,
+        [field]: value
+      }
+    };
+    setWorkSettings(updated);
+    localStorage.setItem(`solum_work_settings_${effectiveUserId}`, JSON.stringify(updated));
+  };
+
+  // Agrupar transações por mês e categoria no Espaço Pessoal
+  const monthlyFinanceData = useMemo(() => {
+    const data: Record<string, {
+      monthKey: string;
+      label: string;
+      incomeTotal: number;
+      expensesByCategory: Record<string, {
+        categoryId: string;
+        name: string;
+        color: string;
+        icon: string;
+        amount: number;
+      }>;
+    }> = {};
+
+    // Filtrar lançamentos do Espaço Pessoal (exclusivo para essa apresentação)
+    const personalTxs = transactions.filter(tx => tx.space === 'personal');
+
+    personalTxs.forEach(tx => {
+      if (!tx.date) return;
+      const monthKey = tx.date.substring(0, 7); // 'YYYY-MM'
+      
+      if (!data[monthKey]) {
+        let label = monthKey;
+        try {
+          const [year, month] = monthKey.split('-');
+          const date = new Date(parseInt(year), parseInt(month) - 1, 15);
+          label = format(date, "MMMM 'de' yyyy", { locale: ptBR });
+          label = label.charAt(0).toUpperCase() + label.slice(1);
+        } catch (e) {}
+
+        data[monthKey] = {
+          monthKey,
+          label,
+          incomeTotal: 0,
+          expensesByCategory: {}
+        };
+      }
+
+      if (tx.type === 'income') {
+        data[monthKey].incomeTotal += tx.amount;
+      } else if (tx.type === 'expense') {
+        const subCategory = categories.find(c => c.id === tx.categoryId);
+        let targetCategory = subCategory;
+        if (subCategory && subCategory.parentId) {
+          const parentCategory = categories.find(c => c.id === subCategory.parentId);
+          if (parentCategory) {
+            targetCategory = parentCategory;
+          }
+        }
+
+        const catId = targetCategory?.id || 'outros';
+        const catName = targetCategory?.name || 'Outros';
+        const catColor = targetCategory?.color || '#94a3b8';
+        const catIcon = targetCategory?.icon || '/categorias/outros.png';
+
+        if (!data[monthKey].expensesByCategory[catId]) {
+          data[monthKey].expensesByCategory[catId] = {
+            categoryId: catId,
+            name: catName,
+            color: catColor,
+            icon: catIcon,
+            amount: 0
+          };
+        }
+        data[monthKey].expensesByCategory[catId].amount += tx.amount;
+      }
+    });
+
+    const sortedKeys = Object.keys(data).sort((a, b) => b.localeCompare(a));
+    const sortedData = sortedKeys.map(key => data[key]);
+
+    return {
+      months: sortedData,
+      map: data
+    };
+  }, [transactions, categories]);
 
   // Filtrar reuniões por query de busca e ordenar por data decrescente (mais recente primeiro)
   const filteredMeetings = useMemo(() => {
@@ -793,6 +944,18 @@ export const Meetings: React.FC = () => {
             >
               <FolderEdit size={18} className="text-primary" />
               <span className="text-[10px] font-black uppercase tracking-[0.2em]">Editar Modelos</span>
+            </button>
+          )}
+
+          {activeSpace === 'personal' && (
+            <button
+              onClick={() => {
+                setShowPresentationsModal(true);
+              }}
+              className="bg-card hover:bg-muted text-foreground border border-border px-6 py-4 rounded-2xl flex items-center justify-center gap-3 transition-all group hover:scale-[1.02] active:scale-95 shadow-sm"
+            >
+              <Presentation size={18} className="text-primary" />
+              <span className="text-[10px] font-black uppercase tracking-[0.2em]">Apresentações</span>
             </button>
           )}
 
@@ -1732,6 +1895,275 @@ export const Meetings: React.FC = () => {
 
               </div>
 
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Modal de Apresentações de Mentoria (Exclusivo Espaço Pessoal) */}
+      <AnimatePresence>
+        {showPresentationsModal && activeSpace === 'personal' && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowPresentationsModal(false)}
+              className="absolute inset-0 bg-slate-950/80 backdrop-blur-md"
+            />
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="relative w-full max-w-5xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-[2.5rem] p-8 shadow-2xl overflow-hidden max-h-[90vh] flex flex-col animate-in fade-in zoom-in-95 duration-200"
+            >
+              {/* Fechar */}
+              <button
+                onClick={() => setShowPresentationsModal(false)}
+                className="absolute top-8 right-8 w-10 h-10 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-white/10 transition-all z-10"
+              >
+                <X size={20} />
+              </button>
+
+              {/* Título */}
+              <div className="flex items-center gap-3 mb-6 flex-shrink-0">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+                  <Presentation size={20} />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">Apresentações de Mentoria</h2>
+                  <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">Painel interativo para análise de impacto e metas do cliente</p>
+                </div>
+              </div>
+
+              {/* Grid Principal */}
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-8 overflow-hidden flex-1 min-h-0">
+                {/* Lateral Esquerda - Lista de Apresentações (3 cols) */}
+                <div className="md:col-span-3 flex flex-col h-full overflow-hidden border-r border-border/50 pr-4 flex-shrink-0">
+                  <div className="space-y-2 overflow-y-auto flex-1 pr-1 no-scrollbar">
+                    <div className="p-4 rounded-xl border text-left cursor-pointer transition-all flex items-center justify-between bg-primary/5 border-primary">
+                      <div className="pr-2 flex-1 min-w-0">
+                        <span className="text-[8px] font-black uppercase tracking-wider text-primary">Análise Pessoal</span>
+                        <h4 className="text-xs font-black uppercase whitespace-normal break-words leading-tight mt-0.5 text-primary">
+                          Valor da Hora Trabalhada
+                        </h4>
+                      </div>
+                      <ChevronRight size={14} className="text-primary translate-x-1" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Lateral Direita - Conteúdo do Slide "Valor da Hora Trabalhada" (9 cols) */}
+                <div className="md:col-span-9 flex flex-col h-full overflow-y-auto pr-2 no-scrollbar">
+                  {monthlyFinanceData.months.length === 0 ? (
+                    <div className="flex-1 flex flex-col items-center justify-center text-center p-8 border border-dashed border-border rounded-3xl bg-muted/10">
+                      <AlertCircle className="text-muted-foreground mb-4" size={36} />
+                      <h4 className="text-sm font-black uppercase text-foreground">Nenhum lançamento de receita encontrado</h4>
+                      <p className="text-xs text-muted-foreground max-w-sm mt-2 leading-relaxed">
+                        Para calcular o valor da hora trabalhada, é necessário que o cliente tenha transações de receita (entradas) lançadas no Espaço Pessoal.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-6">
+                      {/* Seletor de Mês/Ano e Inputs de Simulação */}
+                      <div className="p-6 bg-slate-50 dark:bg-slate-950/40 border border-border rounded-3xl space-y-4">
+                        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+                          <div className="space-y-2 flex-1">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 block mb-1">
+                              Selecione o Mês e Ano de Análise
+                            </label>
+                            <div className="flex flex-wrap gap-3">
+                              <select
+                                value={presentationMonth}
+                                onChange={e => setPresentationMonth(e.target.value)}
+                                className="bg-white dark:bg-slate-900 border border-border rounded-xl h-11 px-4 text-xs font-bold text-foreground outline-none focus:border-primary/50 transition-all cursor-pointer min-w-[140px]"
+                              >
+                                <option value="01">Janeiro</option>
+                                <option value="02">Fevereiro</option>
+                                <option value="03">Março</option>
+                                <option value="04">Abril</option>
+                                <option value="05">Maio</option>
+                                <option value="06">Junho</option>
+                                <option value="07">Julho</option>
+                                <option value="08">Agosto</option>
+                                <option value="09">Setembro</option>
+                                <option value="10">Outubro</option>
+                                <option value="11">Novembro</option>
+                                <option value="12">Dezembro</option>
+                              </select>
+                              <select
+                                value={presentationYear}
+                                onChange={e => setPresentationYear(e.target.value)}
+                                className="bg-white dark:bg-slate-900 border border-border rounded-xl h-11 px-4 text-xs font-bold text-foreground outline-none focus:border-primary/50 transition-all cursor-pointer min-w-[100px]"
+                              >
+                                {availableYears.map(y => (
+                                  <option key={y} value={String(y)}>{y}</option>
+                                ))}
+                              </select>
+                            </div>
+                          </div>
+
+                          {/* Inputs de Configuração */}
+                          <div className="flex gap-4">
+                            <div className="space-y-2 w-28">
+                              <label className="text-[9px] font-black uppercase tracking-widest text-slate-500 block">Dias Trabalhados</label>
+                              <input
+                                type="number"
+                                min="1"
+                                max="31"
+                                value={workSettings[selectedPresentationMonth]?.days ?? 22}
+                                onChange={e => handleUpdateWorkSetting(selectedPresentationMonth, 'days', parseInt(e.target.value) || 1)}
+                                className="w-full bg-white dark:bg-slate-900 border border-border rounded-xl h-11 px-3 text-xs font-bold text-foreground text-center outline-none focus:border-primary"
+                              />
+                            </div>
+                            <div className="space-y-2 w-28">
+                              <label className="text-[9px] font-black uppercase tracking-widest text-slate-500 block">Horas por Dia</label>
+                              <input
+                                type="number"
+                                min="1"
+                                max="24"
+                                value={workSettings[selectedPresentationMonth]?.hours ?? 8}
+                                onChange={e => handleUpdateWorkSetting(selectedPresentationMonth, 'hours', parseInt(e.target.value) || 1)}
+                                className="w-full bg-white dark:bg-slate-900 border border-border rounded-xl h-11 px-3 text-xs font-bold text-foreground text-center outline-none focus:border-primary"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Cards de Métricas Consolidadas */}
+                      {(() => {
+                        const monthData = monthlyFinanceData.map[selectedPresentationMonth] || {
+                          monthKey: selectedPresentationMonth,
+                          label: '',
+                          incomeTotal: 0,
+                          expensesByCategory: {}
+                        };
+
+                        const days = workSettings[selectedPresentationMonth]?.days ?? 22;
+                        const hours = workSettings[selectedPresentationMonth]?.hours ?? 8;
+                        const totalHours = days * hours;
+                        const incomeTotal = monthData.incomeTotal;
+                        const hourlyValue = totalHours > 0 ? incomeTotal / totalHours : 0;
+
+                        return (
+                          <div className="space-y-6">
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                              <div className="bg-emerald-500/5 border border-emerald-500/10 rounded-2xl p-5 text-left">
+                                <span className="text-[8px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400">Receitas Totais</span>
+                                <div className="text-lg font-black text-slate-900 dark:text-white mt-1">
+                                  {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(incomeTotal)}
+                                </div>
+                                <span className="text-[8px] font-bold text-muted-foreground uppercase mt-1 block">Soma de todos os ganhos</span>
+                              </div>
+
+                              <div className="bg-primary/5 border border-primary/10 rounded-2xl p-5 text-left">
+                                <span className="text-[8px] font-black uppercase tracking-widest text-primary">Horas de Trabalho</span>
+                                <div className="text-lg font-black text-slate-900 dark:text-white mt-1">
+                                  {totalHours} horas
+                                </div>
+                                <span className="text-[8px] font-bold text-muted-foreground uppercase mt-1 block">{days} dias × {hours} horas por dia</span>
+                              </div>
+
+                              <div className="bg-gradient-to-br from-primary/10 to-emerald-500/10 border border-primary/20 rounded-2xl p-5 text-left relative overflow-hidden">
+                                <span className="text-[8px] font-black uppercase tracking-widest text-primary">Seu Valor por Hora</span>
+                                <div className="text-2xl font-black text-primary mt-1">
+                                  {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(hourlyValue)}
+                                </div>
+                                <span className="text-[8px] font-bold text-emerald-600 dark:text-emerald-400 uppercase mt-1 block font-black">Quanto vale cada hora trabalhada</span>
+                              </div>
+                            </div>
+
+                            {/* Impacto do Estilo de Vida */}
+                            <div className="space-y-4">
+                              <h3 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-white">
+                                Impacto das Despesas no Tempo de Trabalho
+                              </h3>
+                              <p className="text-[10px] text-muted-foreground leading-relaxed uppercase font-bold tracking-wider">
+                                Quantas horas da sua vida você trabalhou neste mês para pagar cada categoria de despesa?
+                              </p>
+
+                              {Object.keys(monthData.expensesByCategory).length === 0 ? (
+                                <div className="p-8 text-center border border-dashed border-border rounded-2xl bg-muted/5">
+                                  <p className="text-[10px] font-bold text-muted-foreground/60 uppercase tracking-widest italic">Nenhuma despesa registrada neste mês.</p>
+                                </div>
+                              ) : (
+                                <div className="space-y-3">
+                                  {(Object.values(monthData.expensesByCategory) as Array<{
+                                    categoryId: string;
+                                    name: string;
+                                    color: string;
+                                    icon: string;
+                                    amount: number;
+                                  }>)
+                                    .sort((a, b) => b.amount - a.amount)
+                                    .map(expense => {
+                                      const hoursRequired = hourlyValue > 0 ? expense.amount / hourlyValue : 0;
+                                      
+                                      const wholeHours = Math.floor(hoursRequired);
+                                      const minutes = Math.round((hoursRequired - wholeHours) * 60);
+                                      
+                                      let durationText = '';
+                                      if (wholeHours > 0) {
+                                        durationText += `${wholeHours}h `;
+                                      }
+                                      if (minutes > 0 || wholeHours === 0) {
+                                        durationText += `${minutes}min`;
+                                      }
+
+                                      const pctOfTotalHours = totalHours > 0 ? (hoursRequired / totalHours) * 100 : 0;
+
+                                      return (
+                                        <div
+                                          key={expense.categoryId}
+                                          className="p-4 bg-slate-50/50 dark:bg-slate-950/20 border border-border rounded-2xl space-y-3 hover:scale-[1.005] transition-all"
+                                        >
+                                          <div className="flex items-center justify-between gap-4">
+                                            <div className="flex items-center gap-3">
+                                              <IconRenderer
+                                                icon={expense.icon}
+                                                color={expense.color}
+                                                size={32}
+                                                circular={false}
+                                                className="rounded-lg shrink-0"
+                                              />
+                                              <div>
+                                                <h4 className="text-xs font-black uppercase text-foreground">{expense.name}</h4>
+                                                <span className="text-[9px] font-semibold text-muted-foreground">
+                                                  Gasto: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(expense.amount)}
+                                                </span>
+                                              </div>
+                                            </div>
+
+                                            <div className="text-right">
+                                              <div className="text-xs font-black text-primary uppercase">
+                                                {durationText} de trabalho
+                                              </div>
+                                            </div>
+                                          </div>
+
+                                          <div className="w-full bg-slate-200 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
+                                            <div
+                                              className="h-full rounded-full transition-all duration-500"
+                                              style={{
+                                                backgroundColor: expense.color,
+                                                width: `${Math.min(pctOfTotalHours, 100)}%`
+                                              }}
+                                            />
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  )}
+                </div>
+              </div>
             </motion.div>
           </div>
         )}
