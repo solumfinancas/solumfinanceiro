@@ -157,6 +157,7 @@ export interface MeetingTemplate {
   title: string;
   topics: { id: string; title: string; completed: boolean }[];
   order_index: number;
+  space: 'personal' | 'business';
   created_at?: string;
   updated_at?: string;
 }

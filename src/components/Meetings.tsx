@@ -219,6 +219,7 @@ export const Meetings: React.FC = () => {
 
   const [meetingNotes, setMeetingNotes] = useState('');
   const [savingNotes, setSavingNotes] = useState(false);
+  const [templateSpaceTab, setTemplateSpaceTab] = useState<'personal' | 'business'>('personal');
 
   // Form states
   const [meetingForm, setMeetingForm] = useState({
@@ -237,6 +238,7 @@ export const Meetings: React.FC = () => {
   const [templateForm, setTemplateForm] = useState({
     title: '',
     order_index: 1,
+    space: 'personal' as 'personal' | 'business',
     topics: [] as { id: string; title: string; completed: boolean }[]
   });
   const [newTemplateTopicText, setNewTemplateTopicText] = useState('');
@@ -338,12 +340,14 @@ export const Meetings: React.FC = () => {
       setTemplateForm({
         title: selectedTemplate.title,
         order_index: selectedTemplate.order_index,
+        space: selectedTemplate.space || 'personal',
         topics: [...selectedTemplate.topics]
       });
     } else {
       setTemplateForm({
         title: '',
         order_index: templates.length + 1,
+        space: activeSpace as 'personal' | 'business',
         topics: []
       });
     }
@@ -367,11 +371,9 @@ export const Meetings: React.FC = () => {
   }, [meetings, searchQuery]);
 
   // Carregar modelo no formulário de criação de reunião
-  const handleTemplateChange = (indexStr: string) => {
-    const idx = parseInt(indexStr, 10);
-    if (idx >= 0 && idx < templates.length) {
-      const template = templates[idx];
-
+  const handleTemplateChange = (templateId: string) => {
+    const template = templates.find(t => t.id === templateId);
+    if (template) {
       // Copiar os tópicos gerando novos IDs temporários
       const newTopics = template.topics.map((t, i) => ({
         id: `topic-temp-${Date.now()}-${i}-${Math.random().toString(36).substr(2, 4)}`,
@@ -383,7 +385,7 @@ export const Meetings: React.FC = () => {
         ...prev,
         title: template.title,
         topics: newTopics,
-        templateIndex: indexStr
+        templateIndex: templateId
       }));
     } else {
       setMeetingForm(prev => ({
@@ -436,7 +438,7 @@ export const Meetings: React.FC = () => {
           date: meetingForm.date,
           topics: meetingForm.topics,
           observations: meetingForm.observations.trim() || null,
-          notes: meetingForm.notes.trim() || null,
+          notes: (meetingForm.notes || '').trim() || null,
           created_by: user?.id || null
         })
         .select()
@@ -505,7 +507,7 @@ export const Meetings: React.FC = () => {
           date: meetingForm.date,
           topics: meetingForm.topics,
           observations: meetingForm.observations.trim() || null,
-          notes: meetingForm.notes.trim() || null,
+          notes: (meetingForm.notes || '').trim() || null,
           updated_at: new Date().toISOString()
         })
         .eq('id', selectedMeeting.id)
@@ -645,7 +647,8 @@ export const Meetings: React.FC = () => {
     setSelectedTemplate(null);
     setTemplateForm({
       title: '',
-      order_index: templates.length + 1,
+      order_index: templates.filter(t => t.space === templateSpaceTab).length + 1,
+      space: templateSpaceTab,
       topics: []
     });
   };
@@ -668,6 +671,7 @@ export const Meetings: React.FC = () => {
           .update({
             title: templateForm.title.trim(),
             order_index: templateForm.order_index,
+            space: templateForm.space,
             topics: templateForm.topics,
             updated_at: new Date().toISOString()
           })
@@ -684,6 +688,7 @@ export const Meetings: React.FC = () => {
           .insert({
             title: templateForm.title.trim(),
             order_index: templateForm.order_index,
+            space: templateForm.space,
             topics: templateForm.topics
           })
           .select()
@@ -770,6 +775,7 @@ export const Meetings: React.FC = () => {
             <button
               onClick={() => {
                 fetchTemplates();
+                setTemplateSpaceTab(activeSpace as 'personal' | 'business');
                 setShowManageTemplatesModal(true);
               }}
               className="bg-card hover:bg-muted text-foreground border border-border px-6 py-4 rounded-2xl flex items-center justify-center gap-3 transition-all group hover:scale-[1.02] active:scale-95 shadow-sm"
@@ -786,6 +792,7 @@ export const Meetings: React.FC = () => {
                   title: '',
                   date: format(new Date(), 'yyyy-MM-dd'),
                   observations: '',
+                  notes: '',
                   topics: [],
                   templateIndex: '-1'
                 });
@@ -1146,9 +1153,11 @@ export const Meetings: React.FC = () => {
                       className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/5 rounded-2xl h-14 px-6 text-sm text-slate-900 dark:text-white outline-none focus:border-primary/50 transition-all font-semibold"
                     >
                       <option value="-1">-- Criar Do Zero (Formulário Livre) --</option>
-                      {templates.map((tmpl, idx) => (
-                        <option key={tmpl.id} value={idx}>{tmpl.title}</option>
-                      ))}
+                      {templates
+                        .filter(tmpl => tmpl.space === activeSpace)
+                        .map((tmpl) => (
+                          <option key={tmpl.id} value={tmpl.id}>{tmpl.title}</option>
+                        ))}
                     </select>
                   )}
                 </div>
@@ -1479,6 +1488,52 @@ export const Meetings: React.FC = () => {
 
                 {/* Lateral Esquerda - Lista de Modelos (4 cols) */}
                 <div className="md:col-span-4 flex flex-col h-full overflow-hidden border-r border-border/50 pr-4">
+                  {/* Selector de Abas de Espaço nos Modelos */}
+                  <div className="flex bg-slate-100 dark:bg-slate-950 p-1 rounded-xl mb-4 flex-shrink-0 border border-slate-200 dark:border-white/5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTemplateSpaceTab('personal');
+                        setSelectedTemplate(null);
+                        setTemplateForm({
+                          title: '',
+                          order_index: templates.filter(t => t.space === 'personal').length + 1,
+                          space: 'personal',
+                          topics: []
+                        });
+                      }}
+                      className={cn(
+                        "flex-1 py-2 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all",
+                        templateSpaceTab === 'personal'
+                          ? "bg-white dark:bg-slate-900 text-primary shadow-sm"
+                          : "text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      Pessoal
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTemplateSpaceTab('business');
+                        setSelectedTemplate(null);
+                        setTemplateForm({
+                          title: '',
+                          order_index: templates.filter(t => t.space === 'business').length + 1,
+                          space: 'business',
+                          topics: []
+                        });
+                      }}
+                      className={cn(
+                        "flex-1 py-2 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all",
+                        templateSpaceTab === 'business'
+                          ? "bg-white dark:bg-slate-900 text-primary shadow-sm"
+                          : "text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      Empresarial
+                    </button>
+                  </div>
+
                   <button
                     onClick={handleInitNewTemplate}
                     className="w-full h-12 bg-primary/10 hover:bg-primary/20 text-primary rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all mb-4 flex-shrink-0"
@@ -1488,29 +1543,31 @@ export const Meetings: React.FC = () => {
                   </button>
 
                   <div className="space-y-2 overflow-y-auto flex-1 pr-1 no-scrollbar">
-                    {templates.map((tmpl, idx) => {
-                      const isTemplateSelected = selectedTemplate?.id === tmpl.id;
-                      return (
-                        <div
-                          key={tmpl.id}
-                          onClick={() => setSelectedTemplate(tmpl)}
-                          className={cn(
-                            "p-4 rounded-xl border text-left cursor-pointer transition-all flex items-center justify-between group",
-                            isTemplateSelected
-                              ? "bg-primary/5 border-primary"
-                              : "bg-slate-50 dark:bg-slate-950/20 border-border hover:bg-muted/50"
-                          )}
-                        >
-                          <div className="pr-2 flex-1 min-w-0">
-                            <span className="text-[8px] font-black uppercase tracking-wider text-muted-foreground">Ordem: {tmpl.order_index}</span>
-                            <h4 className={cn("text-xs font-black uppercase whitespace-normal break-words leading-tight mt-0.5", isTemplateSelected ? "text-primary" : "text-foreground")}>
-                              {tmpl.title}
-                            </h4>
+                    {templates
+                      .filter(tmpl => tmpl.space === templateSpaceTab)
+                      .map((tmpl, idx) => {
+                        const isTemplateSelected = selectedTemplate?.id === tmpl.id;
+                        return (
+                          <div
+                            key={tmpl.id}
+                            onClick={() => setSelectedTemplate(tmpl)}
+                            className={cn(
+                              "p-4 rounded-xl border text-left cursor-pointer transition-all flex items-center justify-between group",
+                              isTemplateSelected
+                                ? "bg-primary/5 border-primary"
+                                : "bg-slate-50 dark:bg-slate-950/20 border-border hover:bg-muted/50"
+                            )}
+                          >
+                            <div className="pr-2 flex-1 min-w-0">
+                              <span className="text-[8px] font-black uppercase tracking-wider text-muted-foreground">Ordem: {tmpl.order_index}</span>
+                              <h4 className={cn("text-xs font-black uppercase whitespace-normal break-words leading-tight mt-0.5", isTemplateSelected ? "text-primary" : "text-foreground")}>
+                                {tmpl.title}
+                              </h4>
+                            </div>
+                            <ChevronRight size={14} className={cn("transition-transform", isTemplateSelected ? "text-primary translate-x-1" : "text-muted-foreground")} />
                           </div>
-                          <ChevronRight size={14} className={cn("transition-transform", isTemplateSelected ? "text-primary translate-x-1" : "text-muted-foreground")} />
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
                   </div>
                 </div>
 
@@ -1536,7 +1593,7 @@ export const Meetings: React.FC = () => {
 
                       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                         {/* Título do Modelo */}
-                        <div className="space-y-2 md:col-span-3">
+                        <div className="space-y-2 md:col-span-2">
                           <label className="text-[9px] font-black uppercase tracking-widest text-slate-500">Título do Modelo</label>
                           <input
                             required
@@ -1546,6 +1603,19 @@ export const Meetings: React.FC = () => {
                             placeholder="Ex: 6ª Reunião: Planejamento Tributário"
                             className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/5 rounded-xl h-11 px-4 text-xs font-semibold text-slate-900 dark:text-white outline-none focus:border-primary/50 transition-all"
                           />
+                        </div>
+
+                        {/* Espaço do Modelo */}
+                        <div className="space-y-2">
+                          <label className="text-[9px] font-black uppercase tracking-widest text-slate-500">Espaço do Modelo</label>
+                          <select
+                            value={templateForm.space}
+                            onChange={e => setTemplateForm(prev => ({ ...prev, space: e.target.value as 'personal' | 'business' }))}
+                            className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/5 rounded-xl h-11 px-4 text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-primary/50 transition-all cursor-pointer"
+                          >
+                            <option value="personal">Pessoal</option>
+                            <option value="business">Empresarial</option>
+                          </select>
                         </div>
 
                         {/* Ordem de Exibição */}
