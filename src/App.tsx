@@ -25,6 +25,7 @@ import { OverduePersistentReminder } from './components/OverduePersistentReminde
 import { TaskPersistentReminder } from './components/TaskPersistentReminder';
 import { MobileFooterNav } from './components/ui/MobileFooterNav';
 import { TransactionModal } from './components/TransactionModal';
+import { Meetings } from './components/Meetings';
 
 
 
@@ -204,6 +205,8 @@ const AppContent = () => {
         return <Equity />;
       case 'não-recorrente':
         return <NonRecurringExpenses />;
+      case 'meetings':
+        return <Meetings />;
       case 'management':
         return <ManagementPortal />;
       default:

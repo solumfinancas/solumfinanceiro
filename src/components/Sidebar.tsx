@@ -26,7 +26,8 @@ import {
   ClipboardList,
   TrendingDown,
   Gem,
-  CalendarClock
+  CalendarClock,
+  Presentation
 } from 'lucide-react';
 
 import { cn } from '../lib/utils';
@@ -105,6 +106,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         { id: 'dividas', label: 'Dívidas', icon: TrendingDown },
         { id: 'patrimonio', label: 'Patrimônio', icon: Gem },
         { id: 'não-recorrente', label: 'Gastos Eventuais', icon: CalendarClock },
+        { id: 'meetings', label: 'Reuniões', icon: Presentation },
         { id: 'tasks', label: 'Tarefas', icon: CheckSquare },
         { id: 'import', label: 'Importação', icon: FileUp },
         ...(profile && profile.role !== 'user' ? [{ id: 'management', label: 'Portal de Gestão', icon: Shield }] : []),

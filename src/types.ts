@@ -131,3 +131,34 @@ export interface NonRecurringExpense {
   finished_at: string | null;
   created_at: string;
 }
+
+export interface MeetingTopic {
+  id: string;
+  title: string;
+  completed: boolean;
+}
+
+export interface Meeting {
+  id: string;
+  user_id: string;
+  space: 'personal' | 'business';
+  title: string;
+  date: string;
+  topics: MeetingTopic[];
+  observations: string | null;
+  notes: string | null;
+  created_by?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MeetingTemplate {
+  id: string;
+  title: string;
+  topics: { id: string; title: string; completed: boolean }[];
+  order_index: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
+
