@@ -362,12 +362,23 @@ export const Meetings: React.FC = () => {
     }
   }, [selectedMeeting]);
 
-  // Filtrar reuniões por query de busca
+  // Filtrar reuniões por query de busca e ordenar por data decrescente (mais recente primeiro)
   const filteredMeetings = useMemo(() => {
-    return meetings.filter(m =>
-      m.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (m.observations && m.observations.toLowerCase().includes(searchQuery.toLowerCase()))
-    );
+    return [...meetings]
+      .filter(m =>
+        m.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (m.observations && m.observations.toLowerCase().includes(searchQuery.toLowerCase()))
+      )
+      .sort((a, b) => {
+        // Ordenação decrescente por data (YYYY-MM-DD)
+        const dateCompare = b.date.localeCompare(a.date);
+        if (dateCompare !== 0) return dateCompare;
+
+        // Desempate decrescente por data/hora de criação (created_at)
+        const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
+        return timeB - timeA;
+      });
   }, [meetings, searchQuery]);
 
   // Carregar modelo no formulário de criação de reunião
