@@ -26,6 +26,9 @@ import { TaskPersistentReminder } from './components/TaskPersistentReminder';
 import { MobileFooterNav } from './components/ui/MobileFooterNav';
 import { TransactionModal } from './components/TransactionModal';
 import { Meetings } from './components/Meetings';
+import { supabase } from './lib/supabase';
+import { format } from 'date-fns';
+import { MeetingPersistentReminder } from './components/MeetingPersistentReminder';
 
 
 
@@ -44,6 +47,140 @@ const AppContent = () => {
     return sessionStorage.getItem('solum_session_view') as 'finance' | 'management' | null;
   });
   const [isGlobalTxModalOpen, setIsGlobalTxModalOpen] = useState(false);
+  const [pendingMeetingsCount, setPendingMeetingsCount] = useState(0);
+
+
+  // Calcular contagem de reuniões pendentes para o Educador logado
+  React.useEffect(() => {
+    if (!user || !profile || (profile.role !== 'educator' && profile.role !== 'admin' && profile.role !== 'master_admin') || viewingUserId) {
+      setPendingMeetingsCount(0);
+      return;
+    }
+
+    const currentMonthYear = format(new Date(), 'yyyy-MM');
+    const startOfMonth = `${currentMonthYear}-01`;
+    
+    // Obter ano e mês seguintes para o limite superior exclusivo (.lt)
+    const [yearStr, monthStr] = currentMonthYear.split('-');
+    let year = parseInt(yearStr);
+    let month = parseInt(monthStr);
+    month += 1;
+    if (month > 12) {
+      month = 1;
+      year += 1;
+    }
+    const nextMonthYear = `${year}-${month < 10 ? '0' + month : month}`;
+    const endOfMonth = `${nextMonthYear}-01`;
+
+    const fetchPendingMeetings = async () => {
+      try {
+        const { data: rels, error: relsError } = await supabase
+          .from('educator_clients')
+          .select('client_id')
+          .eq('educator_id', profile.id)
+          .eq('status', 'active');
+
+        if (relsError) throw relsError;
+        const clientIds = rels?.map(r => r.client_id) || [];
+
+        if (clientIds.length === 0) {
+          setPendingMeetingsCount(0);
+          return;
+        }
+
+        const { data: clientsData, error: clientsError } = await supabase
+          .from('profiles')
+          .select('id, user_metadata')
+          .in('id', clientIds);
+
+        if (clientsError) throw clientsError;
+
+        const activeClients = (clientsData || []).filter(c => !c.user_metadata?.is_suspended);
+
+        if (activeClients.length === 0) {
+          setPendingMeetingsCount(0);
+          return;
+        }
+
+        // Buscar reuniões dos clientes ativos no mês corrente usando intervalo seguro de datas
+        const { data: meetingsData, error: meetingsError } = await supabase
+          .from('meetings')
+          .select('user_id')
+          .in('user_id', activeClients.map(c => c.id))
+          .gte('date', startOfMonth)
+          .lt('date', endOfMonth);
+
+        if (meetingsError) throw meetingsError;
+
+        const scheduledClientIds = new Set(meetingsData?.map(m => m.user_id) || []);
+
+        let count = 0;
+        activeClients.forEach(client => {
+          const metadata = client.user_metadata || {};
+
+          // 1. Se o cliente apenas usa o aplicativo (only_app: true), ele vai para cancelado e não gera pendência
+          if (metadata.only_app === true) return;
+
+          // 2. Se o cliente possui data de início da agenda definida e o mês atual é anterior, ele ainda não iniciou
+          if (metadata.meeting_start_month && currentMonthYear < metadata.meeting_start_month) {
+            return;
+          }
+
+          // 3. Se o histórico de reuniões existir, verificar o status temporal
+          const history = metadata.meeting_status_history;
+          let isCancelled = false;
+          if (history && typeof history === 'object') {
+            const pastEvents = Object.keys(history)
+              .filter(key => key <= currentMonthYear)
+              .sort();
+            if (pastEvents.length > 0) {
+              const lastKey = pastEvents[pastEvents.length - 1];
+              isCancelled = history[lastKey] === 'cancelled';
+            }
+            // Se pastEvents.length === 0 e history existe, significa que o cancelamento é futuro, logo está ativo.
+          } else {
+            // Fallback legado se o histórico estruturado ainda não existir
+            isCancelled = metadata.meeting_status === 'cancelled';
+          }
+
+          if (isCancelled) return;
+
+          // 4. Se o cliente foi dispensado da reunião do mês
+          const isWaived = metadata.monthly_meeting_status?.[currentMonthYear] === 'will_not_meet';
+          if (isWaived) return;
+
+          // 5. Se já tem reunião agendada no mês
+          const isScheduled = scheduledClientIds.has(client.id);
+          if (!isScheduled) {
+            count++;
+          }
+        });
+
+        setPendingMeetingsCount(count);
+      } catch (err) {
+        console.error('Erro ao buscar contagem de reuniões pendentes:', err);
+      }
+    };
+
+    fetchPendingMeetings();
+
+    const channel = supabase
+      .channel('meetings_pending_sync')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'meetings' }, () => {
+        fetchPendingMeetings();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
+        fetchPendingMeetings();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'educator_clients' }, () => {
+        fetchPendingMeetings();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, profile, viewingUserId]);
 
 
   // Reset scroll to top on tab change
@@ -255,7 +392,7 @@ const AppContent = () => {
           setViewingManagement(false);
         }}
         setActiveTab={(tab) => {
-          const managementSubTabs = ['management', 'finance', 'clients', 'tasks', 'simulators', 'referrals', 'settings'];
+          const managementSubTabs = ['management', 'finance', 'clients', 'tasks', 'meetings', 'simulators', 'referrals', 'settings'];
           
           // Só entra/mantém no modo gestão se clicou no botão do portal OU se já estava no modo gestão e clicou em uma sub-aba
           const isEnteringManagement = tab === 'management';
@@ -300,6 +437,24 @@ const AppContent = () => {
             <TaskPersistentReminder 
               onViewTasks={() => setActiveTab('tasks')} 
               isTasksTab={activeTab === 'tasks'}
+            />
+          )}
+          {pendingMeetingsCount > 0 && (
+            <MeetingPersistentReminder 
+              onViewMeetings={() => {
+                if (viewingManagement) {
+                  setManagementTab('meetings');
+                  localStorage.setItem('solum_management_tab', 'meetings');
+                } else {
+                  setViewingManagement(true);
+                  setManagementTab('meetings');
+                  setActiveSessionView('management');
+                  sessionStorage.setItem('solum_session_view', 'management');
+                  localStorage.setItem('solum_management_tab', 'meetings');
+                }
+              }}
+              isMeetingsTab={viewingManagement && managementTab === 'meetings'}
+              count={pendingMeetingsCount}
             />
           )}
         </div>

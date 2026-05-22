@@ -150,6 +150,7 @@ export interface Meeting {
   created_by?: string | null;
   created_at: string;
   updated_at: string;
+  is_visible?: boolean;
 }
 
 export interface MeetingTemplate {

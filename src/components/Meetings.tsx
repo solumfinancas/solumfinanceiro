@@ -39,7 +39,10 @@ import {
   Briefcase,
   Palmtree,
   Coins,
-  Star
+  Star,
+  Eye,
+  EyeOff,
+  Lock
 } from 'lucide-react';
 import { motion, AnimatePresence, Reorder, useDragControls } from 'framer-motion';
 import { cn } from '../lib/utils';
@@ -607,8 +610,38 @@ export const Meetings: React.FC = () => {
     for (let y = currentYear; y >= startYear; y--) {
       years.push(y);
     }
-    return years;
   }, [user, transactions]);
+
+  // Alternar visibilidade da reunião para o cliente
+  const handleToggleMeetingVisibility = async (meetingId: string, currentVal: boolean, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      const newVal = !currentVal;
+
+      // Atualização otimista no estado local
+      setMeetings(prev => prev.map(m => m.id === meetingId ? { ...m, is_visible: newVal } : m));
+      setSelectedMeeting(prev => {
+        if (prev && prev.id === meetingId) {
+          return { ...prev, is_visible: newVal };
+        }
+        return prev;
+      });
+
+      const { error } = await supabase
+        .from('meetings')
+        .update({ is_visible: newVal, updated_at: new Date().toISOString() })
+        .eq('id', meetingId);
+
+      if (error) throw error;
+
+      showAlert('Sucesso', `Reunião ${newVal ? 'liberada' : 'ocultada'} para o cliente com sucesso!`, 'success');
+    } catch (err: any) {
+      console.error('Erro ao alternar visibilidade da reunião:', err);
+      showAlert('Erro', 'Não foi possível atualizar a visibilidade da reunião.', 'danger');
+      // Reverter em caso de erro
+      fetchMeetings();
+    }
+  };
 
   // Buscar modelos do banco de dados
   const fetchTemplates = async () => {
@@ -1482,6 +1515,7 @@ export const Meetings: React.FC = () => {
                 filteredMeetings.map((meeting) => {
                   const progress = getMeetingProgress(meeting);
                   const isSelected = selectedMeeting?.id === meeting.id;
+                  const isLockedForUser = !canManage && meeting.is_visible === false;
 
                   return (
                     <motion.div
@@ -1502,40 +1536,69 @@ export const Meetings: React.FC = () => {
                       )} />
 
                       <div className="space-y-3 pl-2">
-                        <div className="flex items-center justify-between">
+                        <div className="flex items-center justify-between gap-2">
                           <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
                             <Calendar size={12} className="text-primary/70" />
                             {meeting.date.split('-').reverse().join('/')}
                           </span>
 
-                          {progress === 100 ? (
-                            <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-[8px] font-black uppercase tracking-widest">
-                              Concluído
-                            </span>
-                          ) : (
-                            <span className="text-[9px] font-bold text-muted-foreground">
-                              {progress}% concluído
-                            </span>
-                          )}
+                          <div className="flex items-center gap-2">
+                            {canManage && (
+                              <button
+                                onClick={(e) => handleToggleMeetingVisibility(meeting.id, !!meeting.is_visible, e)}
+                                className={cn(
+                                  "p-1 rounded-md transition-colors",
+                                  meeting.is_visible !== false
+                                    ? "text-primary hover:bg-primary/10"
+                                    : "text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5"
+                                )}
+                                title={meeting.is_visible !== false ? "Visível para o cliente (Clique para ocultar)" : "Oculto para o cliente (Clique para liberar)"}
+                              >
+                                {meeting.is_visible !== false ? <Eye size={14} /> : <EyeOff size={14} />}
+                              </button>
+                            )}
+
+                            {isLockedForUser ? (
+                              <span className="px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-500 border border-amber-500/20 text-[8px] font-black uppercase tracking-widest flex items-center gap-1">
+                                <Lock size={8} />
+                                Bloqueada
+                              </span>
+                            ) : progress === 100 ? (
+                              <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-[8px] font-black uppercase tracking-widest">
+                                Concluído
+                              </span>
+                            ) : (
+                              <span className="text-[9px] font-bold text-muted-foreground">
+                                {progress}% concluído
+                              </span>
+                            )}
+                          </div>
                         </div>
 
                         <h3 className={cn(
                           "text-sm font-black tracking-tight leading-tight uppercase line-clamp-2",
                           isSelected ? "text-primary" : "text-foreground"
                         )}>
-                          {meeting.title}
+                          {isLockedForUser ? "Próxima Reunião" : meeting.title}
                         </h3>
 
-                        {/* Progress Bar Mini */}
-                        <div className="w-full bg-slate-200 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                          <div
-                            className={cn(
-                              "h-full rounded-full transition-all duration-500",
-                              progress === 100 ? "bg-emerald-500" : "bg-primary"
-                            )}
-                            style={{ width: `${progress}%` }}
-                          />
-                        </div>
+                        {/* Progress Bar or Locked status */}
+                        {isLockedForUser ? (
+                          <div className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-1.5 pt-1">
+                            <Lock size={10} className="shrink-0 text-slate-400" />
+                            Aguardando liberação
+                          </div>
+                        ) : (
+                          <div className="w-full bg-slate-200 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                            <div
+                              className={cn(
+                                "h-full rounded-full transition-all duration-500",
+                                progress === 100 ? "bg-emerald-500" : "bg-primary"
+                              )}
+                              style={{ width: `${progress}%` }}
+                            />
+                          </div>
+                        )}
                       </div>
                     </motion.div>
                   );
@@ -1550,30 +1613,76 @@ export const Meetings: React.FC = () => {
         <div className="lg:col-span-8">
           <AnimatePresence mode="wait">
             {selectedMeeting ? (
-              <motion.div
-                key={selectedMeeting.id}
-                initial={{ opacity: 0, y: 15 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -15 }}
-                className="bg-card backdrop-blur-xl border border-border rounded-[2.5rem] p-8 lg:p-10 shadow-xl shadow-slate-200/10 dark:shadow-none space-y-8"
-              >
-                {/* Details Header */}
-                <div className="flex flex-col md:flex-row md:items-start justify-between gap-6 border-b border-border pb-8">
-                  <div className="space-y-3">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="px-3 py-1 rounded-full bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-[9px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
-                        <Calendar size={12} className="text-primary" />
-                        {formatDateLabel(selectedMeeting.date)}
-                      </span>
-                      <span className="px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-[9px] font-black uppercase tracking-widest text-primary">
-                        Espaço {selectedMeeting.space === 'personal' ? 'Pessoal' : 'Empresarial'}
-                      </span>
-                    </div>
+              !canManage && selectedMeeting.is_visible === false ? (
+                <motion.div
+                  key={`locked-${selectedMeeting.id}`}
+                  initial={{ opacity: 0, y: 15 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -15 }}
+                  className="bg-card backdrop-blur-xl border border-border rounded-[2.5rem] p-8 lg:p-12 shadow-xl shadow-slate-200/10 dark:shadow-none min-h-[500px] flex flex-col items-center justify-center text-center relative overflow-hidden"
+                >
+                  {/* Premium background gradient effect */}
+                  <div className="absolute inset-0 bg-gradient-to-b from-primary/5 via-transparent to-transparent pointer-events-none" />
+                  
+                  <motion.div 
+                    initial={{ scale: 0.8, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ type: "spring", stiffness: 100 }}
+                    className="w-24 h-24 rounded-[2.5rem] bg-gradient-to-br from-primary/10 to-amber-500/10 border border-primary/20 dark:border-primary/10 flex items-center justify-center mb-6 relative group"
+                  >
+                    {/* Ring decoration */}
+                    <div className="absolute inset-0 rounded-[2.5rem] border border-dashed border-primary/30 animate-spin-slow group-hover:scale-110 transition-transform duration-500" style={{ animationDuration: '15s' }} />
+                    <Lock className="text-primary animate-pulse" size={40} />
+                  </motion.div>
 
-                    <h2 className="text-2xl lg:text-3xl font-black tracking-tighter text-foreground uppercase leading-tight">
-                      {selectedMeeting.title}
+                  <div className="space-y-3 max-w-md relative z-10">
+                    <span className="px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-[9px] font-black uppercase tracking-widest text-amber-500">
+                      Reunião em Preparação
+                    </span>
+                    <h2 className="text-2xl lg:text-3xl font-black tracking-tighter text-slate-900 dark:text-white uppercase leading-tight mt-2">
+                      Aguardando Liberação
                     </h2>
+                    <p className="text-muted-foreground text-xs font-semibold leading-relaxed">
+                      Seu educador financeiro está preparando esta reunião com base na sua evolução. Assim que o conteúdo for finalizado e liberado pelo educador, você poderá visualizar o cronograma de tópicos, os checklists e todas as anotações do encontro aqui.
+                    </p>
                   </div>
+
+                  {/* Elegant decorative border lines */}
+                  <div className="absolute bottom-8 left-8 right-8 flex items-center justify-between border-t border-border/50 pt-4">
+                    <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 flex items-center gap-1">
+                      <Calendar size={10} className="text-primary/70" />
+                      Próxima Reunião: {selectedMeeting.date.split('-').reverse().join('/')}
+                    </span>
+                    <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
+                      Solum Financeiro
+                    </span>
+                  </div>
+                </motion.div>
+              ) : (
+                <motion.div
+                  key={selectedMeeting.id}
+                  initial={{ opacity: 0, y: 15 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -15 }}
+                  className="bg-card backdrop-blur-xl border border-border rounded-[2.5rem] p-8 lg:p-10 shadow-xl shadow-slate-200/10 dark:shadow-none space-y-8"
+                >
+                  {/* Details Header */}
+                  <div className="flex flex-col md:flex-row md:items-start justify-between gap-6 border-b border-border pb-8">
+                    <div className="space-y-3">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="px-3 py-1 rounded-full bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-[9px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+                          <Calendar size={12} className="text-primary" />
+                          {formatDateLabel(selectedMeeting.date)}
+                        </span>
+                        <span className="px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-[9px] font-black uppercase tracking-widest text-primary">
+                          Espaço {selectedMeeting.space === 'personal' ? 'Pessoal' : 'Empresarial'}
+                        </span>
+                      </div>
+
+                      <h2 className="text-2xl lg:text-3xl font-black tracking-tighter text-foreground uppercase leading-tight">
+                        {selectedMeeting.title}
+                      </h2>
+                    </div>
 
                   {canManage && (
                     <div className="flex gap-2 self-start md:self-auto">
@@ -1724,7 +1833,7 @@ export const Meetings: React.FC = () => {
                 </div>
 
               </motion.div>
-            ) : (
+            ) ) : (
               <div className="bg-card backdrop-blur-xl border border-border rounded-[2.5rem] p-20 shadow-xl shadow-slate-200/10 dark:shadow-none text-center flex flex-col items-center justify-center gap-6 min-h-[500px]">
                 <div className="w-20 h-20 rounded-[2rem] bg-primary/5 flex items-center justify-center mb-2">
                   <Presentation className="text-primary/40" size={36} />

@@ -86,6 +86,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         { id: 'finance', label: 'Financeiro', icon: LayoutDashboard },
         { id: 'clients', label: 'Clientes', icon: Users },
         { id: 'tasks', label: 'Tarefas', icon: CheckSquare },
+        { id: 'meetings', label: 'Reuniões', icon: Presentation },
         { id: 'simulators', label: 'Simuladores', icon: Calculator },
         { id: 'referrals', label: 'Indicações', icon: Gift },
         { id: 'settings', label: 'Configurações', icon: Settings }

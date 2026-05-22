@@ -32,6 +32,7 @@ import { FinanceTab } from './tabs/FinanceTab';
 import { ClientsTab } from './tabs/ClientsTab';
 import { RegisterServiceModal } from '../RegisterServiceModal';
 import { TasksTab } from './tabs/TasksTab';
+import { MeetingsTab } from './tabs/MeetingsTab';
 import { SimulatorsTab, ReferralsTab } from './tabs/EmptyTabs';
 import { SettingsTab } from './tabs/SettingsTab';
 
@@ -485,6 +486,8 @@ export const ManagementPortal: React.FC<ManagementPortalProps> = ({ activeTab = 
         );
       case 'tasks':
         return <TasksTab />;
+      case 'meetings':
+        return <MeetingsTab />;
       case 'simulators':
         return <SimulatorsTab />;
       case 'referrals':
