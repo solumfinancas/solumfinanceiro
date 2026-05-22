@@ -1382,13 +1382,8 @@ export const Categories: React.FC = () => {
                           </div>
                         </div>
 
-                        <div className="hidden md:flex flex-col items-center justify-center w-24">
+                        <div className="hidden md:flex flex-col items-center justify-center w-24 text-center">
                           <span className="text-[10px] font-black uppercase tracking-tighter mb-1">{formatDate(t.date)}</span>
-                          {t.isPaid && t.paidDate && wallets.find(w => w.id === t.walletId)?.type !== 'credit_card' && (
-                            <span className="text-[8px] font-black uppercase tracking-widest text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full mt-1">
-                              Pago: {new Date(t.paidDate + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
-                            </span>
-                          )}
                           {t.isContinuous && (
                             <span className="text-[8px] font-black uppercase tracking-widest text-slate-500 bg-slate-500/10 px-2 py-0.5 rounded-full mt-1 flex items-center gap-1">
                               <RefreshCw size={7} /> Ciclo
@@ -1398,10 +1393,7 @@ export const Categories: React.FC = () => {
                             const wallet = wallets.find(w => w.id === t.walletId);
                             if (wallet?.type === 'credit_card' && t.invoiceMonth && t.invoiceYear) {
                               return (
-                                <span className={cn(
-                                  "text-[8px] font-black uppercase tracking-widest text-primary bg-primary/10 px-2 py-0.5 rounded-full",
-                                  t.isPaid && t.paidDate && "mt-1"
-                                )}>
+                                <span className="text-[8px] font-black uppercase tracking-widest text-primary bg-primary/10 px-2 py-0.5 rounded-full mt-1">
                                   Fatura {MONTH_NAMES[t.invoiceMonth - 1].substring(0, 3)}/{t.invoiceYear.toString().slice(-2)}
                                 </span>
                               );
@@ -1410,8 +1402,37 @@ export const Categories: React.FC = () => {
                           })()}
                         </div>
 
+                        {/* Coluna 4: Status no Desktop */}
+                        <div className="hidden md:flex flex-col items-center justify-center w-24">
+                          {(() => {
+                            const wallet = wallets.find(w => w.id === t.walletId);
+                            if (wallet?.type !== 'credit_card') {
+                              return (
+                                <button
+                                  onClick={() => handleToggleTxStatus(t)}
+                                  className={cn(
+                                    "p-2 rounded-xl transition-all hover:bg-muted text-muted-foreground",
+                                    t.isPaid ? "text-emerald-500 hover:text-emerald-600" : "text-amber-500 hover:text-amber-600"
+                                  )}
+                                  title={t.isPaid ? "Marcar como Pendente" : "Marcar como Pago"}
+                                >
+                                  {t.isPaid ? <ThumbsUp size={16} /> : <ThumbsDown size={16} />}
+                                </button>
+                              );
+                            }
+                            return (
+                              <span className="text-[10px] font-black text-muted-foreground/30">-</span>
+                            );
+                          })()}
+                          {t.isPaid && t.paidDate && wallets.find(w => w.id === t.walletId)?.type !== 'credit_card' && (
+                            <span className="text-[8px] font-black uppercase tracking-widest text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full mt-1">
+                              Pago: {new Date(t.paidDate + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+                            </span>
+                          )}
+                        </div>
 
-                        <div className="flex items-center justify-between md:justify-end gap-4 w-full md:w-40 border-t md:border-t-0 border-border/40 pt-3 md:pt-0">
+                        {/* Coluna 5: Valor e Ações no Desktop/Mobile */}
+                        <div className="flex items-center justify-between md:justify-end gap-4 w-full md:w-32 border-t md:border-t-0 border-border/40 pt-3 md:pt-0">
                           <div className="flex flex-col items-start md:hidden">
                             <span className={cn("font-black text-sm tracking-tighter", t.type === 'income' ? "text-emerald-500" : "text-rose-500")}>
                               {t.type === 'income' ? '+' : '-'} {formatCurrency(t.amount)}
@@ -1443,7 +1464,7 @@ export const Categories: React.FC = () => {
                               </span>
                             )}
                           </div>
-                          <div className="flex gap-1">
+                          <div className="flex gap-1 shrink-0">
                             {(() => {
                               const wallet = wallets.find(w => w.id === t.walletId);
                               if (wallet?.type !== 'credit_card') {
@@ -1451,7 +1472,7 @@ export const Categories: React.FC = () => {
                                   <button
                                     onClick={() => handleToggleTxStatus(t)}
                                     className={cn(
-                                      "p-2 rounded-xl transition-all",
+                                      "p-2 rounded-xl transition-all md:hidden",
                                       t.isPaid ? "text-emerald-500" : "text-amber-500"
                                     )}
                                   >

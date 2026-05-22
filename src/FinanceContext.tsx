@@ -457,7 +457,12 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
             return [...prev.filter(a => !(typeof a.id === 'string' && a.id.startsWith('temp-') && a.name === payload.new.name)), payload.new as EquityAsset];
           });
         } else if (payload.eventType === 'UPDATE') {
-          setEquityAssets(prev => prev.map(a => a.id === payload.new.id ? { ...a, ...payload.new } : a));
+          setEquityAssets(prev => {
+            if (payload.new.space !== activeSpace) {
+              return prev.filter(a => a.id !== payload.new.id);
+            }
+            return prev.map(a => a.id === payload.new.id ? (payload.new as EquityAsset) : a);
+          });
         } else if (payload.eventType === 'DELETE') {
           setEquityAssets(prev => prev.filter(a => a.id !== payload.old.id));
         }
@@ -492,7 +497,12 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
             return [...prev.filter(a => !(typeof a.id === 'string' && a.id.startsWith('temp-') && a.name === payload.new.name)), payload.new];
           });
         } else if (payload.eventType === 'UPDATE') {
-          setDebts(prev => prev.map(a => a.id === payload.new.id ? { ...a, ...payload.new } : a));
+          setDebts(prev => {
+            if (payload.new.space !== activeSpace) {
+              return prev.filter(a => a.id !== payload.new.id);
+            }
+            return prev.map(a => a.id === payload.new.id ? payload.new : a);
+          });
         } else if (payload.eventType === 'DELETE') {
           setDebts(prev => prev.filter(a => a.id !== payload.old.id));
         }
@@ -527,7 +537,12 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
             return [...prev.filter(a => !(typeof a.id === 'string' && a.id.startsWith('temp-') && a.description === payload.new.description)), payload.new as NonRecurringExpense];
           });
         } else if (payload.eventType === 'UPDATE') {
-          setNonRecurringExpenses(prev => prev.map(a => a.id === payload.new.id ? { ...a, ...payload.new } : a));
+          setNonRecurringExpenses(prev => {
+            if (payload.new.space !== activeSpace) {
+              return prev.filter(a => a.id !== payload.new.id);
+            }
+            return prev.map(a => a.id === payload.new.id ? (payload.new as NonRecurringExpense) : a);
+          });
         } else if (payload.eventType === 'DELETE') {
           setNonRecurringExpenses(prev => prev.filter(a => a.id !== payload.old.id));
         }
