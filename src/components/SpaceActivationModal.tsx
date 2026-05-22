@@ -15,9 +15,9 @@ interface SpaceActivationModalProps {
   targetUserMetadata?: any;
 }
 
-export const SpaceActivationModal: React.FC<SpaceActivationModalProps> = ({ 
-  isOpen, 
-  onClose, 
+export const SpaceActivationModal: React.FC<SpaceActivationModalProps> = ({
+  isOpen,
+  onClose,
   spaceType,
   onConfirm,
   targetUserId,
@@ -33,7 +33,7 @@ export const SpaceActivationModal: React.FC<SpaceActivationModalProps> = ({
 
   const metadata = targetUserId ? targetUserMetadata : user?.user_metadata;
   const currentInitialized = metadata?.initialized_spaces || [];
-  
+
   // Regra de Bloqueio:
   // 1. Somente para usuários (role 'user')
   // 2. Tentando ativar um segundo espaço (já possui 1 ou mais)
@@ -64,7 +64,7 @@ export const SpaceActivationModal: React.FC<SpaceActivationModalProps> = ({
       // 2. Marcar espaço como inicializado no metadata do usuário
       const currentMetadata = targetUserId ? targetUserMetadata : user.user_metadata;
       const currentSpaces = currentMetadata?.initialized_spaces || [];
-      
+
       if (!currentSpaces.includes(spaceType)) {
         if (targetUserId) {
           // MODO GESTÃO: Usar Edge Function para atualizar metadados de outro usuário
@@ -107,21 +107,21 @@ export const SpaceActivationModal: React.FC<SpaceActivationModalProps> = ({
   return (
     <AnimatePresence>
       <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           onClick={onClose}
           className="absolute inset-0 bg-black/80 backdrop-blur-md"
         />
-        
-        <motion.div 
+
+        <motion.div
           initial={{ scale: 0.9, opacity: 0, y: 20 }}
           animate={{ scale: 1, opacity: 1, y: 0 }}
           exit={{ scale: 0.9, opacity: 0, y: 20 }}
           className="relative w-full max-w-sm bg-card border border-border/50 rounded-[2.5rem] shadow-2xl overflow-hidden p-8"
         >
-          <button 
+          <button
             onClick={onClose}
             className="absolute right-6 top-6 p-2 hover:bg-muted rounded-xl transition-colors text-muted-foreground"
           >
@@ -133,7 +133,7 @@ export const SpaceActivationModal: React.FC<SpaceActivationModalProps> = ({
               <div className="w-20 h-20 rounded-[2rem] bg-rose-500/10 border-2 border-rose-500/20 flex items-center justify-center mx-auto mb-6 text-rose-500">
                 <Lock size={40} />
               </div>
-              
+
               <h2 className="text-xl font-black uppercase tracking-tighter leading-tight mb-4">
                 Ativação Bloqueada
               </h2>
@@ -141,7 +141,7 @@ export const SpaceActivationModal: React.FC<SpaceActivationModalProps> = ({
                 Ops! Você já possui um espaço ativo. Para ativar um segundo espaço (Pessoal ou Empresarial), é necessário solicitar a liberação ao seu educador financeiro.
               </p>
 
-              <button 
+              <button
                 onClick={onClose}
                 className="w-full py-5 rounded-2xl bg-muted text-muted-foreground font-black uppercase tracking-widest text-xs transition-all hover:bg-border active:scale-95 shadow-lg border border-border/50"
               >
@@ -157,7 +157,7 @@ export const SpaceActivationModal: React.FC<SpaceActivationModalProps> = ({
                 )}>
                   {isBusiness ? <Building2 size={40} /> : <User size={40} />}
                 </div>
-                
+
                 <h2 className="text-xl font-black uppercase tracking-tighter leading-tight">
                   Ativar Novo Espaço {isBusiness ? 'Empresarial' : 'Pessoal'}
                 </h2>
@@ -171,7 +171,7 @@ export const SpaceActivationModal: React.FC<SpaceActivationModalProps> = ({
                   </div>
                 ) : (
                   <p className="text-[10px] font-bold text-muted-foreground uppercase opacity-60 tracking-widest mt-2 px-4 leading-relaxed">
-                    {isBusiness 
+                    {isBusiness
                       ? "Prepare-se para uma gestão profissional. Este espaço virá limpo para você configurar suas próprias categorias."
                       : "Seu espaço pessoal pode vir pré-configurado para facilitar seu início rápido."}
                   </p>
@@ -223,7 +223,7 @@ export const SpaceActivationModal: React.FC<SpaceActivationModalProps> = ({
                             { name: 'Lazer', color: '#84cc16' },
                             { name: 'Mercado', color: '#10b981' }
                           ].map(cat => (
-                            <span 
+                            <span
                               key={cat.name}
                               style={{ borderColor: cat.color + '40', color: cat.color }}
                               className="text-[7px] font-black uppercase tracking-tighter px-2 py-1 rounded-lg border bg-background/50"
@@ -242,20 +242,20 @@ export const SpaceActivationModal: React.FC<SpaceActivationModalProps> = ({
               )}
 
               <div className="space-y-3 mb-8">
-                 <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-2xl border border-border/50">
-                    <Rocket className="text-primary" size={18} />
-                    <span className="text-[10px] font-black uppercase tracking-widest text-foreground/80">
-                       Configuração Instantânea
+                <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-2xl border border-border/50">
+                  <Rocket className="text-primary" size={18} />
+                  <span className="text-[10px] font-black uppercase tracking-widest text-foreground/80">
+                    Configuração Instantânea
+                  </span>
+                </div>
+                {isBusiness && (
+                  <div className="flex items-center gap-3 p-3 bg-emerald-500/5 rounded-2xl border border-emerald-500/20 text-emerald-600">
+                    <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                    <span className="text-[10px] font-black uppercase tracking-widest">
+                      Categorias 100% Manuais
                     </span>
-                 </div>
-                 {isBusiness && (
-                    <div className="flex items-center gap-3 p-3 bg-emerald-500/5 rounded-2xl border border-emerald-500/20 text-emerald-600">
-                       <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                       <span className="text-[10px] font-black uppercase tracking-widest">
-                          Categorias 100% Manuais
-                       </span>
-                    </div>
-                 )}
+                  </div>
+                )}
               </div>
 
               {isBusiness && (
@@ -265,8 +265,8 @@ export const SpaceActivationModal: React.FC<SpaceActivationModalProps> = ({
                   </label>
                   <div className="relative">
                     <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground/50" size={16} />
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       placeholder="00.000.000/0000-00"
                       value={cnpj}
                       onChange={(e) => setCnpj(formatCNPJ(e.target.value))}
@@ -274,21 +274,21 @@ export const SpaceActivationModal: React.FC<SpaceActivationModalProps> = ({
                     />
                   </div>
                 </div>
-               )}
+              )}
 
-              <button 
+              <button
                 onClick={handleActivate}
                 disabled={isActivating}
                 className={cn(
-                   "w-full py-5 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center justify-center gap-3 transition-all shadow-lg active:scale-95 disabled:opacity-50",
-                   isBusiness ? "bg-primary text-white shadow-primary/20" : "bg-blue-500 text-white shadow-blue-500/20"
+                  "w-full py-5 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center justify-center gap-3 transition-all shadow-lg active:scale-95 disabled:opacity-50",
+                  isBusiness ? "bg-primary text-white shadow-primary/20" : "bg-blue-500 text-white shadow-blue-500/20"
                 )}
               >
                 {isActivating ? 'Ativando...' : 'Ativar Agora'}
                 <ArrowRight size={18} />
               </button>
 
-              <button 
+              <button
                 onClick={onClose}
                 className="w-full mt-4 py-3 text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-foreground transition-colors"
               >

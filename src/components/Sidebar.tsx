@@ -1,13 +1,13 @@
 import React from 'react';
 import { useFinance } from '../FinanceContext';
 import { useAuth } from '../contexts/AuthContext';
-import { 
-  LayoutDashboard, 
-  Wallet as WalletIcon, 
-  Tags, 
-  ArrowLeftRight, 
-  FileUp, 
-  Moon, 
+import {
+  LayoutDashboard,
+  Wallet as WalletIcon,
+  Tags,
+  ArrowLeftRight,
+  FileUp,
+  Moon,
   Sun,
   LogOut,
   Building2,
@@ -41,9 +41,9 @@ interface SidebarProps {
   onExitManagement?: () => void;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ 
-  activeTab, 
-  setActiveTab, 
+export const Sidebar: React.FC<SidebarProps> = ({
+  activeTab,
+  setActiveTab,
   isManagementOnly = false,
   onExitManagement
 }) => {
@@ -96,22 +96,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
     return items;
   };
 
-  const menuItems = isManagementOnly 
+  const menuItems = isManagementOnly
     ? getManagementMenuItems()
     : [
-        { id: 'dashboard', label: 'Visão Geral', icon: LayoutDashboard },
-        { id: 'wallets', label: 'Carteiras e Cartões', icon: WalletIcon },
-        { id: 'categories', label: 'Categorias', icon: Tags },
-        { id: 'transactions', label: 'Lançamentos', icon: ArrowLeftRight },
-        { id: 'anamnese', label: 'Anamnese', icon: ClipboardList },
-        { id: 'dividas', label: 'Dívidas', icon: TrendingDown },
-        { id: 'patrimonio', label: 'Patrimônio', icon: Gem },
-        { id: 'não-recorrente', label: 'Gastos Eventuais', icon: CalendarClock },
-        { id: 'meetings', label: 'Reuniões', icon: Presentation },
-        { id: 'tasks', label: 'Tarefas', icon: CheckSquare },
-        { id: 'import', label: 'Importação', icon: FileUp },
-        ...(profile && profile.role !== 'user' ? [{ id: 'management', label: 'Portal de Gestão', icon: Shield }] : []),
-      ];
+      { id: 'dashboard', label: 'Visão Geral', icon: LayoutDashboard },
+      { id: 'wallets', label: 'Carteiras e Cartões', icon: WalletIcon },
+      { id: 'categories', label: 'Categorias', icon: Tags },
+      { id: 'transactions', label: 'Lançamentos', icon: ArrowLeftRight },
+      { id: 'anamnese', label: 'Anamnese', icon: ClipboardList },
+      { id: 'dividas', label: 'Dívidas', icon: TrendingDown },
+      { id: 'patrimonio', label: 'Patrimônio', icon: Gem },
+      { id: 'não-recorrente', label: 'Gastos Eventuais', icon: CalendarClock },
+      { id: 'meetings', label: 'Reuniões', icon: Presentation },
+      { id: 'tasks', label: 'Tarefas', icon: CheckSquare },
+      { id: 'import', label: 'Importação', icon: FileUp },
+      ...(profile && profile.role !== 'user' ? [{ id: 'management', label: 'Portal de Gestão', icon: Shield }] : []),
+    ];
 
 
   const toggleSidebar = () => setIsOpen(!isOpen);
@@ -121,10 +121,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Mobile Header */}
       <div className="lg:hidden flex items-center justify-between p-3 bg-card border-b sticky top-0 z-50">
         <div className="flex items-center gap-2">
-          <img 
-            src="/images/logo.png" 
-            alt="Solum Logo" 
-            className="w-6 h-6 object-contain drop-shadow-[0_0_8px_rgba(249,115,22,0.6)]" 
+          <img
+            src="/images/logo.png"
+            alt="Solum Logo"
+            className="w-6 h-6 object-contain drop-shadow-[0_0_8px_rgba(249,115,22,0.6)]"
           />
           <span className="font-bold text-base tracking-tight">SOLUM</span>
         </div>
@@ -136,7 +136,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Sidebar Overlay */}
       <AnimatePresence>
         {isOpen && (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -147,7 +147,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </AnimatePresence>
 
       {/* Sidebar Content */}
-      <motion.aside 
+      <motion.aside
         className={cn(
           "fixed inset-y-0 left-0 z-[110] w-64 bg-card border-r flex flex-col transition-transform duration-300 lg:translate-x-0 lg:static lg:h-screen",
           isOpen ? "translate-x-0" : "-translate-x-full"
@@ -155,10 +155,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
       >
         <div className="p-6 flex items-center gap-3">
           <div className="relative">
-            <img 
-              src="/images/logo.png" 
-              alt="Solum Logo" 
-              className="w-10 h-10 object-contain drop-shadow-[0_0_15px_rgba(249,115,22,0.8)]" 
+            <img
+              src="/images/logo.png"
+              alt="Solum Logo"
+              className="w-10 h-10 object-contain drop-shadow-[0_0_15px_rgba(249,115,22,0.8)]"
             />
           </div>
           <div>
@@ -170,7 +170,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {!isManagementOnly && (
           <div className="px-4 mb-6">
             <div className="bg-muted rounded-lg p-1 flex gap-1">
-              <button 
+              <button
                 onClick={() => handleSpaceSwitch('personal')}
                 className={cn(
                   "flex-1 flex items-center justify-center gap-2 py-2 rounded-md text-sm font-medium transition-all relative overflow-hidden group",
@@ -183,7 +183,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   <div className="absolute top-0 right-0 w-1.5 h-1.5 bg-amber-500 rounded-full m-1 border border-background" />
                 )}
               </button>
-              <button 
+              <button
                 onClick={() => handleSpaceSwitch('business')}
                 className={cn(
                   "flex-1 flex items-center justify-center gap-2 py-2 rounded-md text-sm font-medium transition-all relative overflow-hidden group",
@@ -210,8 +210,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
               }}
               className={cn(
                 "w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all group",
-                activeTab === item.id 
-                  ? "bg-primary/10 text-primary" 
+                activeTab === item.id
+                  ? "bg-primary/10 text-primary"
                   : "text-muted-foreground hover:bg-accent hover:text-foreground"
               )}
             >
@@ -221,7 +221,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               )} />
               {item.label}
               {activeTab === item.id && (
-                <motion.div 
+                <motion.div
                   layoutId="active-pill"
                   className="ml-auto w-1.5 h-1.5 rounded-full bg-primary"
                 />
@@ -243,19 +243,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {/* Profile Summary Section */}
         {!isManagementOnly && (
           <div className="px-4 py-4 border-t mt-auto">
-            <button 
+            <button
               onClick={() => setActiveTab('profile')}
               className={cn(
-                 "w-full flex items-center gap-3 p-3 rounded-2xl border transition-all text-left",
-                 activeTab === 'profile' 
-                   ? "bg-primary/10 border-primary/30" 
-                   : "bg-muted/30 border-border/50 hover:bg-muted/50"
+                "w-full flex items-center gap-3 p-3 rounded-2xl border transition-all text-left",
+                activeTab === 'profile'
+                  ? "bg-primary/10 border-primary/30"
+                  : "bg-muted/30 border-border/50 hover:bg-muted/50"
               )}
             >
               <div className={cn(
                 "w-10 h-10 rounded-xl flex items-center justify-center border flex-shrink-0 transition-colors",
-                (viewingProfile?.gender || user?.user_metadata?.gender) === 'female' 
-                  ? "bg-pink-500/10 border-pink-500/20 text-pink-500" 
+                (viewingProfile?.gender || user?.user_metadata?.gender) === 'female'
+                  ? "bg-pink-500/10 border-pink-500/20 text-pink-500"
                   : "bg-blue-500/10 border-blue-500/20 text-blue-500"
               )}>
                 <User size={20} />
@@ -279,7 +279,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </p>
               </div>
               {activeTab === 'profile' && (
-                <motion.div 
+                <motion.div
                   layoutId="active-pill-profile"
                   className="w-1.5 h-1.5 rounded-full bg-primary"
                 />
@@ -290,14 +290,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
 
         <div className="p-4 border-t space-y-2">
-          <button 
+          <button
             onClick={toggleTheme}
             className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-all"
           >
             {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
             {theme === 'light' ? 'Modo Escuro' : 'Modo Claro'}
           </button>
-          <button 
+          <button
             onClick={signOut}
             className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-destructive hover:bg-destructive/10 transition-all font-black uppercase tracking-widest text-[10px]"
           >
@@ -307,7 +307,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
       </motion.aside>
 
-      <SpaceActivationModal 
+      <SpaceActivationModal
         isOpen={activationModal.isOpen}
         spaceType={activationModal.space}
         onClose={() => setActivationModal(prev => ({ ...prev, isOpen: false }))}

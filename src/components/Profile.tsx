@@ -114,7 +114,12 @@ export const Profile: React.FC = () => {
     setIsSaving(true);
     setSaveSuccess(false);
     try {
-      const metadata = { ...user?.user_metadata };
+      // Obter os metadados de origem corretos (do cliente se estiver gerenciando, ou do próprio usuário)
+      const currentMetadata = viewingUserId 
+        ? (viewingProfile?.user_metadata || {}) 
+        : (user?.user_metadata || {});
+
+      const metadata = { ...currentMetadata };
       
       if (isBusiness) {
         if (cnpj && !validateCNPJ(cnpj)) {
@@ -133,8 +138,8 @@ export const Profile: React.FC = () => {
         metadata.gender = gender;
       }
 
-      // Verificar se houve mudança real comparando com user_metadata atual
-      const hasChanged = JSON.stringify(metadata) !== JSON.stringify(user?.user_metadata);
+      // Verificar se houve mudança real comparando com os metadados atuais do usuário correto
+      const hasChanged = JSON.stringify(metadata) !== JSON.stringify(currentMetadata);
 
       if (!hasChanged) {
         showAlert('Informação', 'Nenhuma alteração foi detectada nas suas informações.', 'info');
