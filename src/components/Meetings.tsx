@@ -1098,7 +1098,8 @@ export const Meetings: React.FC = () => {
           topics: meetingForm.topics,
           observations: meetingForm.observations.trim() || null,
           notes: (meetingForm.notes || '').trim() || null,
-          created_by: user?.id || null
+          created_by: user?.id || null,
+          is_visible: false
         })
         .select()
         .single();
