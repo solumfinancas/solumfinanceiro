@@ -51,6 +51,15 @@ import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Meeting, MeetingTopic, MeetingTemplate } from '../types';
 import { IconRenderer } from './ui/IconRenderer';
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer
+} from 'recharts';
 
 const TemplateTopicItem: React.FC<{
   topic: { id: string; title: string; completed: boolean };
@@ -514,7 +523,16 @@ const MENTORSHIP_TOPICS: MentorshipTopic[] = [
 
 export const Meetings: React.FC = () => {
   const { user, profile, viewingUserId } = useAuth();
-  const { activeSpace, transactions, categories, wallets } = useFinance();
+  const {
+    activeSpace,
+    transactions,
+    categories,
+    wallets,
+    debts,
+    debtHistory,
+    equityAssets,
+    equityHistory
+  } = useFinance();
   const { showAlert, showConfirm } = useModal();
 
   const [meetings, setMeetings] = useState<Meeting[]>([]);
@@ -539,6 +557,9 @@ export const Meetings: React.FC = () => {
   // Estados para as Apresentações de Mentoria
   const [showPresentationsModal, setShowPresentationsModal] = useState(false);
   const [activePresentationSlide, setActivePresentationSlide] = useState<'hourly_rate' | 'value_proposal' | 'credit_card' | 'radar_temas'>('hourly_rate');
+  const [radarSubTab, setRadarSubTab] = useState<'evolution' | 'topics'>('evolution');
+  const [valueProposalConfirmed, setValueProposalConfirmed] = useState(false);
+  const [hourlyRateConfirmed, setHourlyRateConfirmed] = useState(false);
   const [beforeMonth, setBeforeMonth] = useState<string>(() => format(new Date(), 'MM'));
   const [beforeYear, setBeforeYear] = useState<string>(() => format(new Date(), 'yyyy'));
   const [selectedCardId, setSelectedCardId] = useState<string>('fallback');
@@ -758,6 +779,12 @@ export const Meetings: React.FC = () => {
       setMeetingNotes('');
     }
   }, [selectedMeeting]);
+
+  // Resetar a tela de proposta de valor ao mudar de slide de apresentação
+  useEffect(() => {
+    setValueProposalConfirmed(false);
+    setHourlyRateConfirmed(false);
+  }, [activePresentationSlide]);
 
   // Carregar configurações de trabalho do localStorage ao mudar de cliente
   useEffect(() => {
@@ -1010,6 +1037,113 @@ export const Meetings: React.FC = () => {
       .filter(c => c.space === 'personal' && c.type === 'expense' && c.limit && c.limit > 0 && c.isActive !== false && c.isDeleted !== true)
       .reduce((sum, cat) => sum + (cat.limit || 0), 0);
   }, [categories]);
+
+  // Gráfico Dívidas vs Patrimônio - 12 meses fixos
+  const debtVsEquityChartData = useMemo(() => {
+    if ((debts || []).length === 0 && (equityAssets || []).length === 0) return [];
+
+    const data = [];
+    const now = new Date();
+    const currentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    // 12 meses fixos (11 meses atrás até o mês atual)
+    let startDate = new Date(currentMonth);
+    startDate.setMonth(startDate.getMonth() - 11);
+
+    const tempDate = new Date(startDate);
+    const monthsNames = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
+
+    while (tempDate <= currentMonth) {
+      const mStr = tempDate.toISOString().split('T')[0];
+      let totalDebtForMonth = 0;
+      let totalEquityForMonth = 0;
+
+      // Cálculo Dívidas
+      (debts || []).forEach(debt => {
+        const regDate = new Date(debt.due_date + 'T12:00:00');
+        const regMonth = new Date(regDate.getFullYear(), regDate.getMonth(), 1);
+
+        if (tempDate >= regMonth) {
+          const hist = (debtHistory || []).find(h => h.debt_id === debt.id && h.month_year === mStr);
+          if (hist) {
+            totalDebtForMonth += hist.value;
+          } else {
+            const pastHistories = (debtHistory || [])
+              .filter(h => h.debt_id === debt.id && new Date(h.month_year) <= tempDate)
+              .sort((a, b) => new Date(b.month_year).getTime() - new Date(a.month_year).getTime());
+
+            if (pastHistories.length > 0) {
+              totalDebtForMonth += pastHistories[0].value;
+            } else {
+              totalDebtForMonth += debt.total_value;
+            }
+          }
+        }
+      });
+
+      // Cálculo Patrimônio
+      (equityAssets || []).forEach(asset => {
+        const regDate = new Date(asset.registration_date + 'T12:00:00');
+        const regMonth = new Date(regDate.getFullYear(), regDate.getMonth(), 1);
+
+        if (tempDate >= regMonth) {
+          if (asset.ended_at) {
+            const endDate = new Date(asset.ended_at + 'T12:00:00');
+            const endMonth = new Date(endDate.getFullYear(), endDate.getMonth(), 1);
+            if (tempDate > endMonth) return;
+          }
+
+          const hist = (equityHistory || []).find(h => h.asset_id === asset.id && h.month_year === mStr);
+          if (hist) {
+            totalEquityForMonth += hist.value;
+          } else {
+            const past = (equityHistory || [])
+              .filter(h => h.asset_id === asset.id && new Date(h.month_year) <= tempDate)
+              .sort((a, b) => new Date(b.month_year).getTime() - new Date(a.month_year).getTime());
+
+            totalEquityForMonth += past.length > 0 ? past[0].value : asset.initial_value;
+          }
+        }
+      });
+
+      data.push({
+        name: `${monthsNames[tempDate.getMonth()]}/${tempDate.getFullYear().toString().slice(-2)}`,
+        valor: totalDebtForMonth,
+        patrimonio: totalEquityForMonth,
+        rawDate: new Date(tempDate)
+      });
+
+      tempDate.setMonth(tempDate.getMonth() + 1);
+    }
+
+    return data;
+  }, [debts, debtHistory, equityAssets, equityHistory]);
+
+  // Total disponível em cofrinhos (savings)
+  const totalSavingsBalance = useMemo(() => {
+    return (wallets || [])
+      .filter(w => w.walletCategory === 'savings' && w.isActive !== false && !w.isDeleted)
+      .reduce((sum, w) => sum + (w.balance || 0), 0);
+  }, [wallets]);
+
+  // Total disponível em lista de desejos (wishlist)
+  const totalWishlistBalance = useMemo(() => {
+    return (wallets || [])
+      .filter(w => w.walletCategory === 'wishlist' && w.isActive !== false && !w.isDeleted)
+      .reduce((sum, w) => sum + (w.balance || 0), 0);
+  }, [wallets]);
+
+  // Cofrinhos com metas configuradas
+  const savingsWithGoals = useMemo(() => {
+    return (wallets || [])
+      .filter(w => w.walletCategory === 'savings' && w.targetValue && w.targetValue > 0 && w.isActive !== false && !w.isDeleted);
+  }, [wallets]);
+
+  // Itens da lista de desejos com metas configuradas
+  const wishlistWithGoals = useMemo(() => {
+    return (wallets || [])
+      .filter(w => w.walletCategory === 'wishlist' && w.targetValue && w.targetValue > 0 && w.isActive !== false && !w.isDeleted);
+  }, [wallets]);
 
   // Filtrar reuniões por query de busca e ordenar por data decrescente (mais recente primeiro)
   const filteredMeetings = useMemo(() => {
@@ -2584,7 +2718,7 @@ export const Meetings: React.FC = () => {
                         <div className="pr-2 flex-1 min-w-0">
                           <span className={cn("text-[8px] font-black uppercase tracking-wider", activePresentationSlide === 'radar_temas' ? "text-primary" : "text-muted-foreground")}>Próximos Passos</span>
                           <h4 className={cn("text-xs font-black uppercase whitespace-normal break-words leading-tight mt-0.5", activePresentationSlide === 'radar_temas' ? "text-primary" : "text-foreground")}>
-                            Radar de Temas
+                            Proposta de Valor da Mentoria
                           </h4>
                         </div>
                         <ChevronRight size={14} className={cn("transition-transform shrink-0", activePresentationSlide === 'radar_temas' ? "text-primary translate-x-1" : "text-muted-foreground")} />
@@ -2595,80 +2729,129 @@ export const Meetings: React.FC = () => {
                   {/* Lateral Direita - Conteúdo do Slide Selecionado (9 cols) */}
                   <div className="md:col-span-9 flex flex-col h-full overflow-y-auto pr-2 no-scrollbar">
                     {activePresentationSlide === 'hourly_rate' && (
-                      monthlyFinanceData.months.length === 0 ? (
-                        <div className="flex-1 flex flex-col items-center justify-center text-center p-8 border border-dashed border-border rounded-3xl bg-muted/10">
-                          <AlertCircle className="text-muted-foreground mb-4" size={36} />
-                          <h4 className="text-sm font-black uppercase text-foreground">Nenhum lançamento de receita encontrado</h4>
-                          <p className="text-xs text-muted-foreground max-w-sm mt-2 leading-relaxed">
-                            Para calcular o valor da hora trabalhada, é necessário que o cliente tenha transações de receita (entradas) lançadas no Espaço Pessoal.
-                          </p>
+                      !hourlyRateConfirmed ? (
+                        <div className="flex flex-col items-center justify-center py-12 px-4 text-center max-w-xl mx-auto h-full min-h-[480px] animate-fadeIn">
+                          {/* Ícone ou Ilustração */}
+                          <div className="w-16 h-16 rounded-3xl bg-primary/10 text-primary flex items-center justify-center mb-6 shadow-md border border-primary/20 animate-bounce">
+                            <Clock size={32} />
+                          </div>
+
+                          <div className="space-y-3 mb-8">
+                            <h3 className="text-xl font-black uppercase tracking-tight text-slate-900 dark:text-white">
+                              Diagnóstico de Hora Trabalhada
+                            </h3>
+                            <p className="text-xs text-muted-foreground font-semibold leading-relaxed">
+                              Selecione o mês de análise e preencha as configurações de trabalho (dias trabalhados no mês e a carga horária diária) para calcular o seu valor real por hora.
+                            </p>
+                          </div>
+
+                          {/* Painel de Seleção */}
+                          <div className="bg-slate-50 dark:bg-slate-950/40 p-6 rounded-[2rem] border border-border w-full space-y-5 shadow-inner">
+                            {/* Seleção Período */}
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="space-y-1.5 text-left">
+                                <label className="text-[8px] font-black uppercase tracking-widest text-slate-400 pl-1">Mês de Referência</label>
+                                <select
+                                  value={presentationMonth}
+                                  onChange={e => setPresentationMonth(e.target.value)}
+                                  className="w-full bg-white dark:bg-slate-900 border border-border rounded-2xl h-12 px-4 text-xs font-bold text-foreground outline-none focus:border-primary transition-all cursor-pointer shadow-sm"
+                                >
+                                  <option value="01">Janeiro</option>
+                                  <option value="02">Fevereiro</option>
+                                  <option value="03">Março</option>
+                                  <option value="04">Abril</option>
+                                  <option value="05">Maio</option>
+                                  <option value="06">Junho</option>
+                                  <option value="07">Julho</option>
+                                  <option value="08">Agosto</option>
+                                  <option value="09">Setembro</option>
+                                  <option value="10">Outubro</option>
+                                  <option value="11">Novembro</option>
+                                  <option value="12">Dezembro</option>
+                                </select>
+                              </div>
+
+                              <div className="space-y-1.5 text-left">
+                                <label className="text-[8px] font-black uppercase tracking-widest text-slate-400 pl-1">Ano</label>
+                                <select
+                                  value={presentationYear}
+                                  onChange={e => setPresentationYear(e.target.value)}
+                                  className="w-full bg-white dark:bg-slate-900 border border-border rounded-2xl h-12 px-4 text-xs font-bold text-foreground outline-none focus:border-primary transition-all cursor-pointer shadow-sm"
+                                >
+                                  {availableYears.map(y => (
+                                    <option key={y} value={String(y)}>{y}</option>
+                                  ))}
+                                </select>
+                              </div>
+                            </div>
+
+                            {/* Inputs de Dias e Horas */}
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="space-y-1.5 text-left">
+                                <label className="text-[8px] font-black uppercase tracking-widest text-slate-400 pl-1">Dias Trabalhados</label>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  max="31"
+                                  value={workSettings[selectedPresentationMonth]?.days ?? 22}
+                                  onChange={e => handleUpdateWorkSetting(selectedPresentationMonth, 'days', parseInt(e.target.value) || 1)}
+                                  className="w-full bg-white dark:bg-slate-900 border border-border rounded-2xl h-12 px-4 text-xs font-bold text-foreground text-center outline-none focus:border-primary transition-all shadow-sm"
+                                />
+                              </div>
+
+                              <div className="space-y-1.5 text-left">
+                                <label className="text-[8px] font-black uppercase tracking-widest text-slate-400 pl-1">Horas por Dia</label>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  max="24"
+                                  value={workSettings[selectedPresentationMonth]?.hours ?? 8}
+                                  onChange={e => handleUpdateWorkSetting(selectedPresentationMonth, 'hours', parseInt(e.target.value) || 1)}
+                                  className="w-full bg-white dark:bg-slate-900 border border-border rounded-2xl h-12 px-4 text-xs font-bold text-foreground text-center outline-none focus:border-primary transition-all shadow-sm"
+                                />
+                              </div>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => setHourlyRateConfirmed(true)}
+                              className="w-full bg-gradient-to-r from-primary to-primary/95 text-white shadow-xl shadow-primary/20 hover:shadow-primary/30 h-12 rounded-2xl text-xs font-black uppercase tracking-wider transition-all duration-300 hover:scale-[1.01] active:scale-[0.99] flex items-center justify-center gap-2"
+                            >
+                              Confirmar e Calcular Valor por Hora
+                              <ChevronRight size={16} className="stroke-[2.5]" />
+                            </button>
+                          </div>
                         </div>
                       ) : (
                         <div className="space-y-6">
-                          {/* Seletor de Mês/Ano e Inputs de Simulação */}
-                          <div className="p-6 bg-slate-50 dark:bg-slate-950/40 border border-border rounded-3xl space-y-4">
-                            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-                              <div className="space-y-2 flex-1">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 block mb-1 text-left">
-                                  Selecione o Mês e Ano de Análise
-                                </label>
-                                <div className="flex flex-wrap gap-3">
-                                  <select
-                                    value={presentationMonth}
-                                    onChange={e => setPresentationMonth(e.target.value)}
-                                    className="bg-white dark:bg-slate-900 border border-border rounded-xl h-11 px-4 text-xs font-bold text-foreground outline-none focus:border-primary/50 transition-all cursor-pointer min-w-[140px]"
-                                  >
-                                    <option value="01">Janeiro</option>
-                                    <option value="02">Fevereiro</option>
-                                    <option value="03">Março</option>
-                                    <option value="04">Abril</option>
-                                    <option value="05">Maio</option>
-                                    <option value="06">Junho</option>
-                                    <option value="07">Julho</option>
-                                    <option value="08">Agosto</option>
-                                    <option value="09">Setembro</option>
-                                    <option value="10">Outubro</option>
-                                    <option value="11">Novembro</option>
-                                    <option value="12">Dezembro</option>
-                                  </select>
-                                  <select
-                                    value={presentationYear}
-                                    onChange={e => setPresentationYear(e.target.value)}
-                                    className="bg-white dark:bg-slate-900 border border-border rounded-xl h-11 px-4 text-xs font-bold text-foreground outline-none focus:border-primary/50 transition-all cursor-pointer min-w-[100px]"
-                                  >
-                                    {availableYears.map(y => (
-                                      <option key={y} value={String(y)}>{y}</option>
-                                    ))}
-                                  </select>
-                                </div>
-                              </div>
-
-                              {/* Inputs de Configuração */}
-                              <div className="flex gap-4">
-                                <div className="space-y-2 w-28 text-left">
-                                  <label className="text-[9px] font-black uppercase tracking-widest text-slate-500 block">Dias Trabalhados</label>
-                                  <input
-                                    type="number"
-                                    min="1"
-                                    max="31"
-                                    value={workSettings[selectedPresentationMonth]?.days ?? 22}
-                                    onChange={e => handleUpdateWorkSetting(selectedPresentationMonth, 'days', parseInt(e.target.value) || 1)}
-                                    className="w-full bg-white dark:bg-slate-900 border border-border rounded-xl h-11 px-3 text-xs font-bold text-foreground text-center outline-none focus:border-primary"
-                                  />
-                                </div>
-                                <div className="space-y-2 w-28 text-left">
-                                  <label className="text-[9px] font-black uppercase tracking-widest text-slate-500 block">Horas por Dia</label>
-                                  <input
-                                    type="number"
-                                    min="1"
-                                    max="24"
-                                    value={workSettings[selectedPresentationMonth]?.hours ?? 8}
-                                    onChange={e => handleUpdateWorkSetting(selectedPresentationMonth, 'hours', parseInt(e.target.value) || 1)}
-                                    className="w-full bg-white dark:bg-slate-900 border border-border rounded-xl h-11 px-3 text-xs font-bold text-foreground text-center outline-none focus:border-primary"
-                                  />
-                                </div>
+                          {/* Barra de Status e Período Ativo Compacta */}
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 bg-slate-50 dark:bg-slate-950/40 border border-border rounded-2xl text-left animate-fadeIn">
+                            <div className="space-y-1">
+                              <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">Análise de Período Ativa</span>
+                              <div className="text-xs font-bold text-foreground flex items-center gap-1.5 flex-wrap">
+                                Período: <span className="text-primary font-black uppercase">{(() => {
+                                  try {
+                                    const date = new Date(parseInt(presentationYear), parseInt(presentationMonth) - 1, 15);
+                                    return format(date, "MMMM 'de' yyyy", { locale: ptBR });
+                                  } catch (e) {
+                                    return `${presentationMonth}/${presentationYear}`;
+                                  }
+                                })()}</span>
+                                <span className="text-muted-foreground/30">•</span>
+                                <span>{workSettings[selectedPresentationMonth]?.days ?? 22} dias úteis</span>
+                                <span className="text-muted-foreground/30">•</span>
+                                <span>{workSettings[selectedPresentationMonth]?.hours ?? 8}h diárias</span>
                               </div>
                             </div>
+                            
+                            <button
+                              type="button"
+                              onClick={() => setHourlyRateConfirmed(false)}
+                              className="px-4 h-9 border border-border hover:bg-muted text-[9px] font-black uppercase tracking-widest rounded-xl transition-all flex items-center gap-2 text-foreground active:scale-[0.98]"
+                            >
+                              <Clock size={12} />
+                              Alterar Configurações
+                            </button>
                           </div>
 
                           {/* Cards de Métricas Consolidadas */}
@@ -2805,7 +2988,73 @@ export const Meetings: React.FC = () => {
                     )}
 
                     {activePresentationSlide === 'value_proposal' && (
-                      <div className="space-y-8 animate-fadeIn text-left">
+                      !valueProposalConfirmed ? (
+                        <div className="flex flex-col items-center justify-center py-12 px-4 text-center max-w-xl mx-auto h-full min-h-[450px] animate-fadeIn">
+                          {/* Ícone ou Ilustração */}
+                          <div className="w-16 h-16 rounded-3xl bg-primary/10 text-primary flex items-center justify-center mb-6 shadow-md border border-primary/20 animate-bounce">
+                            <Presentation size={32} />
+                          </div>
+
+                          <div className="space-y-3 mb-8">
+                            <h3 className="text-xl font-black uppercase tracking-tight text-slate-900 dark:text-white">
+                              Diagnóstico de Custo de Vida
+                            </h3>
+                            <p className="text-xs text-muted-foreground font-semibold leading-relaxed">
+                              Selecione o mês e ano de referência para mapear o cenário <strong>"Antes"</strong> (despesas reais acumuladas). Esses dados serão comparados aos limites de gastos para calcular a economia mensal projetada.
+                            </p>
+                          </div>
+
+                          {/* Seletores */}
+                          <div className="bg-slate-50 dark:bg-slate-950/40 p-6 rounded-[2rem] border border-border w-full space-y-5 shadow-inner">
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="space-y-1.5 text-left">
+                                <label className="text-[8px] font-black uppercase tracking-widest text-slate-400 pl-1">Mês de Referência</label>
+                                <select
+                                  value={beforeMonth}
+                                  onChange={e => setBeforeMonth(e.target.value)}
+                                  className="w-full bg-white dark:bg-slate-900 border border-border rounded-2xl h-12 px-4 text-xs font-bold text-foreground outline-none focus:border-primary transition-all cursor-pointer shadow-sm"
+                                >
+                                  <option value="01">Janeiro</option>
+                                  <option value="02">Fevereiro</option>
+                                  <option value="03">Março</option>
+                                  <option value="04">Abril</option>
+                                  <option value="05">Maio</option>
+                                  <option value="06">Junho</option>
+                                  <option value="07">Julho</option>
+                                  <option value="08">Agosto</option>
+                                  <option value="09">Setembro</option>
+                                  <option value="10">Outubro</option>
+                                  <option value="11">Novembro</option>
+                                  <option value="12">Dezembro</option>
+                                </select>
+                              </div>
+
+                              <div className="space-y-1.5 text-left">
+                                <label className="text-[8px] font-black uppercase tracking-widest text-slate-400 pl-1">Ano</label>
+                                <select
+                                  value={beforeYear}
+                                  onChange={e => setBeforeYear(e.target.value)}
+                                  className="w-full bg-white dark:bg-slate-900 border border-border rounded-2xl h-12 px-4 text-xs font-bold text-foreground outline-none focus:border-primary transition-all cursor-pointer shadow-sm"
+                                >
+                                  {availableYears.map(y => (
+                                    <option key={y} value={String(y)}>{y}</option>
+                                  ))}
+                                </select>
+                              </div>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => setValueProposalConfirmed(true)}
+                              className="w-full bg-gradient-to-r from-primary to-primary/95 text-white shadow-xl shadow-primary/20 hover:shadow-primary/30 h-12 rounded-2xl text-xs font-black uppercase tracking-wider transition-all duration-300 hover:scale-[1.01] active:scale-[0.99] flex items-center justify-center gap-2"
+                            >
+                              Confirmar e Gerar Diagnóstico
+                              <ChevronRight size={16} className="stroke-[2.5]" />
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-8 animate-fadeIn text-left">
                         {/* Seção 1: Comparador Custo de Vida */}
                         <div className="space-y-4">
                           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -2913,47 +3162,84 @@ export const Meetings: React.FC = () => {
                             </div>
                           </div>
 
-                          {/* Comparativo de Barras */}
-                          <div className="p-5 bg-slate-50 dark:bg-slate-950/40 border border-border rounded-3xl space-y-4">
-                            <div className="flex items-center justify-between">
+                          {/* Comparativo de Custo de Vida em Balizas */}
+                          <div className="p-6 bg-slate-50 dark:bg-slate-950/40 border border-border rounded-3xl space-y-6">
+                            <div className="flex items-center justify-between border-b border-border/55 pb-3">
                               <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Fluxo de Caixa Otimizado</span>
                               {beforeTotal > afterTotal && (
-                                <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">Redução de {((beforeTotal - afterTotal) / beforeTotal * 100).toFixed(1)}% no custo de vida</span>
+                                <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest bg-emerald-500/10 px-2.5 py-1 rounded-lg">
+                                  Redução de {((beforeTotal - afterTotal) / beforeTotal * 100).toFixed(1)}% no custo de vida
+                                </span>
                               )}
                             </div>
 
-                            <div className="space-y-3">
-                              {/* Barra Antes */}
-                              <div className="space-y-1">
-                                <div className="flex justify-between text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
-                                  <span>Despesas Iniciais (Mês selecionado)</span>
-                                  <span className="text-rose-500">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(beforeTotal)}</span>
+                            {/* Gráfico de Balizas Verticais */}
+                            <div className="flex items-end justify-center gap-24 sm:gap-36 w-full pt-10 pb-4 h-64 relative select-none">
+                              
+                              {/* Baliza 1: Cenário Antes */}
+                              <div className="flex flex-col items-center gap-3 h-full justify-end relative group">
+                                {/* Valor no Topo */}
+                                <div className="absolute -top-7 bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 px-3 py-1 rounded-xl text-[10px] font-black shadow-sm group-hover:scale-105 transition-all">
+                                  {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(beforeTotal)}
                                 </div>
-                                <div className="w-full bg-slate-200 dark:bg-slate-800/60 h-3 rounded-full overflow-hidden">
-                                  <div
-                                    className="h-full bg-rose-500 rounded-full transition-all duration-700"
-                                    style={{ width: beforeTotal > 0 ? '100%' : '0%' }}
-                                  />
+                                
+                                {/* Coluna Vertical */}
+                                <div 
+                                  className="w-16 sm:w-20 bg-gradient-to-t from-rose-500/10 to-rose-500/70 border border-rose-500/30 rounded-2xl relative shadow-lg shadow-rose-500/5 transition-all duration-1000 ease-out hover:brightness-105"
+                                  style={{ height: beforeTotal > 0 ? '100%' : '0%' }}
+                                >
+                                  <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl" />
+                                </div>
+
+                                {/* Rótulo Inferior */}
+                                <div className="text-center">
+                                  <span className="text-[9px] font-black text-slate-900 dark:text-white uppercase tracking-wider block">Cenário Antes</span>
+                                  <span className="text-[7.5px] font-bold text-rose-500 uppercase tracking-widest block mt-0.5">Gasto Real</span>
                                 </div>
                               </div>
 
-                              {/* Barra Depois */}
-                              <div className="space-y-1">
-                                <div className="flex justify-between text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
-                                  <span>Novo Custo de Vida Planejado</span>
-                                  <span className="text-emerald-500">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(afterTotal)}</span>
+                              {/* Conector Central (Informações de Redução Consolidadas) */}
+                              {beforeTotal > afterTotal && (
+                                <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 flex flex-col items-center justify-center pointer-events-none z-10 pt-4">
+                                  {/* Card Pílula Centralizado */}
+                                  <div className="bg-emerald-500 text-white shadow-2xl shadow-emerald-500/30 px-4 py-2.5 rounded-2xl flex flex-col items-center justify-center border border-emerald-400/20 translate-y-6">
+                                    <div className="flex items-center gap-1">
+                                      <ArrowDown size={12} className="stroke-[3] animate-bounce" />
+                                      <span className="text-[12px] font-black leading-none">-{((beforeTotal - afterTotal) / beforeTotal * 100).toFixed(0)}%</span>
+                                    </div>
+                                    <span className="text-[8px] font-black text-emerald-100 uppercase tracking-wider mt-1 block whitespace-nowrap">
+                                      Economia de {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(beforeTotal - afterTotal)}/mês
+                                    </span>
+                                  </div>
                                 </div>
-                                <div className="w-full bg-slate-200 dark:bg-slate-800/60 h-3 rounded-full overflow-hidden">
-                                  <div
-                                    className="h-full bg-emerald-500 rounded-full transition-all duration-700"
-                                    style={{
-                                      width: beforeTotal > 0
-                                        ? `${Math.min((afterTotal / beforeTotal) * 100, 100)}%`
-                                        : afterTotal > 0 ? '100%' : '0%'
-                                    }}
-                                  />
+                              )}
+
+                              {/* Baliza 2: Cenário Depois */}
+                              <div className="flex flex-col items-center gap-3 h-full justify-end relative group">
+                                {/* Valor no Topo */}
+                                <div className="absolute -top-7 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 px-3 py-1 rounded-xl text-[10px] font-black shadow-sm group-hover:scale-105 transition-all">
+                                  {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(afterTotal)}
+                                </div>
+
+                                {/* Coluna Vertical Otimizada */}
+                                <div 
+                                  className="w-16 sm:w-20 bg-gradient-to-t from-emerald-500/10 to-emerald-500/70 border border-emerald-500/30 rounded-2xl relative shadow-lg shadow-emerald-500/5 transition-all duration-1000 ease-out hover:brightness-105"
+                                  style={{ 
+                                    height: beforeTotal > 0 
+                                      ? `${Math.max(20, Math.min((afterTotal / beforeTotal) * 100, 100))}%`
+                                      : afterTotal > 0 ? '100%' : '0%' 
+                                  }}
+                                >
+                                  <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl" />
+                                </div>
+
+                                {/* Rótulo Inferior */}
+                                <div className="text-center">
+                                  <span className="text-[9px] font-black text-slate-900 dark:text-white uppercase tracking-wider block">Cenário Depois</span>
+                                  <span className="text-[7.5px] font-bold text-emerald-500 uppercase tracking-widest block mt-0.5">Planejado</span>
                                 </div>
                               </div>
+
                             </div>
                           </div>
                         </div>
@@ -3112,7 +3398,8 @@ export const Meetings: React.FC = () => {
                           </div>
                         </div>
                       </div>
-                    )}
+                    )
+                  )}
 
                     {activePresentationSlide === 'credit_card' && (
                       <div className="space-y-8">
@@ -3681,7 +3968,6 @@ export const Meetings: React.FC = () => {
                                 </AnimatePresence>
                               </div>
                             </div>
-
                             {/* Passo 4: Registrar Pagamento no App */}
                             <div className="relative pl-10 pb-6 text-left">
                               <div className="absolute left-[15px] top-8 bottom-0 w-[2px] border-l-2 border-dashed border-slate-200 dark:border-white/10" style={{ display: 'none' }} />
@@ -3705,303 +3991,584 @@ export const Meetings: React.FC = () => {
 
                     {activePresentationSlide === 'radar_temas' && (
                       <div className="space-y-6 flex flex-col h-full overflow-hidden text-left">
-                        {/* Cabeçalho do Slide: Título e barra de busca/filtros */}
-                        <div className="flex flex-col gap-4">
-                          <div>
-                            <h3 className="text-lg font-black uppercase tracking-tight text-slate-900 dark:text-white">
-                              Radar de Temas de Mentoria
-                            </h3>
-                            <p className="text-[11px] text-muted-foreground font-bold uppercase tracking-wider">
-                              Assuntos estratégicos pendentes de discussão com o cliente
-                            </p>
-                          </div>
-
-                          <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
-                            {/* Filtros por Categoria */}
-                            <div className="flex flex-wrap gap-1.5 bg-slate-100 dark:bg-white/5 p-1 rounded-xl">
-                              {[
-                                { id: 'all', label: 'Todos' },
-                                { id: 'fundacoes', label: 'Fundações' },
-                                { id: 'otimizacao', label: 'Otimização' },
-                                { id: 'protecao', label: 'Proteção' },
-                                { id: 'futuro', label: 'Futuro' }
-                              ].map(tab => {
-                                const count = tab.id === 'all'
-                                  ? MENTORSHIP_TOPICS.length
-                                  : MENTORSHIP_TOPICS.filter(t => t.category === tab.id).length;
-                                return (
-                                  <button
-                                    key={tab.id}
-                                    type="button"
-                                    onClick={() => setSelectedCategoryTab(tab.id)}
-                                    className={cn(
-                                      "px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5",
-                                      selectedCategoryTab === tab.id
-                                        ? "bg-white dark:bg-slate-900 text-primary shadow-sm"
-                                        : "text-muted-foreground hover:text-foreground"
-                                    )}
-                                  >
-                                    {tab.label}
-                                    <span className={cn(
-                                      "text-[9px] px-1.5 py-0.5 rounded-full font-bold",
-                                      selectedCategoryTab === tab.id
-                                        ? "bg-primary/10 text-primary"
-                                        : "bg-slate-200 dark:bg-white/10 text-muted-foreground"
-                                    )}>
-                                      {count}
-                                    </span>
-                                  </button>
-                                );
-                              })}
-                            </div>
-
-                            {/* Barra de Busca */}
-                            <div className="relative flex-1 max-w-xs">
-                              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
-                              <input
-                                type="text"
-                                placeholder="Buscar tema..."
-                                value={topicSearchQuery}
-                                onChange={e => setTopicSearchQuery(e.target.value)}
-                                className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-xl h-9 pl-9 pr-4 text-xs font-bold text-foreground placeholder-slate-400 outline-none focus:border-primary transition-all"
-                              />
-                              {topicSearchQuery && (
-                                <button
-                                  type="button"
-                                  onClick={() => setTopicSearchQuery('')}
-                                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-foreground"
-                                >
-                                  <X size={12} />
-                                </button>
-                              )}
-                            </div>
-                          </div>
+                        {/* Seletor de Sub-Abas do Radar */}
+                        <div className="flex bg-slate-100 dark:bg-white/5 p-1 rounded-2xl flex-shrink-0 border border-slate-200 dark:border-white/10 max-w-md">
+                          <button
+                            type="button"
+                            onClick={() => setRadarSubTab('evolution')}
+                            className={cn(
+                              "flex-1 py-2 text-[10px] font-black uppercase tracking-wider rounded-xl transition-all flex items-center justify-center gap-2",
+                              radarSubTab === 'evolution'
+                                ? "bg-white dark:bg-slate-900 text-primary shadow-sm"
+                                : "text-muted-foreground hover:text-foreground"
+                            )}
+                          >
+                            <TrendingUp size={14} />
+                            Evolução e Conquistas
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setRadarSubTab('topics')}
+                            className={cn(
+                              "flex-1 py-2 text-[10px] font-black uppercase tracking-wider rounded-xl transition-all flex items-center justify-center gap-2",
+                              radarSubTab === 'topics'
+                                ? "bg-white dark:bg-slate-900 text-primary shadow-sm"
+                                : "text-muted-foreground hover:text-foreground"
+                            )}
+                          >
+                            <Presentation size={14} />
+                            Temas de Mentoria
+                          </button>
                         </div>
 
-                        {/* Grid Split-Screen */}
-                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1 overflow-hidden min-h-0 items-stretch">
-
-                          {/* Coluna Esquerda: Lista de Cards */}
-                          <div className="lg:col-span-7 xl:col-span-8 overflow-y-auto pr-2 no-scrollbar space-y-3 pb-8">
-                            {(() => {
-                              const filtered = MENTORSHIP_TOPICS.filter(t => {
-                                const matchesCategory = selectedCategoryTab === 'all' || t.category === selectedCategoryTab;
-                                const matchesSearch = t.title.toLowerCase().includes(topicSearchQuery.toLowerCase()) ||
-                                  t.shortDesc.toLowerCase().includes(topicSearchQuery.toLowerCase());
-                                return matchesCategory && matchesSearch;
-                              });
-
-                              if (filtered.length === 0) {
-                                return (
-                                  <div className="flex flex-col items-center justify-center text-center p-8 border border-dashed border-border rounded-2xl bg-muted/5 mt-4">
-                                    <AlertCircle className="text-muted-foreground mb-2" size={24} />
-                                    <h5 className="text-xs font-black uppercase text-foreground">Nenhum tema encontrado</h5>
-                                    <p className="text-[10px] text-muted-foreground mt-1">
-                                      Tente alterar o filtro ou termo de busca para encontrar outros tópicos.
-                                    </p>
+                        {radarSubTab === 'evolution' ? (
+                          <div className="flex-1 flex flex-col gap-6 overflow-y-auto no-scrollbar min-h-0 pb-6 pr-1">
+                            {/* Cards de Resumo de Carteiras */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 flex-shrink-0">
+                              {/* Card Cofrinhos */}
+                              <div className="bg-emerald-500/5 border border-emerald-500/10 dark:border-emerald-500/20 rounded-2xl p-5 text-left flex items-center justify-between">
+                                <div>
+                                  <span className="text-[8px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400">Total em Cofrinhos</span>
+                                  <div className="text-xl font-black text-slate-900 dark:text-white mt-1">
+                                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalSavingsBalance)}
                                   </div>
-                                );
-                              }
+                                  <span className="text-[8px] font-bold text-muted-foreground uppercase mt-1 block">Reservas de liquidez e poupança</span>
+                                </div>
+                                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center">
+                                  <PiggyBank size={20} />
+                                </div>
+                              </div>
 
-                              return (
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                                  {filtered.map(topic => {
-                                    const IconComponent = TOPIC_ICON_MAP[topic.iconName] || Star;
-                                    const isSelected = selectedTopicId === topic.id;
-                                    const isFocused = focusedTopicIds.includes(topic.id);
+                              {/* Card Lista de Desejos */}
+                              <div className="bg-amber-500/5 border border-amber-500/10 dark:border-amber-500/20 rounded-2xl p-5 text-left flex items-center justify-between">
+                                <div>
+                                  <span className="text-[8px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-400">Total em Lista de Desejos</span>
+                                  <div className="text-xl font-black text-slate-900 dark:text-white mt-1">
+                                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalWishlistBalance)}
+                                  </div>
+                                  <span className="text-[8px] font-bold text-muted-foreground uppercase mt-1 block">Objetivos de consumo e sonhos</span>
+                                </div>
+                                <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center">
+                                  <Star size={20} />
+                                </div>
+                              </div>
+                            </div>
 
-                                    return (
-                                      <div
-                                        key={topic.id}
-                                        onClick={() => setSelectedTopicId(topic.id)}
-                                        className={cn(
-                                          "group relative p-4 rounded-2xl border text-left cursor-pointer transition-all duration-300 flex flex-col justify-between select-none min-h-[120px] overflow-hidden",
-                                          isSelected
-                                            ? "bg-slate-50 dark:bg-slate-950/40 border-primary shadow-lg shadow-primary/5 ring-1 ring-primary"
-                                            : isFocused
-                                              ? "bg-amber-500/[0.02] border-amber-500/40 hover:border-amber-500"
-                                              : "bg-white dark:bg-slate-900 border-border hover:border-primary/40 hover:shadow-md"
-                                        )}
-                                      >
-                                        {/* Detalhe de gradiente de fundo se selecionado ou focado */}
-                                        {isSelected && (
-                                          <div className="absolute top-0 right-0 w-24 h-24 bg-primary/10 rounded-full blur-2xl pointer-events-none -mr-4 -mt-4" />
-                                        )}
-                                        {isFocused && (
-                                          <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/5 rounded-full blur-2xl pointer-events-none -mr-4 -mt-4" />
-                                        )}
+                            {/* Gráfico Dívidas vs Patrimônio */}
+                            <div className="bg-slate-50 dark:bg-slate-950/40 border border-border rounded-3xl p-6 flex-shrink-0 space-y-4">
+                              <div>
+                                <h4 className="text-xs font-black uppercase tracking-widest text-foreground flex items-center gap-2">
+                                  <TrendingUp size={14} className="text-primary" />
+                                  Evolução: Dívidas vs. Patrimônio (Últimos 12 Meses)
+                                </h4>
+                                <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest mt-1">
+                                  Comparativo entre o crescimento do seu patrimônio acumulado e a redução dos saldos devedores
+                                </p>
+                              </div>
 
-                                        <div>
-                                          {/* Cabeçalho do Card: Ícone e Estrela de Foco */}
-                                          <div className="flex items-center justify-between gap-3 mb-2.5">
-                                            <div
-                                              className="w-9 h-9 rounded-xl flex items-center justify-center border shadow-sm transition-transform group-hover:scale-105"
-                                              style={{
-                                                backgroundColor: `${topic.color}12`,
-                                                borderColor: `${topic.color}25`,
-                                                color: topic.color
-                                              }}
-                                            >
-                                              <IconComponent size={18} />
+                              <div className="h-[220px] w-full">
+                                {debtVsEquityChartData.length > 0 ? (
+                                  <ResponsiveContainer width="100%" height="100%">
+                                    <AreaChart data={debtVsEquityChartData} margin={{ left: 20, right: 20, bottom: 5, top: 10 }}>
+                                      <defs>
+                                        <linearGradient id="colorDebtCompRadar" x1="0" y1="0" x2="0" y2="1">
+                                          <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.1} />
+                                          <stop offset="95%" stopColor="#f43f5e" stopOpacity={0} />
+                                        </linearGradient>
+                                        <linearGradient id="colorEquityCompRadar" x1="0" y1="0" x2="0" y2="1">
+                                          <stop offset="5%" stopColor="#10b981" stopOpacity={0.2} />
+                                          <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                                        </linearGradient>
+                                      </defs>
+                                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
+                                      <XAxis
+                                        dataKey="name"
+                                        axisLine={false}
+                                        tickLine={false}
+                                        tick={{ fontSize: 8, fontWeight: 900, fill: 'var(--muted-foreground)' }}
+                                        dy={10}
+                                        padding={{ left: 20, right: 20 }}
+                                        interval={0}
+                                      />
+                                      <YAxis hide domain={['auto', 'auto']} />
+                                      <Tooltip
+                                        content={({ active, payload }) => {
+                                          if (active && payload && payload.length) {
+                                            const equity = payload.find(p => p.dataKey === 'patrimonio')?.value as number || 0;
+                                            const debt = payload.find(p => p.dataKey === 'valor')?.value as number || 0;
+                                            const netValue = equity - debt;
+
+                                            return (
+                                              <div className="bg-card/95 backdrop-blur-md border border-border p-4 rounded-2xl shadow-2xl min-w-[180px]">
+                                                <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground mb-2 pb-1.5 border-b border-border">
+                                                  {payload[0].payload.rawDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }).toUpperCase()}
+                                                </p>
+                                                <div className="space-y-2.5">
+                                                  <div>
+                                                    <p className="text-[7.5px] font-black uppercase tracking-widest text-emerald-500 opacity-80">Patrimônio Total</p>
+                                                    <p className="text-sm font-black text-emerald-500 tracking-tighter">
+                                                      {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(equity)}
+                                                    </p>
+                                                  </div>
+                                                  <div>
+                                                    <p className="text-[7.5px] font-black uppercase tracking-widest text-rose-500 opacity-80">Saldo Devedor</p>
+                                                    <p className="text-sm font-black text-rose-500 tracking-tighter">
+                                                      {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(debt)}
+                                                    </p>
+                                                  </div>
+                                                  <div className="pt-2 border-t border-border/50">
+                                                    <p className="text-[7.5px] font-black uppercase tracking-widest text-muted-foreground">Saldo Líquido</p>
+                                                    <p className={cn(
+                                                      "text-sm font-black tracking-tighter",
+                                                      netValue >= 0 ? "text-emerald-500" : "text-rose-500"
+                                                    )}>
+                                                      {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(netValue)}
+                                                    </p>
+                                                  </div>
+                                                </div>
+                                              </div>
+                                            );
+                                          }
+                                          return null;
+                                        }}
+                                      />
+                                      <Area
+                                        type="monotone"
+                                        dataKey="patrimonio"
+                                        stroke="#10b981"
+                                        strokeWidth={3}
+                                        fillOpacity={1}
+                                        fill="url(#colorEquityCompRadar)"
+                                        animationDuration={1000}
+                                      />
+                                      <Area
+                                        type="monotone"
+                                        dataKey="valor"
+                                        stroke="#f43f5e"
+                                        strokeWidth={2}
+                                        strokeDasharray="4 4"
+                                        fillOpacity={1}
+                                        fill="url(#colorDebtCompRadar)"
+                                        animationDuration={1000}
+                                      />
+                                    </AreaChart>
+                                  </ResponsiveContainer>
+                                ) : (
+                                  <div className="h-full flex flex-col items-center justify-center gap-2 text-muted-foreground/30 border border-dashed border-border rounded-2xl bg-muted/5 py-12">
+                                    <TrendingUp size={36} />
+                                    <p className="text-[9px] font-black uppercase tracking-widest">Dados de histórico insuficientes</p>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Seção de Metas (Grid de Duas Colunas) */}
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 flex-shrink-0">
+                              {/* Coluna 1: Cofrinhos */}
+                              <div className="space-y-4">
+                                <h4 className="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 border-b border-border/55 pb-2">
+                                  <PiggyBank size={14} />
+                                  Metas de Cofrinhos ({savingsWithGoals.length})
+                                </h4>
+
+                                {savingsWithGoals.length === 0 ? (
+                                  <div className="p-6 text-center border border-dashed border-border/60 rounded-2xl bg-muted/5">
+                                    <p className="text-[9px] font-bold text-muted-foreground/60 uppercase tracking-widest italic">Nenhum cofrinho com meta definida no momento.</p>
+                                  </div>
+                                ) : (
+                                  <div className="space-y-3">
+                                    {savingsWithGoals.map(w => {
+                                      const progress = Math.min(100, Math.round(((w.balance || 0) / w.targetValue) * 100));
+                                      const isCompleted = (w.balance || 0) >= w.targetValue;
+
+                                      return (
+                                        <div key={w.id} className="p-4 bg-slate-50/50 dark:bg-slate-950/20 border border-border rounded-2xl space-y-2.5 hover:scale-[1.005] transition-all">
+                                          <div className="flex items-center justify-between gap-4">
+                                            <div className="flex items-center gap-2.5 min-w-0">
+                                              <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-500 flex items-center justify-center shrink-0">
+                                                <IconRenderer icon={w.logoUrl || w.icon || 'savings'} color={w.color} size={16} />
+                                              </div>
+                                              <div className="text-left min-w-0">
+                                                <h5 className="text-xs font-black uppercase text-foreground truncate">{w.name}</h5>
+                                                <span className="text-[8.5px] font-semibold text-muted-foreground">
+                                                  Saldo: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(w.balance || 0)} de {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(w.targetValue)}
+                                                </span>
+                                              </div>
                                             </div>
 
-                                            <button
-                                              type="button"
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleToggleTopicFocus(topic.id);
-                                              }}
-                                              className="p-1.5 rounded-lg text-slate-300 dark:text-slate-700 hover:text-amber-500 dark:hover:text-amber-500 hover:bg-slate-100 dark:hover:bg-white/5 transition-all"
-                                              title={isFocused ? "Remover Foco" : "Marcar em Foco"}
-                                            >
-                                              <Star
-                                                size={16}
-                                                className={cn(
-                                                  "transition-all",
-                                                  isFocused
-                                                    ? "fill-amber-500 text-amber-500 scale-110"
-                                                    : "text-slate-400 dark:text-slate-500"
-                                                )}
-                                              />
-                                            </button>
+                                            <div className="text-right shrink-0">
+                                              {isCompleted ? (
+                                                <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-[7.5px] font-black uppercase tracking-wider flex items-center gap-1 animate-bounce">
+                                                  🏆 Concluída!
+                                                </span>
+                                              ) : (
+                                                <span className="text-[10px] font-black text-emerald-600 dark:text-emerald-400">
+                                                  {progress}%
+                                                </span>
+                                              )}
+                                            </div>
                                           </div>
 
-                                          {/* Título e Pilar */}
-                                          <h4 className="text-xs font-black uppercase text-foreground leading-tight group-hover:text-primary transition-colors flex items-center gap-1.5">
-                                            {topic.title}
-                                          </h4>
-                                          <p className="text-[10px] text-muted-foreground leading-relaxed mt-1.5 font-medium line-clamp-2">
-                                            {topic.shortDesc}
-                                          </p>
+                                          <div className="w-full bg-slate-200 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
+                                            <div
+                                              className="h-full rounded-full transition-all duration-500 bg-emerald-500"
+                                              style={{ width: `${progress}%` }}
+                                            />
+                                          </div>
                                         </div>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                              </div>
 
-                                        <div className="mt-3.5 flex items-center justify-between border-t border-slate-100 dark:border-white/5 pt-2.5">
-                                          <span className="text-[8px] font-black uppercase tracking-wider text-muted-foreground bg-slate-100 dark:bg-white/5 px-2 py-0.5 rounded-md">
-                                            {topic.categoryLabel}
-                                          </span>
-                                          {isFocused && (
-                                            <span className="text-[8px] font-black uppercase tracking-wider text-amber-600 bg-amber-500/10 px-2 py-0.5 rounded-md flex items-center gap-1 animate-pulse">
-                                              ★ Em Foco
-                                            </span>
-                                          )}
+                              {/* Coluna 2: Lista de Desejos */}
+                              <div className="space-y-4">
+                                <h4 className="text-[10px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-400 flex items-center gap-1.5 border-b border-border/55 pb-2">
+                                  <Star size={14} />
+                                  Metas de Desejos ({wishlistWithGoals.length})
+                                </h4>
+
+                                {wishlistWithGoals.length === 0 ? (
+                                  <div className="p-6 text-center border border-dashed border-border/60 rounded-2xl bg-muted/5">
+                                    <p className="text-[9px] font-bold text-muted-foreground/60 uppercase tracking-widest italic">Nenhum item com meta configurada no momento.</p>
+                                  </div>
+                                ) : (
+                                  <div className="space-y-3">
+                                    {wishlistWithGoals.map(w => {
+                                      const progress = Math.min(100, Math.round(((w.balance || 0) / w.targetValue) * 100));
+                                      const isCompleted = (w.balance || 0) >= w.targetValue;
+
+                                      return (
+                                        <div key={w.id} className="p-4 bg-slate-50/50 dark:bg-slate-950/20 border border-border rounded-2xl space-y-2.5 hover:scale-[1.005] transition-all">
+                                          <div className="flex items-center justify-between gap-4">
+                                            <div className="flex items-center gap-2.5 min-w-0">
+                                              <div className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-500 flex items-center justify-center shrink-0">
+                                                <IconRenderer icon={w.logoUrl || w.icon || 'star'} color={w.color} size={16} />
+                                              </div>
+                                              <div className="text-left min-w-0">
+                                                <h5 className="text-xs font-black uppercase text-foreground truncate">{w.name}</h5>
+                                                <span className="text-[8.5px] font-semibold text-muted-foreground">
+                                                  Saldo: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(w.balance || 0)} de {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(w.targetValue)}
+                                                </span>
+                                              </div>
+                                            </div>
+
+                                            <div className="text-right shrink-0">
+                                              {isCompleted ? (
+                                                <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-[7.5px] font-black uppercase tracking-wider flex items-center gap-1 animate-bounce">
+                                                  🏆 Realizado!
+                                                </span>
+                                              ) : (
+                                                <span className="text-[10px] font-black text-amber-600 dark:text-amber-400">
+                                                  {progress}%
+                                                </span>
+                                              )}
+                                            </div>
+                                          </div>
+
+                                          <div className="w-full bg-slate-200 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
+                                            <div
+                                              className="h-full rounded-full transition-all duration-500 bg-amber-500"
+                                              style={{ width: `${progress}%` }}
+                                            />
+                                          </div>
                                         </div>
-                                      </div>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          // ABA ORIGINAL (Temas de Mentoria)
+                          <div className="flex-1 flex flex-col overflow-hidden min-h-0">
+                            {/* Cabeçalho do Slide: Título e barra de busca/filtros */}
+                            <div className="flex flex-col gap-4 mb-4 flex-shrink-0">
+                              <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
+                                {/* Filtros por Categoria */}
+                                <div className="flex flex-wrap gap-1.5 bg-slate-100 dark:bg-white/5 p-1 rounded-xl">
+                                  {[
+                                    { id: 'all', label: 'Todos' },
+                                    { id: 'fundacoes', label: 'Fundações' },
+                                    { id: 'otimizacao', label: 'Otimização' },
+                                    { id: 'protecao', label: 'Proteção' },
+                                    { id: 'futuro', label: 'Futuro' }
+                                  ].map(tab => {
+                                    const count = tab.id === 'all'
+                                      ? MENTORSHIP_TOPICS.length
+                                      : MENTORSHIP_TOPICS.filter(t => t.category === tab.id).length;
+                                    return (
+                                      <button
+                                        key={tab.id}
+                                        type="button"
+                                        onClick={() => setSelectedCategoryTab(tab.id)}
+                                        className={cn(
+                                          "px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5",
+                                          selectedCategoryTab === tab.id
+                                            ? "bg-white dark:bg-slate-900 text-primary shadow-sm"
+                                            : "text-muted-foreground hover:text-foreground"
+                                        )}
+                                      >
+                                        {tab.label}
+                                        <span className={cn(
+                                          "text-[9px] px-1.5 py-0.5 rounded-full font-bold",
+                                          selectedCategoryTab === tab.id
+                                            ? "bg-primary/10 text-primary"
+                                            : "bg-slate-200 dark:bg-white/10 text-muted-foreground"
+                                        )}>
+                                          {count}
+                                        </span>
+                                      </button>
                                     );
                                   })}
                                 </div>
-                              );
-                            })()}
-                          </div>
 
-                          {/* Coluna Direita: Painel de Detalhes */}
-                          <div className="lg:col-span-5 xl:col-span-4 flex flex-col overflow-y-auto no-scrollbar">
-                            {(() => {
-                              const topic = MENTORSHIP_TOPICS.find(t => t.id === selectedTopicId) || MENTORSHIP_TOPICS[0];
-                              if (!topic) return null;
-
-                              const IconComponent = TOPIC_ICON_MAP[topic.iconName] || Star;
-                              const isFocused = focusedTopicIds.includes(topic.id);
-
-                              return (
-                                <div className="bg-slate-50 dark:bg-slate-950/40 border border-slate-200 dark:border-white/10 rounded-3xl p-6 space-y-6 flex-1 flex flex-col justify-between text-left relative overflow-y-auto no-scrollbar">
-                                  {/* Glow de Categoria */}
-                                  <div
-                                    className="absolute -top-12 -right-12 w-32 h-32 rounded-full blur-3xl pointer-events-none opacity-20"
-                                    style={{ backgroundColor: topic.color }}
+                                {/* Barra de Busca */}
+                                <div className="relative flex-1 max-w-xs">
+                                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                                  <input
+                                    type="text"
+                                    placeholder="Buscar tema..."
+                                    value={topicSearchQuery}
+                                    onChange={e => setTopicSearchQuery(e.target.value)}
+                                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-xl h-9 pl-9 pr-4 text-xs font-bold text-foreground placeholder-slate-400 outline-none focus:border-primary transition-all"
                                   />
+                                  {topicSearchQuery && (
+                                    <button
+                                      type="button"
+                                      onClick={() => setTopicSearchQuery('')}
+                                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-foreground"
+                                    >
+                                      <X size={12} />
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
 
-                                  <div className="space-y-5">
-                                    {/* Cabeçalho do Detalhe */}
-                                    <div className="flex items-start justify-between gap-4">
-                                      <div className="flex items-center gap-3">
-                                        <div
-                                          className="w-12 h-12 rounded-2xl flex items-center justify-center border shadow-md"
-                                          style={{
-                                            backgroundColor: `${topic.color}15`,
-                                            borderColor: `${topic.color}30`,
-                                            color: topic.color
-                                          }}
-                                        >
-                                          <IconComponent size={24} />
+                            {/* Grid Split-Screen */}
+                            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1 overflow-hidden min-h-0 items-stretch">
+                              {/* Coluna Esquerda: Lista de Cards */}
+                              <div className="lg:col-span-7 xl:col-span-8 overflow-y-auto pr-2 no-scrollbar space-y-3 pb-8">
+                                {(() => {
+                                  const filtered = MENTORSHIP_TOPICS.filter(t => {
+                                    const matchesCategory = selectedCategoryTab === 'all' || t.category === selectedCategoryTab;
+                                    const matchesSearch = t.title.toLowerCase().includes(topicSearchQuery.toLowerCase()) ||
+                                      t.shortDesc.toLowerCase().includes(topicSearchQuery.toLowerCase());
+                                    return matchesCategory && matchesSearch;
+                                  });
+
+                                  if (filtered.length === 0) {
+                                    return (
+                                      <div className="flex flex-col items-center justify-center text-center p-8 border border-dashed border-border rounded-2xl bg-muted/5 mt-4">
+                                        <AlertCircle className="text-muted-foreground mb-2" size={24} />
+                                        <h5 className="text-xs font-black uppercase text-foreground">Nenhum tema encontrado</h5>
+                                        <p className="text-[10px] text-muted-foreground mt-1">
+                                          Tente alterar o filtro ou termo de busca para encontrar outros tópicos.
+                                        </p>
+                                      </div>
+                                    );
+                                  }
+
+                                  return (
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                                      {filtered.map(topic => {
+                                        const IconComponent = TOPIC_ICON_MAP[topic.iconName] || Star;
+                                        const isSelected = selectedTopicId === topic.id;
+                                        const isFocused = focusedTopicIds.includes(topic.id);
+
+                                        return (
+                                          <div
+                                            key={topic.id}
+                                            onClick={() => setSelectedTopicId(topic.id)}
+                                            className={cn(
+                                              "group relative p-4 rounded-2xl border text-left cursor-pointer transition-all duration-300 flex flex-col justify-between select-none min-h-[120px] overflow-hidden",
+                                              isSelected
+                                                ? "bg-slate-50 dark:bg-slate-950/40 border-primary shadow-lg shadow-primary/5 ring-1 ring-primary"
+                                                : isFocused
+                                                  ? "bg-amber-500/[0.02] border-amber-500/40 hover:border-amber-500"
+                                                  : "bg-white dark:bg-slate-900 border-border hover:border-primary/40 hover:shadow-md"
+                                            )}
+                                          >
+                                            {isSelected && (
+                                              <div className="absolute top-0 right-0 w-24 h-24 bg-primary/10 rounded-full blur-2xl pointer-events-none -mr-4 -mt-4" />
+                                            )}
+                                            {isFocused && (
+                                              <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/5 rounded-full blur-2xl pointer-events-none -mr-4 -mt-4" />
+                                            )}
+
+                                            <div>
+                                              <div className="flex items-center justify-between gap-3 mb-2.5">
+                                                <div
+                                                  className="w-9 h-9 rounded-xl flex items-center justify-center border shadow-sm transition-transform group-hover:scale-105"
+                                                  style={{
+                                                    backgroundColor: `${topic.color}12`,
+                                                    borderColor: `${topic.color}25`,
+                                                    color: topic.color
+                                                  }}
+                                                >
+                                                  <IconComponent size={18} />
+                                                </div>
+
+                                                <button
+                                                  type="button"
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleToggleTopicFocus(topic.id);
+                                                  }}
+                                                  className="p-1.5 rounded-lg text-slate-300 dark:text-slate-700 hover:text-amber-500 dark:hover:text-amber-500 hover:bg-slate-100 dark:hover:bg-white/5 transition-all"
+                                                  title={isFocused ? "Remover Foco" : "Marcar em Foco"}
+                                                >
+                                                  <Star
+                                                    size={16}
+                                                    className={cn(
+                                                      "transition-all",
+                                                      isFocused
+                                                        ? "fill-amber-500 text-amber-500 scale-110"
+                                                        : "text-slate-400 dark:text-slate-500"
+                                                    )}
+                                                  />
+                                                </button>
+                                              </div>
+
+                                              <h4 className="text-xs font-black uppercase text-foreground leading-tight group-hover:text-primary transition-colors flex items-center gap-1.5">
+                                                {topic.title}
+                                              </h4>
+                                              <p className="text-[10px] text-muted-foreground leading-relaxed mt-1.5 font-medium line-clamp-2">
+                                                {topic.shortDesc}
+                                              </p>
+                                            </div>
+
+                                            <div className="mt-3.5 flex items-center justify-between border-t border-slate-100 dark:border-white/5 pt-2.5">
+                                              <span className="text-[8px] font-black uppercase tracking-wider text-muted-foreground bg-slate-100 dark:bg-white/5 px-2 py-0.5 rounded-md">
+                                                {topic.categoryLabel}
+                                              </span>
+                                              {isFocused && (
+                                                <span className="text-[8px] font-black uppercase tracking-wider text-amber-600 bg-amber-500/10 px-2 py-0.5 rounded-md flex items-center gap-1 animate-pulse">
+                                                  ★ Em Foco
+                                                </span>
+                                              )}
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  );
+                                })()}
+                              </div>
+
+                              {/* Coluna Direita: Painel de Detalhes */}
+                              <div className="lg:col-span-5 xl:col-span-4 flex flex-col overflow-hidden min-h-0">
+                                {(() => {
+                                  const topic = MENTORSHIP_TOPICS.find(t => t.id === selectedTopicId) || MENTORSHIP_TOPICS[0];
+                                  if (!topic) return null;
+
+                                  const IconComponent = TOPIC_ICON_MAP[topic.iconName] || Star;
+                                  const isFocused = focusedTopicIds.includes(topic.id);
+
+                                  return (
+                                    <div className="bg-slate-50 dark:bg-slate-950/40 border border-slate-200 dark:border-white/10 rounded-3xl p-6 space-y-6 flex-1 flex flex-col text-left relative overflow-y-auto no-scrollbar">
+                                      {/* Glow de Categoria */}
+                                      <div
+                                        className="absolute -top-12 -right-12 w-32 h-32 rounded-full blur-3xl pointer-events-none opacity-20"
+                                        style={{ backgroundColor: topic.color }}
+                                      />
+
+                                      <div className="space-y-5 flex-shrink-0">
+                                        {/* Cabeçalho do Detalhe */}
+                                        <div className="flex items-start justify-between gap-4">
+                                          <div className="flex items-center gap-3">
+                                            <div
+                                              className="w-12 h-12 rounded-2xl flex items-center justify-center border shadow-md"
+                                              style={{
+                                                backgroundColor: `${topic.color}15`,
+                                                borderColor: `${topic.color}30`,
+                                                color: topic.color
+                                              }}
+                                            >
+                                              <IconComponent size={24} />
+                                            </div>
+                                            <div>
+                                              <h3 className="text-sm font-black uppercase text-foreground leading-tight">
+                                                {topic.title}
+                                              </h3>
+                                              <span className="text-[8px] font-black uppercase tracking-widest text-muted-foreground bg-slate-200/50 dark:bg-white/5 px-2 py-0.5 rounded-md mt-1 inline-block">
+                                                {topic.categoryLabel}
+                                              </span>
+                                            </div>
+                                          </div>
+
+                                          {/* Estrela de Foco Rápido */}
+                                          <button
+                                            type="button"
+                                            onClick={() => handleToggleTopicFocus(topic.id)}
+                                            className={cn(
+                                              "p-2.5 rounded-xl border transition-all flex items-center justify-center shadow-sm",
+                                              isFocused
+                                                ? "bg-amber-500/10 border-amber-500/30 text-amber-500"
+                                                : "bg-white dark:bg-slate-900 border-border text-slate-400 hover:text-amber-500"
+                                            )}
+                                            title={isFocused ? "Remover Foco" : "Marcar em Foco"}
+                                          >
+                                            <Star size={16} className={isFocused ? "fill-amber-500" : ""} />
+                                          </button>
                                         </div>
-                                        <div>
-                                          <h3 className="text-sm font-black uppercase text-foreground leading-tight">
-                                            {topic.title}
-                                          </h3>
-                                          <span className="text-[8px] font-black uppercase tracking-widest text-muted-foreground bg-slate-200/50 dark:bg-white/5 px-2 py-0.5 rounded-md mt-1 inline-block">
-                                            {topic.categoryLabel}
-                                          </span>
+
+                                        {/* Por que é Crucial? */}
+                                        <div className="space-y-1.5">
+                                          <h5 className="text-[9px] font-black uppercase tracking-widest text-slate-400">
+                                            Por que é crucial?
+                                          </h5>
+                                          <p className="text-[11px] text-foreground font-semibold leading-relaxed">
+                                            {topic.whyCrucial}
+                                          </p>
+                                        </div>
+
+                                        {/* Checklist de Abordagem */}
+                                        <div className="space-y-2.5">
+                                          <h5 className="text-[9px] font-black uppercase tracking-widest text-slate-400">
+                                            O que abordar na mentoria:
+                                          </h5>
+                                          <ul className="space-y-2">
+                                            {topic.bullets.map((bullet, idx) => (
+                                              <li key={idx} className="flex items-start gap-2 text-[10.5px] text-slate-700 dark:text-slate-300 font-semibold leading-tight">
+                                                <span
+                                                  className="w-4 h-4 rounded-full flex items-center justify-center text-white shrink-0 mt-0.5 text-[8px] font-black"
+                                                  style={{ backgroundColor: topic.color }}
+                                                >
+                                                  {idx + 1}
+                                                </span>
+                                                <span>{bullet}</span>
+                                              </li>
+                                            ))}
+                                          </ul>
                                         </div>
                                       </div>
 
-                                      {/* Estrela de Foco Rápido */}
-                                      <button
-                                        type="button"
-                                        onClick={() => handleToggleTopicFocus(topic.id)}
-                                        className={cn(
-                                          "p-2.5 rounded-xl border transition-all flex items-center justify-center shadow-sm",
-                                          isFocused
-                                            ? "bg-amber-500/10 border-amber-500/30 text-amber-500"
-                                            : "bg-white dark:bg-slate-900 border-border text-slate-400 hover:text-amber-500"
-                                        )}
-                                        title={isFocused ? "Remover Foco" : "Marcar em Foco"}
-                                      >
-                                        <Star size={16} className={isFocused ? "fill-amber-500" : ""} />
-                                      </button>
-                                    </div>
-
-                                    {/* Por que é Crucial? */}
-                                    <div className="space-y-1.5">
-                                      <h5 className="text-[9px] font-black uppercase tracking-widest text-slate-400">
-                                        Por que é crucial?
-                                      </h5>
-                                      <p className="text-[11px] text-foreground font-semibold leading-relaxed">
-                                        {topic.whyCrucial}
-                                      </p>
-                                    </div>
-
-                                    {/* Checklist de Abordagem */}
-                                    <div className="space-y-2.5">
-                                      <h5 className="text-[9px] font-black uppercase tracking-widest text-slate-400">
-                                        O que abordar na mentoria:
-                                      </h5>
-                                      <ul className="space-y-2">
-                                        {topic.bullets.map((bullet, idx) => (
-                                          <li key={idx} className="flex items-start gap-2 text-[10.5px] text-slate-700 dark:text-slate-300 font-semibold leading-tight">
-                                            <span
-                                              className="w-4 h-4 rounded-full flex items-center justify-center text-white shrink-0 mt-0.5 text-[8px] font-black"
-                                              style={{ backgroundColor: topic.color }}
-                                            >
-                                              {idx + 1}
-                                            </span>
-                                            <span>{bullet}</span>
-                                          </li>
-                                        ))}
-                                      </ul>
-                                    </div>
-                                  </div>
-
-                                  {/* Sinais de Alerta */}
-                                  <div className="mt-6 pt-5 border-t border-slate-100 dark:border-white/5 space-y-2.5">
-                                    <h5 className="text-[9px] font-black uppercase tracking-widest text-rose-500 flex items-center gap-1.5">
-                                      <AlertCircle size={12} className="text-rose-500" />
-                                      Sinais de Alerta no Cliente:
-                                    </h5>
-                                    <div className="bg-rose-500/[0.03] border border-rose-500/10 rounded-2xl p-4 space-y-2">
-                                      {topic.flags.map((flag, idx) => (
-                                        <div key={idx} className="flex items-start gap-2 text-[10px] text-rose-600 dark:text-rose-400 font-bold leading-normal">
-                                          <span className="text-[12px] leading-none select-none shrink-0">•</span>
-                                          <span>{flag}</span>
+                                      {/* Sinais de Alerta */}
+                                      <div className="mt-6 pt-5 border-t border-slate-100 dark:border-white/5 space-y-2.5 flex-shrink-0">
+                                        <h5 className="text-[9px] font-black uppercase tracking-widest text-rose-500 flex items-center gap-1.5">
+                                          <AlertCircle size={12} className="text-rose-500" />
+                                          Sinais de Alerta no Cliente:
+                                        </h5>
+                                        <div className="bg-rose-500/[0.03] border border-rose-500/10 rounded-2xl p-4 space-y-2">
+                                          {topic.flags.map((flag, idx) => (
+                                            <div key={idx} className="flex items-start gap-2 text-[10px] text-rose-600 dark:text-rose-400 font-bold leading-normal">
+                                              <span className="text-[12px] leading-none select-none shrink-0">•</span>
+                                              <span>{flag}</span>
+                                            </div>
+                                          ))}
                                         </div>
-                                      ))}
+                                      </div>
                                     </div>
-                                  </div>
-                                </div>
-                              );
-                            })()}
+                                  );
+                                })()}
+                              </div>
+                            </div>
                           </div>
-
-                        </div>
+                        )}
                       </div>
                     )}
                   </div> {/* md:col-span-9 */}
