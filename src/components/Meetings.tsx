@@ -610,6 +610,7 @@ export const Meetings: React.FC = () => {
     for (let y = currentYear; y >= startYear; y--) {
       years.push(y);
     }
+    return years;
   }, [user, transactions]);
 
   // Alternar visibilidade da reunião para o cliente
@@ -996,9 +997,9 @@ export const Meetings: React.FC = () => {
   const selectedBeforeMonth = `${beforeYear}-${beforeMonth}`;
 
   const beforeTotal = useMemo(() => {
-    const personalTxs = transactions.filter(tx => 
-      tx.space === 'personal' && 
-      tx.type === 'expense' && 
+    const personalTxs = transactions.filter(tx =>
+      tx.space === 'personal' &&
+      tx.type === 'expense' &&
       tx.date && tx.date.startsWith(selectedBeforeMonth)
     );
     return personalTxs.reduce((sum, tx) => sum + tx.amount, 0);
@@ -1445,17 +1446,15 @@ export const Meetings: React.FC = () => {
             </button>
           )}
 
-          {activeSpace === 'personal' && (
-            <button
-              onClick={() => {
-                setShowPresentationsModal(true);
-              }}
-              className="bg-card hover:bg-muted text-foreground border border-border px-6 py-4 rounded-2xl flex items-center justify-center gap-3 transition-all group hover:scale-[1.02] active:scale-95 shadow-sm"
-            >
-              <Presentation size={18} className="text-primary" />
-              <span className="text-[10px] font-black uppercase tracking-[0.2em]">Apresentações</span>
-            </button>
-          )}
+          <button
+            onClick={() => {
+              setShowPresentationsModal(true);
+            }}
+            className="bg-card hover:bg-muted text-foreground border border-border px-6 py-4 rounded-2xl flex items-center justify-center gap-3 transition-all group hover:scale-[1.02] active:scale-95 shadow-sm"
+          >
+            <Presentation size={18} className="text-primary" />
+            <span className="text-[10px] font-black uppercase tracking-[0.2em]">Apresentações</span>
+          </button>
 
           {canManage && (
             <button
@@ -1624,8 +1623,8 @@ export const Meetings: React.FC = () => {
                 >
                   {/* Premium background gradient effect */}
                   <div className="absolute inset-0 bg-gradient-to-b from-primary/5 via-transparent to-transparent pointer-events-none" />
-                  
-                  <motion.div 
+
+                  <motion.div
                     initial={{ scale: 0.8, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
                     transition={{ type: "spring", stiffness: 100 }}
@@ -1685,156 +1684,156 @@ export const Meetings: React.FC = () => {
                       </h2>
                     </div>
 
-                  {canManage && (
-                    <div className="flex gap-2 self-start md:self-auto">
-                      <button
-                        onClick={handleOpenEditModal}
-                        className="w-10 h-10 flex items-center justify-center rounded-xl bg-muted/50 text-muted-foreground hover:bg-primary hover:text-white transition-all border border-transparent hover:border-primary/20"
-                        title="Editar Encontro"
-                      >
-                        <Edit size={16} />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteMeeting(selectedMeeting.id)}
-                        className="w-10 h-10 flex items-center justify-center rounded-xl bg-muted/50 text-muted-foreground hover:bg-rose-500/10 hover:text-rose-500 transition-all border border-transparent hover:border-rose-500/20"
-                        title="Excluir Encontro"
-                      >
-                        <Trash2 size={16} />
-                      </button>
+                    {canManage && (
+                      <div className="flex gap-2 self-start md:self-auto">
+                        <button
+                          onClick={handleOpenEditModal}
+                          className="w-10 h-10 flex items-center justify-center rounded-xl bg-muted/50 text-muted-foreground hover:bg-primary hover:text-white transition-all border border-transparent hover:border-primary/20"
+                          title="Editar Encontro"
+                        >
+                          <Edit size={16} />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteMeeting(selectedMeeting.id)}
+                          className="w-10 h-10 flex items-center justify-center rounded-xl bg-muted/50 text-muted-foreground hover:bg-rose-500/10 hover:text-rose-500 transition-all border border-transparent hover:border-rose-500/20"
+                          title="Excluir Encontro"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Progress bar large */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-slate-500">
+                      <span>Progresso da Reunião</span>
+                      <span className="text-primary font-black">{getMeetingProgress(selectedMeeting)}% Concluído</span>
                     </div>
-                  )}
-                </div>
-
-                {/* Progress bar large */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-slate-500">
-                    <span>Progresso da Reunião</span>
-                    <span className="text-primary font-black">{getMeetingProgress(selectedMeeting)}% Concluído</span>
+                    <div className="w-full bg-slate-100 dark:bg-slate-800/80 h-3 rounded-full overflow-hidden border border-border/30">
+                      <div
+                        className="bg-gradient-to-r from-primary to-emerald-500 h-full rounded-full transition-all duration-500"
+                        style={{ width: `${getMeetingProgress(selectedMeeting)}%` }}
+                      />
+                    </div>
                   </div>
-                  <div className="w-full bg-slate-100 dark:bg-slate-800/80 h-3 rounded-full overflow-hidden border border-border/30">
-                    <div
-                      className="bg-gradient-to-r from-primary to-emerald-500 h-full rounded-full transition-all duration-500"
-                      style={{ width: `${getMeetingProgress(selectedMeeting)}%` }}
-                    />
+
+                  {/* Topics Checklist */}
+                  <div className="space-y-4">
+                    <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-primary flex items-center gap-2 mb-4">
+                      <ListTodo size={16} />
+                      Tópicos a serem trabalhados
+                    </h3>
+
+                    {selectedMeeting.topics.length === 0 ? (
+                      <div className="p-8 text-center border border-dashed border-border rounded-3xl bg-muted/10">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Nenhum tópico cadastrado nesta reunião</p>
+                        {canManage && (
+                          <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider mt-1">Clique em editar para adicionar checklists</p>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 gap-3">
+                        {selectedMeeting.topics.map((topic) => (
+                          <div
+                            key={topic.id}
+                            onClick={() => canManage && handleToggleTopic(topic.id, topic.completed)}
+                            className={cn(
+                              "flex items-center gap-4 p-5 rounded-2xl border transition-all select-none",
+                              canManage ? "cursor-pointer hover:bg-muted/30" : "cursor-default",
+                              topic.completed
+                                ? "bg-emerald-500/5 border-emerald-500/20 text-muted-foreground"
+                                : "bg-slate-50 dark:bg-slate-950/40 border-border"
+                            )}
+                          >
+                            <div className={cn(
+                              "w-6 h-6 rounded-lg border flex items-center justify-center flex-shrink-0 transition-all",
+                              topic.completed
+                                ? "bg-emerald-500 border-emerald-500 text-white"
+                                : "border-slate-300 dark:border-white/10 bg-white dark:bg-slate-950"
+                            )}>
+                              {topic.completed && <Check size={14} strokeWidth={3} />}
+                            </div>
+
+                            <span className={cn(
+                              "text-xs font-semibold leading-snug break-words flex-1",
+                              topic.completed && "line-through text-slate-400 dark:text-slate-500"
+                            )}>
+                              {topic.title}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                </div>
 
-                {/* Topics Checklist */}
-                <div className="space-y-4">
-                  <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-primary flex items-center gap-2 mb-4">
-                    <ListTodo size={16} />
-                    Tópicos a serem trabalhados
-                  </h3>
+                  {/* Observations */}
+                  <div className="space-y-4 pt-4 border-t border-border/50">
+                    <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-primary flex items-center gap-2 mb-4">
+                      <FileText size={16} />
+                      Observações Iniciais do Registro
+                    </h3>
 
-                  {selectedMeeting.topics.length === 0 ? (
-                    <div className="p-8 text-center border border-dashed border-border rounded-3xl bg-muted/10">
-                      <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Nenhum tópico cadastrado nesta reunião</p>
-                      {canManage && (
-                        <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider mt-1">Clique em editar para adicionar checklists</p>
+                    <div className="p-6 bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-white/5 rounded-3xl min-h-[80px]">
+                      {selectedMeeting.observations ? (
+                        <p className="text-xs font-semibold text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">
+                          {selectedMeeting.observations}
+                        </p>
+                      ) : (
+                        <p className="text-xs font-bold text-muted-foreground/60 uppercase tracking-widest italic py-2">
+                          Nenhuma observação registrada para este encontro.
+                        </p>
                       )}
                     </div>
-                  ) : (
-                    <div className="grid grid-cols-1 gap-3">
-                      {selectedMeeting.topics.map((topic) => (
-                        <div
-                          key={topic.id}
-                          onClick={() => canManage && handleToggleTopic(topic.id, topic.completed)}
-                          className={cn(
-                            "flex items-center gap-4 p-5 rounded-2xl border transition-all select-none",
-                            canManage ? "cursor-pointer hover:bg-muted/30" : "cursor-default",
-                            topic.completed
-                              ? "bg-emerald-500/5 border-emerald-500/20 text-muted-foreground"
-                              : "bg-slate-50 dark:bg-slate-950/40 border-border"
-                          )}
-                        >
-                          <div className={cn(
-                            "w-6 h-6 rounded-lg border flex items-center justify-center flex-shrink-0 transition-all",
-                            topic.completed
-                              ? "bg-emerald-500 border-emerald-500 text-white"
-                              : "border-slate-300 dark:border-white/10 bg-white dark:bg-slate-950"
-                          )}>
-                            {topic.completed && <Check size={14} strokeWidth={3} />}
-                          </div>
-
-                          <span className={cn(
-                            "text-xs font-semibold leading-snug break-words flex-1",
-                            topic.completed && "line-through text-slate-400 dark:text-slate-500"
-                          )}>
-                            {topic.title}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* Observations */}
-                <div className="space-y-4 pt-4 border-t border-border/50">
-                  <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-primary flex items-center gap-2 mb-4">
-                    <FileText size={16} />
-                    Observações Iniciais do Registro
-                  </h3>
-
-                  <div className="p-6 bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-white/5 rounded-3xl min-h-[80px]">
-                    {selectedMeeting.observations ? (
-                      <p className="text-xs font-semibold text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">
-                        {selectedMeeting.observations}
-                      </p>
-                    ) : (
-                      <p className="text-xs font-bold text-muted-foreground/60 uppercase tracking-widest italic py-2">
-                        Nenhuma observação registrada para este encontro.
-                      </p>
-                    )}
                   </div>
-                </div>
 
-                {/* Live Meeting Notes */}
-                <div className="space-y-4 pt-4 border-t border-border/50">
-                  <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-primary flex items-center gap-2 mb-4">
-                    <FolderEdit size={16} />
-                    Anotações e Dúvidas (Em Tempo Real)
-                  </h3>
+                  {/* Live Meeting Notes */}
+                  <div className="space-y-4 pt-4 border-t border-border/50">
+                    <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-primary flex items-center gap-2 mb-4">
+                      <FolderEdit size={16} />
+                      Anotações e Dúvidas (Em Tempo Real)
+                    </h3>
 
-                  <div className="space-y-3">
-                    <textarea
-                      disabled={!canManage || savingNotes}
-                      rows={5}
-                      value={meetingNotes}
-                      onChange={e => setMeetingNotes(e.target.value)}
-                      placeholder={canManage ? "Digite aqui anotações importantes, dúvidas dos clientes ou acordos feitos em tempo real..." : "Nenhuma anotação registrada pelo mentor."}
-                      className="w-full bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-white/5 rounded-3xl p-6 text-xs text-slate-700 dark:text-slate-300 outline-none focus:border-primary/50 transition-all resize-none font-semibold leading-relaxed"
-                    />
+                    <div className="space-y-3">
+                      <textarea
+                        disabled={!canManage || savingNotes}
+                        rows={5}
+                        value={meetingNotes}
+                        onChange={e => setMeetingNotes(e.target.value)}
+                        placeholder={canManage ? "Digite aqui anotações importantes, dúvidas dos clientes ou acordos feitos em tempo real..." : "Nenhuma anotação registrada pelo mentor."}
+                        className="w-full bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-white/5 rounded-3xl p-6 text-xs text-slate-700 dark:text-slate-300 outline-none focus:border-primary/50 transition-all resize-none font-semibold leading-relaxed"
+                      />
 
-                    {canManage && (
-                      <AnimatePresence>
-                        {((meetingNotes || '') !== (selectedMeeting.notes || '')) && (
-                          <motion.div
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: 10 }}
-                            className="flex justify-end pt-1"
-                          >
-                            <button
-                              onClick={handleSaveNotes}
-                              disabled={savingNotes}
-                              className="bg-primary hover:bg-primary/90 disabled:opacity-50 text-white px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-md shadow-primary/10"
+                      {canManage && (
+                        <AnimatePresence>
+                          {((meetingNotes || '') !== (selectedMeeting.notes || '')) && (
+                            <motion.div
+                              initial={{ opacity: 0, y: 10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, y: 10 }}
+                              className="flex justify-end pt-1"
                             >
-                              {savingNotes ? (
-                                <Loader2 className="animate-spin" size={12} />
-                              ) : (
-                                <Save size={12} />
-                              )}
-                              Salvar Anotações
-                            </button>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    )}
+                              <button
+                                onClick={handleSaveNotes}
+                                disabled={savingNotes}
+                                className="bg-primary hover:bg-primary/90 disabled:opacity-50 text-white px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-md shadow-primary/10"
+                              >
+                                {savingNotes ? (
+                                  <Loader2 className="animate-spin" size={12} />
+                                ) : (
+                                  <Save size={12} />
+                                )}
+                                Salvar Anotações
+                              </button>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      )}
+                    </div>
                   </div>
-                </div>
 
-              </motion.div>
-            ) ) : (
+                </motion.div>
+              )) : (
               <div className="bg-card backdrop-blur-xl border border-border rounded-[2.5rem] p-20 shadow-xl shadow-slate-200/10 dark:shadow-none text-center flex flex-col items-center justify-center gap-6 min-h-[500px]">
                 <div className="w-20 h-20 rounded-[2rem] bg-primary/5 flex items-center justify-center mb-2">
                   <Presentation className="text-primary/40" size={36} />
@@ -2474,9 +2473,9 @@ export const Meetings: React.FC = () => {
         )}
       </AnimatePresence>
 
-      {/* Modal de Apresentações de Mentoria (Exclusivo Espaço Pessoal) */}
+      {/* Modal de Apresentações de Mentoria */}
       <AnimatePresence>
-        {showPresentationsModal && activeSpace === 'personal' && (
+        {showPresentationsModal && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
             <motion.div
               initial={{ opacity: 0 }}
@@ -2547,7 +2546,7 @@ export const Meetings: React.FC = () => {
                         <div className="pr-2 flex-1 min-w-0">
                           <span className={cn("text-[8px] font-black uppercase tracking-wider", activePresentationSlide === 'value_proposal' ? "text-primary" : "text-muted-foreground")}>Diagnóstico</span>
                           <h4 className={cn("text-xs font-black uppercase whitespace-normal break-words leading-tight mt-0.5", activePresentationSlide === 'value_proposal' ? "text-primary" : "text-foreground")}>
-                            Proposta de Valor
+                            Proposta de Valor da Consultoria
                           </h4>
                         </div>
                         <ChevronRight size={14} className={cn("transition-transform shrink-0", activePresentationSlide === 'value_proposal' ? "text-primary translate-x-1" : "text-muted-foreground")} />
@@ -2818,7 +2817,7 @@ export const Meetings: React.FC = () => {
                                 Análise comparativa da redução do custo de vida real em relação aos limites de gastos estabelecidos.
                               </p>
                             </div>
-                            
+
                             {/* Seleção do Mês de Referência */}
                             <div className="flex items-center gap-2 shrink-0 bg-slate-50 dark:bg-slate-950/40 p-2 rounded-2xl border border-border">
                               <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 px-2">Cenário "Antes":</span>
@@ -2906,7 +2905,7 @@ export const Meetings: React.FC = () => {
                                   )}
                                 </div>
                                 <span className="text-[9px] font-semibold text-muted-foreground block mt-1">
-                                  {beforeTotal > afterTotal 
+                                  {beforeTotal > afterTotal
                                     ? "O estabelecimento de tetos orçamentários gera esta folga financeira mensal."
                                     : "Defina limites mais saudáveis nas categorias de despesas para gerar economia projetada."}
                                 </span>
@@ -2922,7 +2921,7 @@ export const Meetings: React.FC = () => {
                                 <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">Redução de {((beforeTotal - afterTotal) / beforeTotal * 100).toFixed(1)}% no custo de vida</span>
                               )}
                             </div>
-                            
+
                             <div className="space-y-3">
                               {/* Barra Antes */}
                               <div className="space-y-1">
@@ -2931,7 +2930,7 @@ export const Meetings: React.FC = () => {
                                   <span className="text-rose-500">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(beforeTotal)}</span>
                                 </div>
                                 <div className="w-full bg-slate-200 dark:bg-slate-800/60 h-3 rounded-full overflow-hidden">
-                                  <div 
+                                  <div
                                     className="h-full bg-rose-500 rounded-full transition-all duration-700"
                                     style={{ width: beforeTotal > 0 ? '100%' : '0%' }}
                                   />
@@ -2945,12 +2944,12 @@ export const Meetings: React.FC = () => {
                                   <span className="text-emerald-500">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(afterTotal)}</span>
                                 </div>
                                 <div className="w-full bg-slate-200 dark:bg-slate-800/60 h-3 rounded-full overflow-hidden">
-                                  <div 
+                                  <div
                                     className="h-full bg-emerald-500 rounded-full transition-all duration-700"
-                                    style={{ 
-                                      width: beforeTotal > 0 
-                                        ? `${Math.min((afterTotal / beforeTotal) * 100, 100)}%` 
-                                        : afterTotal > 0 ? '100%' : '0%' 
+                                    style={{
+                                      width: beforeTotal > 0
+                                        ? `${Math.min((afterTotal / beforeTotal) * 100, 100)}%`
+                                        : afterTotal > 0 ? '100%' : '0%'
                                     }}
                                   />
                                 </div>
@@ -3727,8 +3726,8 @@ export const Meetings: React.FC = () => {
                                 { id: 'protecao', label: 'Proteção' },
                                 { id: 'futuro', label: 'Futuro' }
                               ].map(tab => {
-                                const count = tab.id === 'all' 
-                                  ? MENTORSHIP_TOPICS.length 
+                                const count = tab.id === 'all'
+                                  ? MENTORSHIP_TOPICS.length
                                   : MENTORSHIP_TOPICS.filter(t => t.category === tab.id).length;
                                 return (
                                   <button
@@ -3781,14 +3780,14 @@ export const Meetings: React.FC = () => {
 
                         {/* Grid Split-Screen */}
                         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1 overflow-hidden min-h-0 items-stretch">
-                          
+
                           {/* Coluna Esquerda: Lista de Cards */}
                           <div className="lg:col-span-7 xl:col-span-8 overflow-y-auto pr-2 no-scrollbar space-y-3 pb-8">
                             {(() => {
                               const filtered = MENTORSHIP_TOPICS.filter(t => {
                                 const matchesCategory = selectedCategoryTab === 'all' || t.category === selectedCategoryTab;
-                                const matchesSearch = t.title.toLowerCase().includes(topicSearchQuery.toLowerCase()) || 
-                                                     t.shortDesc.toLowerCase().includes(topicSearchQuery.toLowerCase());
+                                const matchesSearch = t.title.toLowerCase().includes(topicSearchQuery.toLowerCase()) ||
+                                  t.shortDesc.toLowerCase().includes(topicSearchQuery.toLowerCase());
                                 return matchesCategory && matchesSearch;
                               });
 
@@ -3904,7 +3903,7 @@ export const Meetings: React.FC = () => {
                               const isFocused = focusedTopicIds.includes(topic.id);
 
                               return (
-                                <div className="bg-slate-50 dark:bg-slate-950/40 border border-slate-200 dark:border-white/10 rounded-3xl p-6 space-y-6 flex-1 flex flex-col justify-between text-left relative overflow-hidden">
+                                <div className="bg-slate-50 dark:bg-slate-950/40 border border-slate-200 dark:border-white/10 rounded-3xl p-6 space-y-6 flex-1 flex flex-col justify-between text-left relative overflow-y-auto no-scrollbar">
                                   {/* Glow de Categoria */}
                                   <div
                                     className="absolute -top-12 -right-12 w-32 h-32 rounded-full blur-3xl pointer-events-none opacity-20"

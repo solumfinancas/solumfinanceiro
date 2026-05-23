@@ -67,7 +67,8 @@ export const Categories: React.FC = () => {
     categories, updateCategory, transactions,
     updateTransaction, deleteTransaction, wallets,
     addCategory, toggleCategoryActive, deleteCategory,
-    includeCategoryLimits, setIncludeCategoryLimits
+    includeCategoryLimits, setIncludeCategoryLimits,
+    activeSpace
   } = useFinance();
   const { showConfirm, showAlert } = useModal();
 
@@ -83,6 +84,15 @@ export const Categories: React.FC = () => {
   const [viewingTransactionsId, setViewingTransactionsId] = useState<string | null>(null);
   const [categoryForAction, setCategoryForAction] = useState<Category | null>(null);
   const [viewMode, setViewMode] = useState<'balance' | 'budget'>('budget');
+
+  // Ajustar o modo de visualização padrão conforme o espaço ativo
+  useEffect(() => {
+    if (activeSpace === 'business') {
+      setViewMode('balance');
+    } else {
+      setViewMode('budget');
+    }
+  }, [activeSpace]);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [editingRefund, setEditingRefund] = useState<Transaction | null>(null);
   const [selectedTxIds, setSelectedTxIds] = useState<string[]>([]);
