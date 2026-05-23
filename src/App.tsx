@@ -95,7 +95,7 @@ const AppContent = () => {
 
         if (clientsError) throw clientsError;
 
-        const activeClients = (clientsData || []).filter(c => !c.user_metadata?.is_suspended);
+        const activeClients = (clientsData || []).filter(c => !c.user_metadata?.is_suspended && c.id !== profile.id);
 
         if (activeClients.length === 0) {
           setPendingMeetingsCount(0);

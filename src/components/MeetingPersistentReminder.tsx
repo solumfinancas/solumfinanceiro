@@ -13,7 +13,7 @@ export const MeetingPersistentReminder: React.FC<MeetingPersistentReminderProps>
 
   return (
     <AnimatePresence>
-      <motion.div 
+      <motion.div
         initial={{ y: -50, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         className="w-full"
@@ -21,7 +21,7 @@ export const MeetingPersistentReminder: React.FC<MeetingPersistentReminderProps>
         <div className="relative group overflow-hidden">
           {/* Background dinâmico: âmbar/laranja refinado */}
           <div className="absolute inset-0 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border-amber-500/20 group-hover:border-amber-500/30 backdrop-blur-xl border rounded-[2rem] transition-all" />
-          
+
           <div className="relative p-4 md:p-5 flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="flex items-center gap-5">
               <div className="w-12 h-12 rounded-2xl border flex items-center justify-center shadow-lg transition-all bg-amber-500/20 border-amber-500/30 text-amber-600 dark:text-amber-400 shadow-amber-500/10">
@@ -33,7 +33,7 @@ export const MeetingPersistentReminder: React.FC<MeetingPersistentReminderProps>
                     Aviso de Agendamentos
                   </span>
                   <span className="text-[10px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-400">
-                    Fechamento do Mês
+                    Reuniões do Mês
                   </span>
                 </div>
                 <h3 className="text-lg font-black tracking-tighter text-foreground uppercase">
@@ -48,15 +48,15 @@ export const MeetingPersistentReminder: React.FC<MeetingPersistentReminderProps>
             </div>
 
             <div className="flex items-center gap-4">
-               {!isMeetingsTab && (
-                 <button 
+              {!isMeetingsTab && (
+                <button
                   onClick={onViewMeetings}
                   className="flex items-center gap-2 px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-95 shadow-lg bg-amber-500 text-white shadow-amber-500/20"
-                 >
-                   Gerenciar Reuniões
-                   <ArrowRight size={16} />
-                 </button>
-               )}
+                >
+                  Gerenciar Reuniões
+                  <ArrowRight size={16} />
+                </button>
+              )}
             </div>
           </div>
         </div>
