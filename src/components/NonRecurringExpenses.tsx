@@ -21,14 +21,27 @@ import {
   RotateCcw,
   RefreshCw,
   SkipForward,
-  ArrowUpRight
+  ArrowUpRight,
+  Target
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ConfirmModal } from './ui/ConfirmModal';
 import { NonRecurringExpense } from '../types';
 
-export const NonRecurringExpenses: React.FC = () => {
+interface NonRecurringExpensesProps {
+  category?: 'expense' | 'objective';
+}
+
+export const NonRecurringExpenses: React.FC<NonRecurringExpensesProps> = ({
+  category = 'expense'
+}) => {
+  const isObjective = category === 'objective';
+  const labelCap = isObjective ? 'Objetivo' : 'Gasto Eventual';
+  const labelLow = isObjective ? 'objetivo' : 'gasto eventual';
+  const labelPluralCap = isObjective ? 'Objetivos' : 'Gastos Eventuais';
+  const labelPluralLow = isObjective ? 'objetivos' : 'gastos eventuais';
+
   const { user } = useAuth();
   const { viewingUserId } = useAuth();
   const {
@@ -60,15 +73,16 @@ export const NonRecurringExpenses: React.FC = () => {
   }, [selectedMonth]);
 
   const oldestMonthDate = useMemo(() => {
-    if (nonRecurringExpenses.length === 0) return new Date();
+    const list = nonRecurringExpenses.filter(e => (e.category || 'expense') === category);
+    if (list.length === 0) return new Date();
     
-    const dates = nonRecurringExpenses
+    const dates = list
       .map(e => e.identification_date ? new Date(e.identification_date + 'T12:00:00') : new Date(e.created_at))
       .sort((a, b) => a.getTime() - b.getTime());
     
     const oldest = dates[0] || new Date();
     return new Date(oldest.getFullYear(), oldest.getMonth(), 1);
-  }, [nonRecurringExpenses]);
+  }, [nonRecurringExpenses, category]);
 
   const changeMonth = (delta: number) => {
     const newDate = new Date(selectedMonth);
@@ -77,7 +91,7 @@ export const NonRecurringExpenses: React.FC = () => {
     if (delta < 0 && newDate < oldestMonthDate) {
       showAlert(
         'Período Indisponível',
-        `Não existem gastos identificados antes de ${oldestMonthDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}.`,
+        `Não existem ${labelPluralLow} identificados antes de ${oldestMonthDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}.`,
         'info'
       );
       return;
@@ -196,7 +210,7 @@ export const NonRecurringExpenses: React.FC = () => {
     }
 
     if (form.frequency_months <= 0) {
-      showAlert('Atenção', 'A frequência deve ser de pelo menos 1 mês', 'warning');
+      showAlert('Atenção', isObjective ? 'O tempo para alcançar deve ser de pelo menos 1 mês' : 'A frequência deve ser de pelo menos 1 mês', 'warning');
       return;
     }
 
@@ -210,12 +224,12 @@ export const NonRecurringExpenses: React.FC = () => {
           identification_date: form.identification_date || null,
           budget_entry_date: form.in_budget ? (form.budget_entry_date || new Date().toISOString().split('T')[0]) : null,
           observation: form.observation || null,
-          is_recurrent: form.is_recurrent,
+          is_recurrent: isObjective ? false : form.is_recurrent,
           finished_at: editingExpense.status === 'finished' ? (form.finished_at || new Date().toISOString().split('T')[0]) : null
         });
         setIsAddModalOpen(false);
         setEditingExpense(null);
-        showAlert('Sucesso', 'Gasto atualizado com sucesso', 'success');
+        showAlert('Sucesso', `${labelCap} atualizado com sucesso`, 'success');
       } else {
         await addNonRecurringExpense({
           space: activeSpace,
@@ -226,15 +240,16 @@ export const NonRecurringExpenses: React.FC = () => {
           identification_date: form.identification_date || null,
           budget_entry_date: form.in_budget ? (form.budget_entry_date || new Date().toISOString().split('T')[0]) : null,
           observation: form.observation || null,
-          is_recurrent: form.is_recurrent,
-          finished_at: null
+          is_recurrent: isObjective ? false : form.is_recurrent,
+          finished_at: null,
+          category: category
         });
         setIsAddModalOpen(false);
-        showAlert('Sucesso', 'Gasto adicionado com sucesso', 'success');
+        showAlert('Sucesso', `${labelCap} adicionado com sucesso`, 'success');
       }
     } catch (error) {
       console.error('Error saving expense:', error);
-      showAlert('Erro', 'Não foi possível salvar o gasto', 'danger');
+      showAlert('Erro', `Não foi possível salvar o ${labelLow}`, 'danger');
     }
   };
 
@@ -242,9 +257,9 @@ export const NonRecurringExpenses: React.FC = () => {
     try {
       await deleteNonRecurringExpense(id);
       setConfirmDelete(null);
-      showAlert('Sucesso', 'Gasto removido com sucesso', 'success');
+      showAlert('Sucesso', `${labelCap} removido com sucesso`, 'success');
     } catch (error) {
-      showAlert('Erro', 'Não foi possível excluir o gasto', 'danger');
+      showAlert('Erro', `Não foi possível excluir o ${labelLow}`, 'danger');
     }
   };
 
@@ -261,10 +276,10 @@ export const NonRecurringExpenses: React.FC = () => {
         observation: expense.observation
       });
       setConfirmToggleBudget(null);
-      showAlert('Sucesso', isEntering ? 'Gasto movido para o orçamento' : 'Gasto removido do orçamento', 'success');
+      showAlert('Sucesso', isEntering ? `${labelCap} movido para o orçamento` : `${labelCap} removido do orçamento`, 'success');
     } catch (error) {
       console.error('Error toggling expense budget status:', error);
-      showAlert('Erro', 'Não foi possível alterar o status do gasto', 'danger');
+      showAlert('Erro', `Não foi possível alterar o status do ${labelLow}`, 'danger');
     }
   };
 
@@ -275,10 +290,10 @@ export const NonRecurringExpenses: React.FC = () => {
         finished_at: dateStr
       });
       setConfirmFinish(null);
-      showAlert('Sucesso', 'Gasto finalizado com sucesso', 'success');
+      showAlert('Sucesso', `${labelCap} finalizado com sucesso`, 'success');
     } catch (error) {
       console.error('Error finishing expense:', error);
-      showAlert('Erro', 'Não foi possível finalizar o gasto', 'danger');
+      showAlert('Erro', `Não foi possível finalizar o ${labelLow}`, 'danger');
     }
   };
 
@@ -291,7 +306,7 @@ export const NonRecurringExpenses: React.FC = () => {
           in_budget: true,
           budget_entry_date: expense.budget_entry_date || new Date().toISOString().split('T')[0]
         });
-        showAlert('Sucesso', 'Gasto reativado e retornado ao orçamento', 'success');
+        showAlert('Sucesso', `${labelCap} reativado e retornado ao orçamento`, 'success');
       } else {
         await updateNonRecurringExpense(expense.id, {
           status: 'active',
@@ -299,12 +314,12 @@ export const NonRecurringExpenses: React.FC = () => {
           in_budget: false,
           budget_entry_date: null
         });
-        showAlert('Sucesso', 'Gasto reativado fora do orçamento', 'success');
+        showAlert('Sucesso', `${labelCap} reativado fora do orçamento`, 'success');
       }
       setConfirmReactivate(null);
     } catch (error) {
       console.error('Error reactivating expense:', error);
-      showAlert('Erro', 'Não foi possível reativar o gasto', 'danger');
+      showAlert('Erro', `Não foi possível reativar o ${labelLow}`, 'danger');
     }
   };
 
@@ -411,7 +426,7 @@ export const NonRecurringExpenses: React.FC = () => {
           type: manageForm.type || 'save'
         };
         
-        if (viewingExpenseDetails.is_recurrent) {
+        if (viewingExpenseDetails.is_recurrent || isObjective) {
           updatedHistory = history.filter(h => !(h.month_year === manageForm.month_year && (h.type || 'save') === (newUpdate.type || 'save')));
         } else {
           updatedHistory = history.filter(h => h.month_year !== manageForm.month_year);
@@ -464,9 +479,10 @@ export const NonRecurringExpenses: React.FC = () => {
   };
 
   const { inBudgetExpenses, outBudgetExpenses, finishedExpenses } = useMemo(() => {
-    const filteredBySearch = nonRecurringExpenses.filter(exp =>
-      exp.description.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    const filteredBySearch = nonRecurringExpenses.filter(exp => {
+      const expCategory = exp.category || 'expense';
+      return expCategory === category && exp.description.toLowerCase().includes(searchQuery.toLowerCase());
+    });
 
     const grouped = filteredBySearch.reduce((acc, exp) => {
       // 1. Filtrar pela data de identificação (só exibe se identificação_date <= selectedMonth)
@@ -523,7 +539,7 @@ export const NonRecurringExpenses: React.FC = () => {
     });
 
     return grouped;
-  }, [nonRecurringExpenses, searchQuery, selectedMonth]);
+  }, [nonRecurringExpenses, searchQuery, selectedMonth, category]);
 
   const pendingUpdates = useMemo(() => {
     return inBudgetExpenses.filter(exp => {
@@ -556,11 +572,13 @@ export const NonRecurringExpenses: React.FC = () => {
         <div>
           <div className="flex items-center gap-3 mb-2">
             <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-500">
-              <CalendarClock size={20} />
+              {isObjective ? <Target size={20} /> : <CalendarClock size={20} />}
             </div>
-            <h1 className="text-3xl font-black uppercase tracking-tighter text-foreground">Gastos Eventuais</h1>
+            <h1 className="text-3xl font-black uppercase tracking-tighter text-foreground">{labelPluralCap}</h1>
           </div>
-          <p className="text-muted-foreground text-[10px] font-bold uppercase tracking-[0.2em]">Planeje suas despesas periódicas e saiba quanto poupar</p>
+          <p className="text-muted-foreground text-[10px] font-bold uppercase tracking-[0.2em]">
+            {isObjective ? 'Planeje seus objetivos de médio e longo prazo e saiba quanto poupar' : 'Planeje suas despesas periódicas e saiba quanto poupar'}
+          </p>
         </div>
 
         <div className="flex items-center gap-3 self-end md:self-auto">
@@ -606,13 +624,13 @@ export const NonRecurringExpenses: React.FC = () => {
           <div className="space-y-1">
             <h4 className="text-xs font-black uppercase tracking-wider">Atualizações Pendentes no Orçamento</h4>
             <p className="text-[10px] font-semibold leading-relaxed uppercase tracking-wider text-muted-foreground">
-              Você possui {pendingUpdates.length} {pendingUpdates.length === 1 ? 'gasto eventual' : 'gastos eventuais'} no orçamento de <span className="font-black text-foreground">{formattedSelectedMonth}</span> que ainda não {pendingUpdates.length === 1 ? 'foi atualizado' : 'foram atualizados'} (valor guardado ou mês pulado). Clique no nome do gasto na tabela abaixo para gerenciar.
+              Você possui {pendingUpdates.length} {pendingUpdates.length === 1 ? labelLow : labelPluralLow} no orçamento de <span className="font-black text-foreground">{formattedSelectedMonth}</span> que ainda não {pendingUpdates.length === 1 ? 'foi atualizado' : 'foram atualizados'} (valor guardado ou mês pulado). Clique no nome do {labelLow} na tabela abaixo para gerenciar.
             </p>
           </div>
         </motion.div>
       )}
 
-      {nonRecurringExpenses.length === 0 && !contextLoading ? (
+      {nonRecurringExpenses.filter(e => (e.category || 'expense') === category).length === 0 && !contextLoading ? (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -620,12 +638,14 @@ export const NonRecurringExpenses: React.FC = () => {
         >
           <div className="w-32 h-32 rounded-[3rem] bg-amber-500/5 flex items-center justify-center text-amber-500/30 relative">
             <div className="absolute inset-0 bg-amber-500/10 rounded-[3rem] animate-pulse" />
-            <CalendarClock size={64} className="relative z-10" />
+            {isObjective ? <Target size={64} className="relative z-10" /> : <CalendarClock size={64} className="relative z-10" />}
           </div>
           <div className="space-y-3 max-w-md">
-            <h3 className="text-2xl font-black uppercase tracking-tighter text-foreground">Sem gastos periódicos</h3>
+            <h3 className="text-2xl font-black uppercase tracking-tighter text-foreground">Sem {labelPluralLow} periódicos</h3>
             <p className="text-sm text-muted-foreground font-medium leading-relaxed">
-              Você ainda não cadastrou nenhum gasto eventual (como IPVA, seguros anuais ou viagens). Cadastre-os para saber exatamente quanto precisa reservar por mês.
+              {isObjective
+                ? 'Você ainda não cadastrou nenhum objetivo de médio ou longo prazo (como viagens, estudos ou compras planejadas). Cadastre-os para saber exatamente quanto precisa reservar por mês.'
+                : 'Você ainda não cadastrou nenhum gasto eventual (como IPVA, seguros anuais ou viagens). Cadastre-os para saber exatamente quanto precisa reservar por mês.'}
             </p>
           </div>
           <button
@@ -633,7 +653,7 @@ export const NonRecurringExpenses: React.FC = () => {
             className="h-16 px-10 rounded-2xl bg-primary text-white text-[11px] font-black uppercase tracking-widest flex items-center gap-4 hover:scale-[1.05] active:scale-95 transition-all shadow-2xl shadow-primary/30 mt-4"
           >
             <Plus size={24} />
-            Cadastrar meu primeiro Gasto
+            Cadastrar meu primeiro {labelCap}
           </button>
         </motion.div>
       ) : (
@@ -699,7 +719,7 @@ export const NonRecurringExpenses: React.FC = () => {
                     <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                     <h3 className="text-lg font-black uppercase tracking-tighter text-foreground">No Orçamento</h3>
                   </div>
-                  <p className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest">Gastos que você já está poupando mensalmente</p>
+                  <p className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest">{labelPluralCap} que você já está poupando mensalmente</p>
                 </div>
                 <div className="relative w-full md:w-64">
                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
@@ -719,7 +739,7 @@ export const NonRecurringExpenses: React.FC = () => {
                     <tr className="border-b border-border bg-muted/10">
                       <th className="text-left px-8 py-5 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Identificação</th>
                       <th className="text-left px-8 py-5 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Descrição</th>
-                      <th className="text-center px-8 py-5 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Frequência</th>
+                      <th className="text-center px-8 py-5 text-[10px] font-black uppercase tracking-widest text-muted-foreground">{isObjective ? 'Tempo para Alcançar' : 'Frequência'}</th>
                       <th className="text-right px-8 py-5 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Valor Total</th>
                       <th className="text-right px-8 py-5 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Reserva Mensal</th>
                       <th className="text-right px-8 py-5 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Ações</th>
@@ -729,7 +749,7 @@ export const NonRecurringExpenses: React.FC = () => {
                     {inBudgetExpenses.length === 0 ? (
                       <tr>
                         <td colSpan={6} className="px-8 py-12 text-center">
-                          <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Nenhum gasto planejado no orçamento.</p>
+                          <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Nenhum {labelLow} planejado no orçamento.</p>
                         </td>
                       </tr>
                     ) : (
@@ -780,7 +800,7 @@ export const NonRecurringExpenses: React.FC = () => {
                           <td className="px-8 py-6 text-center">
                             <div className="flex flex-col items-center gap-1">
                               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 text-blue-500 text-[10px] font-black uppercase tracking-widest">
-                                A cada {expense.frequency_months} meses
+                                {isObjective ? `Em ${expense.frequency_months} meses` : `A cada ${expense.frequency_months} meses`}
                               </div>
                               {expense.is_recurrent && (
                                 <span className="inline-flex items-center gap-1 text-[8px] font-black text-blue-500 uppercase tracking-widest mt-1">
@@ -861,7 +881,7 @@ export const NonRecurringExpenses: React.FC = () => {
                     <div className="w-2 h-2 rounded-full bg-amber-500" />
                     <h3 className="text-lg font-black uppercase tracking-tighter text-foreground">Fora do Orçamento</h3>
                   </div>
-                  <p className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest">Gastos futuros ou ainda não provisionados</p>
+                  <p className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest">{labelPluralCap} futuros ou ainda não provisionados</p>
                 </div>
               </div>
 
@@ -871,7 +891,7 @@ export const NonRecurringExpenses: React.FC = () => {
                     <tr className="border-b border-border bg-muted/10">
                       <th className="text-left px-8 py-5 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Identificação</th>
                       <th className="text-left px-8 py-5 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Descrição</th>
-                      <th className="text-center px-8 py-5 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Frequência</th>
+                      <th className="text-center px-8 py-5 text-[10px] font-black uppercase tracking-widest text-muted-foreground">{isObjective ? 'Tempo para Alcançar' : 'Frequência'}</th>
                       <th className="text-right px-8 py-5 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Valor Total</th>
                       <th className="text-right px-8 py-5 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Reserva Mensal</th>
                       <th className="text-right px-8 py-5 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Ações</th>
@@ -881,7 +901,7 @@ export const NonRecurringExpenses: React.FC = () => {
                     {outBudgetExpenses.length === 0 ? (
                       <tr>
                         <td colSpan={6} className="px-8 py-12 text-center">
-                          <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Nenhum gasto fora do orçamento.</p>
+                          <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Nenhum {labelLow} fora do orçamento.</p>
                         </td>
                       </tr>
                     ) : (
@@ -910,7 +930,7 @@ export const NonRecurringExpenses: React.FC = () => {
                           <td className="px-8 py-6 text-center">
                             <div className="flex flex-col items-center gap-1">
                               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-muted text-muted-foreground text-[10px] font-black uppercase tracking-widest">
-                                A cada {expense.frequency_months} meses
+                                {isObjective ? `Em ${expense.frequency_months} meses` : `A cada ${expense.frequency_months} meses`}
                               </div>
                               {expense.is_recurrent && (
                                 <span className="inline-flex items-center gap-1 text-[8px] font-black text-muted-foreground uppercase tracking-widest mt-1">
@@ -984,9 +1004,9 @@ export const NonRecurringExpenses: React.FC = () => {
                 <div>
                   <div className="flex items-center gap-2 mb-1">
                     <div className="w-2 h-2 rounded-full bg-slate-500" />
-                    <h3 className="text-lg font-black uppercase tracking-tighter text-foreground">Gastos Finalizados</h3>
+                    <h3 className="text-lg font-black uppercase tracking-tighter text-foreground">{isObjective ? 'Objetivos Concluídos' : 'Gastos Finalizados'}</h3>
                   </div>
-                  <p className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest">Histórico de despesas concluídas</p>
+                  <p className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest">Histórico de {labelPluralLow} concluídos</p>
                 </div>
               </div>
 
@@ -996,7 +1016,7 @@ export const NonRecurringExpenses: React.FC = () => {
                     <tr className="border-b border-border bg-muted/10">
                       <th className="text-left px-8 py-5 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Ciclo</th>
                       <th className="text-left px-8 py-5 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Descrição</th>
-                      <th className="text-center px-8 py-5 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Frequência</th>
+                      <th className="text-center px-8 py-5 text-[10px] font-black uppercase tracking-widest text-muted-foreground">{isObjective ? 'Tempo para Alcançar' : 'Frequência'}</th>
                       <th className="text-right px-8 py-5 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Valor Total</th>
                       <th className="text-right px-8 py-5 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Status</th>
                       <th className="text-right px-8 py-5 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Ações</th>
@@ -1006,7 +1026,7 @@ export const NonRecurringExpenses: React.FC = () => {
                     {finishedExpenses.length === 0 ? (
                       <tr>
                         <td colSpan={6} className="px-8 py-12 text-center">
-                          <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Nenhum gasto finalizado recentemente.</p>
+                          <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Nenhum {labelLow} finalizado recentemente.</p>
                         </td>
                       </tr>
                     ) : (
@@ -1038,7 +1058,7 @@ export const NonRecurringExpenses: React.FC = () => {
                           <td className="px-8 py-6 text-center">
                             <div className="flex flex-col items-center gap-1">
                               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-muted text-muted-foreground text-[10px] font-black uppercase tracking-widest">
-                                A cada {expense.frequency_months} meses
+                                {isObjective ? `Em ${expense.frequency_months} meses` : `A cada ${expense.frequency_months} meses`}
                               </div>
                               {expense.is_recurrent && (
                                 <span className="inline-flex items-center gap-1 text-[8px] font-black text-muted-foreground/60 uppercase tracking-widest mt-1">
@@ -1133,7 +1153,7 @@ export const NonRecurringExpenses: React.FC = () => {
                     </span>
                   </div>
                   <h2 className="text-2xl font-black uppercase tracking-tighter text-foreground">
-                    {editingExpense ? 'Editar Gasto' : 'Cadastrar Gasto'}
+                    {editingExpense ? `Editar ${labelCap}` : `Cadastrar ${labelCap}`}
                   </h2>
                 </div>
                 <button
@@ -1158,11 +1178,11 @@ export const NonRecurringExpenses: React.FC = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1 text-primary">Descrição do Gasto</label>
+                    <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1 text-primary">Descrição do {labelCap}</label>
                     <input
                       type="text"
                       required
-                      placeholder="EX: IPVA, SEGURO, VIAGEM..."
+                      placeholder={isObjective ? "EX: VIAGEM, NOTEBOOK, CARRO..." : "EX: IPVA, SEGURO, VIAGEM..."}
                       value={form.description}
                       onChange={e => setForm(prev => ({ ...prev, description: e.target.value.toUpperCase() }))}
                       className="w-full h-14 bg-muted border-none rounded-2xl px-6 text-sm font-bold uppercase tracking-widest focus:ring-2 focus:ring-primary/20"
@@ -1187,7 +1207,7 @@ export const NonRecurringExpenses: React.FC = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Frequência (Meses)</label>
+                    <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">{isObjective ? 'Tempo para alcançar (Meses)' : 'Frequência (Meses)'}</label>
                     <input
                       type="number"
                       min="1"
@@ -1202,7 +1222,7 @@ export const NonRecurringExpenses: React.FC = () => {
                 <div className="space-y-2">
                   <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Observações (Opcional)</label>
                   <textarea
-                    placeholder="DETALHES DO GASTO..."
+                    placeholder={`DETALHES DO ${isObjective ? 'OBJETIVO' : 'GASTO'}...`}
                     value={form.observation}
                     onChange={e => setForm(prev => ({ ...prev, observation: e.target.value.toUpperCase() }))}
                     className="w-full h-24 bg-muted border-none rounded-2xl p-6 text-sm font-bold uppercase tracking-widest focus:ring-2 focus:ring-primary/20 resize-none"
@@ -1211,33 +1231,35 @@ export const NonRecurringExpenses: React.FC = () => {
 
                 <div className="p-6 rounded-[2rem] bg-muted/30 border border-border space-y-4">
                   {/* Recorrência */}
-                  <div className="flex items-center justify-between border-b border-border/50 pb-4">
-                    <div className="flex items-center gap-3">
-                      <div className={cn(
-                        "w-10 h-10 rounded-xl flex items-center justify-center transition-all shadow-inner",
-                        form.is_recurrent ? "bg-blue-500/10 text-blue-500" : "bg-slate-500/10 text-slate-500"
-                      )}>
-                        <CalendarClock size={20} />
+                  {!isObjective && (
+                    <div className="flex items-center justify-between border-b border-border/50 pb-4">
+                      <div className="flex items-center gap-3">
+                        <div className={cn(
+                          "w-10 h-10 rounded-xl flex items-center justify-center transition-all shadow-inner",
+                          form.is_recurrent ? "bg-blue-500/10 text-blue-500" : "bg-slate-500/10 text-slate-500"
+                        )}>
+                          {isObjective ? <Target size={20} /> : <CalendarClock size={20} />}
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-black uppercase tracking-widest text-foreground">{labelCap} Recorrente?</p>
+                          <p className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest">Define se o {labelLow} é contínuo e permite lançamentos de uso</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-[10px] font-black uppercase tracking-widest text-foreground">Gasto Recorrente?</p>
-                        <p className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest">Define se o gasto é contínuo e permite lançamentos de uso</p>
-                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setForm(prev => ({ ...prev, is_recurrent: !prev.is_recurrent }))}
+                        className={cn(
+                          "w-12 h-6 rounded-full transition-all relative flex items-center px-1 shadow-inner",
+                          form.is_recurrent ? "bg-blue-500" : "bg-slate-300 dark:bg-slate-700"
+                        )}
+                      >
+                        <motion.div
+                          animate={{ x: form.is_recurrent ? 24 : 0 }}
+                          className="w-4 h-4 rounded-full bg-white shadow-lg"
+                        />
+                      </button>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => setForm(prev => ({ ...prev, is_recurrent: !prev.is_recurrent }))}
-                      className={cn(
-                        "w-12 h-6 rounded-full transition-all relative flex items-center px-1 shadow-inner",
-                        form.is_recurrent ? "bg-blue-500" : "bg-slate-300 dark:bg-slate-700"
-                      )}
-                    >
-                      <motion.div
-                        animate={{ x: form.is_recurrent ? 24 : 0 }}
-                        className="w-4 h-4 rounded-full bg-white shadow-lg"
-                      />
-                    </button>
-                  </div>
+                  )}
 
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -1362,7 +1384,7 @@ export const NonRecurringExpenses: React.FC = () => {
                   <div className="flex items-center gap-2">
                     <History className="text-primary" size={20} />
                     <span className="text-[10px] font-black uppercase tracking-[0.3em] text-primary">
-                      Gestão de Gasto Eventual
+                      Gestão de {labelCap}
                     </span>
                   </div>
                   <h2 className="text-2xl font-black uppercase tracking-tighter text-foreground break-words max-w-[420px]">
@@ -1376,7 +1398,7 @@ export const NonRecurringExpenses: React.FC = () => {
                       setViewingExpenseDetails(null);
                     }}
                     className="h-10 px-4 rounded-xl bg-primary/10 hover:bg-primary/20 border border-primary/20 text-primary flex items-center gap-2 text-[9px] font-black uppercase tracking-widest transition-all cursor-pointer"
-                    title="Editar Gasto"
+                    title={`Editar ${labelCap}`}
                   >
                     <Edit2 size={14} /> Editar
                   </button>
@@ -1512,8 +1534,8 @@ export const NonRecurringExpenses: React.FC = () => {
                         )}
                       </div>
 
-                      {/* Seletor de Tipo (apenas se for recorrente) */}
-                      {viewingExpenseDetails.is_recurrent && (
+                      {/* Seletor de Tipo (apenas se for recorrente ou se for objetivo) */}
+                      {(viewingExpenseDetails.is_recurrent || isObjective) && (
                         <div className="space-y-1.5 md:col-span-2">
                           <label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground ml-1">Tipo de Lançamento</label>
                           <div className="grid grid-cols-2 gap-2 bg-card border border-border p-1 rounded-xl">
@@ -1713,7 +1735,7 @@ export const NonRecurringExpenses: React.FC = () => {
 
       <ConfirmModal
         isOpen={!!confirmDelete}
-        title="Excluir Gasto"
+        title={`Excluir ${labelCap}`}
         message={`Tem certeza que deseja excluir o planejamento de "${confirmDelete?.description}"? Esta ação não pode ser desfeita.`}
         confirmText="Sim, Excluir"
         validationKeyword={confirmDelete ? (confirmDelete.in_budget || confirmDelete.status === 'finished' ? "APAGAR" : undefined) : undefined}
@@ -1844,7 +1866,7 @@ export const NonRecurringExpenses: React.FC = () => {
                   <div className="flex items-center gap-2">
                     <Check className="text-emerald-500" size={20} />
                     <span className="text-[10px] font-black uppercase tracking-[0.3em] text-emerald-500">
-                      Finalizar Gasto Eventual
+                      Finalizar {labelCap}
                     </span>
                   </div>
                   <h2 className="text-2xl font-black uppercase tracking-tighter text-foreground max-w-[320px] truncate">
@@ -1860,7 +1882,7 @@ export const NonRecurringExpenses: React.FC = () => {
               </div>
 
               <p className="text-xs text-muted-foreground leading-relaxed font-semibold uppercase tracking-wider pl-1">
-                Confirme a data de finalização do gasto. Ele será movido para o histórico e não será mais somado à reserva mensal.
+                Confirme a data de finalização do {labelLow}. Ele será movido para o histórico e não será mais somado à reserva mensal.
               </p>
 
               <div className="space-y-2">
@@ -1918,7 +1940,7 @@ export const NonRecurringExpenses: React.FC = () => {
                   <div className="flex items-center gap-2">
                     <RotateCcw className="text-primary" size={20} />
                     <span className="text-[10px] font-black uppercase tracking-[0.3em] text-primary">
-                      Reativar Gasto Eventual
+                      Reativar {labelCap}
                     </span>
                   </div>
                   <h2 className="text-2xl font-black uppercase tracking-tighter text-foreground max-w-[320px] truncate">
@@ -1934,7 +1956,7 @@ export const NonRecurringExpenses: React.FC = () => {
               </div>
 
               <p className="text-xs text-muted-foreground leading-relaxed font-semibold uppercase tracking-wider pl-1">
-                Escolha o destino deste gasto ao reativá-lo no sistema:
+                Escolha o destino deste {labelLow} ao reativá-lo no sistema:
               </p>
 
               <div className="grid grid-cols-1 gap-4">
@@ -1950,7 +1972,7 @@ export const NonRecurringExpenses: React.FC = () => {
                     <div>
                       <p className="text-xs font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400">Voltar ao Orçamento</p>
                       <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mt-1 leading-relaxed">
-                        Retorna o gasto diretamente ao orçamento mensal.
+                        Retorna o {labelLow} diretamente ao orçamento mensal.
                       </p>
                       {confirmReactivate.budget_entry_date && (
                         <p className="text-[8px] font-black text-emerald-500 uppercase tracking-widest mt-2">
@@ -1973,7 +1995,7 @@ export const NonRecurringExpenses: React.FC = () => {
                     <div>
                       <p className="text-xs font-black uppercase tracking-widest text-amber-600 dark:text-amber-400">Fora do Orçamento</p>
                       <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mt-1 leading-relaxed">
-                        Retorna o gasto como "Fora do Orçamento" para ser planejado depois.
+                        Retorna o {labelLow} como "Fora do Orçamento" para ser planejado depois.
                       </p>
                     </div>
                   </div>

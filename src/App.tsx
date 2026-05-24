@@ -341,7 +341,9 @@ const AppContent = () => {
       case 'patrimonio':
         return <Equity />;
       case 'não-recorrente':
-        return <NonRecurringExpenses />;
+        return <NonRecurringExpenses category="expense" />;
+      case 'objetivos':
+        return <NonRecurringExpenses category="objective" />;
       case 'meetings':
         return <Meetings />;
       case 'management':

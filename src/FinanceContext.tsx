@@ -1248,7 +1248,8 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
           identification_date: expense.identification_date,
           budget_entry_date: expense.budget_entry_date,
           observation: expense.observation,
-          is_recurrent: expense.is_recurrent
+          is_recurrent: expense.is_recurrent,
+          category: expense.category || 'expense'
         }])
         .select()
         .single();

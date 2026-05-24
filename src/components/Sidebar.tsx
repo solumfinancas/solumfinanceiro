@@ -27,7 +27,8 @@ import {
   TrendingDown,
   Gem,
   CalendarClock,
-  Presentation
+  Presentation,
+  Target
 } from 'lucide-react';
 
 import { cn } from '../lib/utils';
@@ -107,6 +108,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       { id: 'dividas', label: 'Dívidas', icon: TrendingDown },
       { id: 'patrimonio', label: 'Patrimônio', icon: Gem },
       { id: 'não-recorrente', label: 'Gastos Eventuais', icon: CalendarClock },
+      { id: 'objetivos', label: 'Objetivos', icon: Target },
       { id: 'meetings', label: 'Reuniões', icon: Presentation },
       { id: 'tasks', label: 'Tarefas', icon: CheckSquare },
       { id: 'import', label: 'Importação', icon: FileUp },

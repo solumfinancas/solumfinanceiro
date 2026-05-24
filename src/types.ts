@@ -142,6 +142,7 @@ export interface NonRecurringExpense {
   created_at: string;
   history?: NonRecurringExpenseHistoryItem[];
   is_recurrent?: boolean;
+  category?: 'expense' | 'objective';
 }
 
 export interface MeetingTopic {
