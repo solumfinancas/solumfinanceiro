@@ -15,6 +15,7 @@ interface ConfirmModalProps {
   variant?: 'danger' | 'info' | 'success' | 'warning';
   hideCancel?: boolean;
   disabled?: boolean;
+  validationKeyword?: string;
 }
 
 export const ConfirmModal: React.FC<ConfirmModalProps> = ({
@@ -27,8 +28,17 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
   cancelText = 'Cancelar',
   variant = 'danger',
   hideCancel = false,
-  disabled = false
+  disabled = false,
+  validationKeyword
 }) => {
+  const [validationInput, setValidationInput] = React.useState('');
+
+  React.useEffect(() => {
+    if (!isOpen) {
+      setValidationInput('');
+    }
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   const config = {
@@ -67,6 +77,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
   }[variant];
 
   const Icon = config.icon;
+  const isConfirmDisabled = disabled || (validationKeyword ? validationInput.trim().toUpperCase() !== validationKeyword.toUpperCase() : false);
 
   return (
     <Portal>
@@ -122,6 +133,29 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
               </div>
             </div>
 
+            {validationKeyword && (
+              <div className="mt-2 mb-6 bg-muted/20 p-5 rounded-3xl border border-border/40 space-y-2.5">
+                <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground leading-relaxed">
+                  Para confirmar a exclusão, digite <span className="text-rose-500 font-extrabold underline">{validationKeyword}</span> abaixo:
+                </p>
+                <input
+                  type="text"
+                  value={validationInput}
+                  onChange={(e) => setValidationInput(e.target.value)}
+                  placeholder={`Digite ${validationKeyword}`}
+                  className={cn(
+                    "w-full h-11 bg-card border border-border rounded-xl px-4 text-xs font-bold uppercase tracking-wider text-foreground outline-none transition-all placeholder:text-muted-foreground/45 placeholder:normal-case text-center",
+                    {
+                      danger: 'focus:border-rose-500/50 focus:ring-1 focus:ring-rose-500/20',
+                      warning: 'focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/20',
+                      info: 'focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/20',
+                      success: 'focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/20'
+                    }[variant]
+                  )}
+                />
+              </div>
+            )}
+
             <div className="flex gap-4">
               {!hideCancel && (
                 <button
@@ -132,7 +166,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
                 </button>
               )}
               <button
-                disabled={disabled}
+                disabled={isConfirmDisabled}
                 onClick={() => {
                   onConfirm();
                   onClose();
@@ -143,7 +177,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
                   config.hover,
                   hideCancel ? "w-full" : "flex-[1.5]",
                   `shadow-${variant === 'danger' ? 'rose' : variant === 'info' ? 'blue' : variant === 'warning' ? 'amber' : 'emerald'}-500/30`,
-                  disabled && "opacity-50 cursor-not-allowed grayscale pointer-events-none"
+                  isConfirmDisabled && "opacity-50 cursor-not-allowed grayscale pointer-events-none"
                 )}
               >
                 {confirmText}

@@ -1716,6 +1716,7 @@ export const NonRecurringExpenses: React.FC = () => {
         title="Excluir Gasto"
         message={`Tem certeza que deseja excluir o planejamento de "${confirmDelete?.description}"? Esta ação não pode ser desfeita.`}
         confirmText="Sim, Excluir"
+        validationKeyword={confirmDelete ? (confirmDelete.in_budget || confirmDelete.status === 'finished' ? "APAGAR" : undefined) : undefined}
         onConfirm={() => confirmDelete && handleDelete(confirmDelete.id)}
         onClose={() => setConfirmDelete(null)}
         variant="danger"
