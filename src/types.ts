@@ -116,6 +116,16 @@ export interface DebtHistory {
   created_at: string;
 }
 
+export interface NonRecurringExpenseHistoryItem {
+  id: string;
+  month_year: string; // Formato YYYY-MM
+  value: number;
+  skipped: boolean;
+  observation: string;
+  created_at: string;
+  type?: 'save' | 'use';
+}
+
 export interface NonRecurringExpense {
   id: string;
   user_id: string;
@@ -130,6 +140,8 @@ export interface NonRecurringExpense {
   status: 'active' | 'finished';
   finished_at: string | null;
   created_at: string;
+  history?: NonRecurringExpenseHistoryItem[];
+  is_recurrent?: boolean;
 }
 
 export interface MeetingTopic {
