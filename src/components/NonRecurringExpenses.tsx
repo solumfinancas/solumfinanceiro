@@ -22,7 +22,8 @@ import {
   RefreshCw,
   SkipForward,
   ArrowUpRight,
-  Target
+  Target,
+  Trophy
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -426,11 +427,8 @@ export const NonRecurringExpenses: React.FC<NonRecurringExpensesProps> = ({
           type: manageForm.type || 'save'
         };
         
-        if (viewingExpenseDetails.is_recurrent || isObjective) {
-          updatedHistory = history.filter(h => !(h.month_year === manageForm.month_year && (h.type || 'save') === (newUpdate.type || 'save')));
-        } else {
-          updatedHistory = history.filter(h => h.month_year !== manageForm.month_year);
-        }
+        // Permitir múltiplos lançamentos de tipo diferente no mesmo mês para qualquer gasto ou objetivo
+        updatedHistory = history.filter(h => !(h.month_year === manageForm.month_year && (h.type || 'save') === (newUpdate.type || 'save')));
         updatedHistory.push(newUpdate);
       }
 
@@ -552,18 +550,21 @@ export const NonRecurringExpenses: React.FC<NonRecurringExpensesProps> = ({
     const calc = (list: NonRecurringExpense[]) => ({
       cost: list.reduce((sum, exp) => sum + exp.amount, 0),
       monthly: list.reduce((sum, exp) => sum + (exp.amount / exp.frequency_months), 0),
-      count: list.length
+      count: list.length,
+      saved: list.reduce((sum, exp) => sum + (exp.history || []).reduce((hSum, item) => hSum + (item.skipped ? 0 : (item.value || 0)), 0), 0)
     });
 
     const inBudget = calc(inBudgetExpenses);
     const outBudget = calc(outBudgetExpenses);
+    const finished = calc(finishedExpenses);
 
     return {
       inBudget,
       outBudget,
+      finished,
       totalMonthly: inBudget.monthly + outBudget.monthly
     };
-  }, [inBudgetExpenses, outBudgetExpenses]);
+  }, [inBudgetExpenses, outBudgetExpenses, finishedExpenses]);
 
   return (
     <div className="p-4 lg:p-8 space-y-8 max-w-7xl mx-auto">
@@ -659,51 +660,88 @@ export const NonRecurringExpenses: React.FC<NonRecurringExpensesProps> = ({
       ) : (
         <>
           {/* Summary Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <div className="relative group overflow-hidden bg-card border border-border rounded-[2.5rem] p-8 shadow-xl shadow-slate-200/40 dark:shadow-none flex flex-col justify-center">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
+            {/* Card 1: No Orçamento */}
+            <div className="relative group overflow-hidden bg-card border border-border rounded-[2.5rem] px-5 py-7 shadow-xl shadow-slate-200/40 dark:shadow-none flex flex-col justify-center">
               <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-3xl -mr-16 -mt-16 transition-all group-hover:scale-110" />
-              <div className="relative flex items-center justify-between">
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-primary mb-2">No Orçamento (Mensal)</p>
-                  <h2 className="text-3xl font-black tracking-tighter text-foreground">
+              <div className="relative flex items-center justify-between gap-2 min-w-0">
+                <div className="min-w-0 flex-1">
+                  <p className="text-[9px] font-black uppercase tracking-[0.05em] text-primary mb-1.5 leading-tight">No Orçamento (Mensal)</p>
+                  <h2 className="text-2xl font-black tracking-tighter text-foreground truncate" title={formatCurrency(summary.inBudget.monthly)}>
                     {formatCurrency(summary.inBudget.monthly)}
                   </h2>
-                  <p className="text-[9px] font-bold text-muted-foreground mt-1 uppercase tracking-widest">{summary.inBudget.count} itens planejados</p>
+                  <p className="text-[8px] font-bold text-muted-foreground mt-1 uppercase tracking-widest leading-normal">{summary.inBudget.count} itens planejados</p>
                 </div>
-                <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-inner">
-                  <PiggyBank size={24} />
+                <div className="w-11 h-11 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-inner shrink-0">
+                  <PiggyBank size={20} />
                 </div>
               </div>
             </div>
 
-            <div className="relative group overflow-hidden bg-card border border-border rounded-[2.5rem] p-8 shadow-xl shadow-slate-200/40 dark:shadow-none flex flex-col justify-center">
+            {/* Card 2: Guardado no Orçamento */}
+            <div className="relative group overflow-hidden bg-card border border-border rounded-[2.5rem] px-5 py-7 shadow-xl shadow-slate-200/40 dark:shadow-none flex flex-col justify-center">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 rounded-full blur-3xl -mr-16 -mt-16 transition-all group-hover:scale-110" />
+              <div className="relative flex items-center justify-between gap-2 min-w-0">
+                <div className="min-w-0 flex-1">
+                  <p className="text-[9px] font-black uppercase tracking-[0.05em] text-emerald-500 mb-1.5 leading-tight">Guardado no Orçamento</p>
+                  <h2 className="text-2xl font-black tracking-tighter text-foreground truncate" title={formatCurrency(summary.inBudget.saved)}>
+                    {formatCurrency(summary.inBudget.saved)}
+                  </h2>
+                  <p className="text-[8px] font-bold text-muted-foreground mt-1 uppercase tracking-widest leading-normal">Acumulado líquido ativo</p>
+                </div>
+                <div className="w-11 h-11 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-500 shadow-inner shrink-0">
+                  <PiggyBank size={20} />
+                </div>
+              </div>
+            </div>
+
+            {/* Card 3: Fora do Orçamento */}
+            <div className="relative group overflow-hidden bg-card border border-border rounded-[2.5rem] px-5 py-7 shadow-xl shadow-slate-200/40 dark:shadow-none flex flex-col justify-center">
               <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 rounded-full blur-3xl -mr-16 -mt-16 transition-all group-hover:scale-110" />
-              <div className="relative flex items-center justify-between">
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-500 mb-2">Fora do Orçamento (Mensal)</p>
-                  <h2 className="text-3xl font-black tracking-tighter text-foreground">
+              <div className="relative flex items-center justify-between gap-2 min-w-0">
+                <div className="min-w-0 flex-1">
+                  <p className="text-[9px] font-black uppercase tracking-[0.05em] text-amber-500 mb-1.5 leading-tight">Fora do Orçamento (Mensal)</p>
+                  <h2 className="text-2xl font-black tracking-tighter text-foreground truncate" title={formatCurrency(summary.outBudget.monthly)}>
                     {formatCurrency(summary.outBudget.monthly)}
                   </h2>
-                  <p className="text-[9px] font-bold text-muted-foreground mt-1 uppercase tracking-widest">{summary.outBudget.count} itens aguardando</p>
+                  <p className="text-[8px] font-bold text-muted-foreground mt-1 uppercase tracking-widest leading-normal">{summary.outBudget.count} itens aguardando</p>
                 </div>
-                <div className="w-12 h-12 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-500 shadow-inner">
-                  <AlertCircle size={24} />
+                <div className="w-11 h-11 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-500 shadow-inner shrink-0">
+                  <AlertCircle size={20} />
                 </div>
               </div>
             </div>
 
-            <div className="relative group overflow-hidden bg-card border border-border rounded-[2.5rem] p-8 shadow-xl shadow-slate-200/40 dark:shadow-none flex flex-col justify-center lg:col-span-1 md:col-span-2">
+            {/* Card 4: Guardado Finalizados */}
+            <div className="relative group overflow-hidden bg-card border border-border rounded-[2.5rem] px-5 py-7 shadow-xl shadow-slate-200/40 dark:shadow-none flex flex-col justify-center">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-rose-500/5 rounded-full blur-3xl -mr-16 -mt-16 transition-all group-hover:scale-110" />
+              <div className="relative flex items-center justify-between gap-2 min-w-0">
+                <div className="min-w-0 flex-1">
+                  <p className="text-[9px] font-black uppercase tracking-[0.05em] text-rose-500 mb-1.5 leading-tight">Guardado Finalizados</p>
+                  <h2 className="text-2xl font-black tracking-tighter text-foreground truncate" title={formatCurrency(summary.finished.saved)}>
+                    {formatCurrency(summary.finished.saved)}
+                  </h2>
+                  <p className="text-[8px] font-bold text-muted-foreground mt-1 uppercase tracking-widest leading-normal">{summary.finished.count} itens concluídos</p>
+                </div>
+                <div className="w-11 h-11 rounded-2xl bg-rose-500/10 flex items-center justify-center text-rose-500 shadow-inner shrink-0">
+                  <Trophy size={20} />
+                </div>
+              </div>
+            </div>
+
+            {/* Card 5: Reserva Mensal Total */}
+            <div className="relative group overflow-hidden bg-card border border-border rounded-[2.5rem] px-5 py-7 shadow-xl shadow-slate-200/40 dark:shadow-none flex flex-col justify-center">
               <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 rounded-full blur-3xl -mr-16 -mt-16 transition-all group-hover:scale-110" />
-              <div className="relative flex items-center justify-between">
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-500 mb-2">Reserva Mensal Total</p>
-                  <h2 className="text-3xl font-black tracking-tighter text-foreground">
+              <div className="relative flex items-center justify-between gap-2 min-w-0">
+                <div className="min-w-0 flex-1">
+                  <p className="text-[9px] font-black uppercase tracking-[0.05em] text-blue-500 mb-1.5 leading-tight">Reserva Mensal Total</p>
+                  <h2 className="text-2xl font-black tracking-tighter text-foreground truncate" title={formatCurrency(summary.totalMonthly)}>
                     {formatCurrency(summary.totalMonthly)}
                   </h2>
-                  <p className="text-[9px] font-bold text-muted-foreground mt-1 uppercase tracking-widest">Soma de todos os ciclos</p>
+                  <p className="text-[8px] font-bold text-muted-foreground mt-1 uppercase tracking-widest leading-normal">Soma de todos os ciclos</p>
                 </div>
-                <div className="w-12 h-12 rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-500 shadow-inner">
-                  <DollarSign size={24} />
+                <div className="w-11 h-11 rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-500 shadow-inner shrink-0">
+                  <DollarSign size={20} />
                 </div>
               </div>
             </div>
@@ -1534,47 +1572,45 @@ export const NonRecurringExpenses: React.FC<NonRecurringExpensesProps> = ({
                         )}
                       </div>
 
-                      {/* Seletor de Tipo (apenas se for recorrente ou se for objetivo) */}
-                      {(viewingExpenseDetails.is_recurrent || isObjective) && (
-                        <div className="space-y-1.5 md:col-span-2">
-                          <label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground ml-1">Tipo de Lançamento</label>
-                          <div className="grid grid-cols-2 gap-2 bg-card border border-border p-1 rounded-xl">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setManageForm(prev => ({ ...prev, type: 'save' }));
-                                if (!manageForm.skipped) {
-                                  const defaultVal = viewingExpenseDetails.amount / viewingExpenseDetails.frequency_months;
-                                  setManageValueRaw(getDisplayAmount(defaultVal));
-                                }
-                              }}
-                              className={cn(
-                                "h-9 rounded-lg text-[9px] font-black tracking-widest uppercase transition-all flex items-center justify-center gap-1.5",
-                                manageForm.type === 'save'
-                                  ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20"
-                                  : "text-muted-foreground hover:text-foreground border border-transparent"
-                              )}
-                            >
-                              <PiggyBank size={14} /> Guardar Valor
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setManageForm(prev => ({ ...prev, type: 'use', skipped: false }));
-                                setManageValueRaw(getDisplayAmount(0));
-                              }}
-                              className={cn(
-                                "h-9 rounded-lg text-[9px] font-black tracking-widest uppercase transition-all flex items-center justify-center gap-1.5",
-                                manageForm.type === 'use'
-                                  ? "bg-rose-500/10 text-rose-500 border border-rose-500/20"
-                                  : "text-muted-foreground hover:text-foreground border border-transparent"
-                              )}
-                            >
-                              <TrendingUp className="rotate-180" size={14} /> Utilizar / Gastar
-                            </button>
-                          </div>
+                      {/* Seletor de Tipo */}
+                      <div className="space-y-1.5 md:col-span-2">
+                        <label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground ml-1">Tipo de Lançamento</label>
+                        <div className="grid grid-cols-2 gap-2 bg-card border border-border p-1 rounded-xl">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setManageForm(prev => ({ ...prev, type: 'save' }));
+                              if (!manageForm.skipped) {
+                                const defaultVal = viewingExpenseDetails.amount / viewingExpenseDetails.frequency_months;
+                                setManageValueRaw(getDisplayAmount(defaultVal));
+                              }
+                            }}
+                            className={cn(
+                              "h-9 rounded-lg text-[9px] font-black tracking-widest uppercase transition-all flex items-center justify-center gap-1.5",
+                              manageForm.type === 'save'
+                                ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20"
+                                : "text-muted-foreground hover:text-foreground border border-transparent"
+                            )}
+                          >
+                            <PiggyBank size={14} /> Guardar Valor
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setManageForm(prev => ({ ...prev, type: 'use', skipped: false }));
+                              setManageValueRaw(getDisplayAmount(0));
+                            }}
+                            className={cn(
+                              "h-9 rounded-lg text-[9px] font-black tracking-widest uppercase transition-all flex items-center justify-center gap-1.5",
+                              manageForm.type === 'use'
+                                ? "bg-rose-500/10 text-rose-500 border border-rose-500/20"
+                                : "text-muted-foreground hover:text-foreground border border-transparent"
+                            )}
+                          >
+                            <TrendingUp className="rotate-180" size={14} /> Utilizar / Gastar
+                          </button>
                         </div>
-                      )}
+                      </div>
                     </div>
 
                     <div className="space-y-1.5">
