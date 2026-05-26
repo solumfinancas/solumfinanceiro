@@ -531,7 +531,8 @@ export const Meetings: React.FC = () => {
     debts,
     debtHistory,
     equityAssets,
-    equityHistory
+    equityHistory,
+    nonRecurringExpenses
   } = useFinance();
   const { showAlert, showConfirm } = useModal();
 
@@ -1126,12 +1127,15 @@ export const Meetings: React.FC = () => {
       .reduce((sum, w) => sum + (w.balance || 0), 0);
   }, [wallets]);
 
-  // Total disponível em lista de desejos (wishlist)
+  // Total disponível em lista de desejos (wishlist) - soma dos cards GUARDADO NO ORÇAMENTO e GUARDADOS FINALIZADOS da aba Objetivos
   const totalWishlistBalance = useMemo(() => {
-    return (wallets || [])
-      .filter(w => w.walletCategory === 'wishlist' && w.isActive !== false && !w.isDeleted)
-      .reduce((sum, w) => sum + (w.balance || 0), 0);
-  }, [wallets]);
+    return (nonRecurringExpenses || [])
+      .filter(exp => exp.category === 'objective' && (exp.in_budget || exp.status === 'finished'))
+      .reduce((sum, exp) => {
+        const savedHistory = (exp.history || []).reduce((hSum, item) => hSum + (item.skipped ? 0 : (item.value || 0)), 0);
+        return sum + savedHistory;
+      }, 0);
+  }, [nonRecurringExpenses]);
 
   // Cofrinhos com metas configuradas
   const savingsWithGoals = useMemo(() => {
@@ -4023,37 +4027,6 @@ export const Meetings: React.FC = () => {
 
                         {radarSubTab === 'evolution' ? (
                           <div className="flex-1 flex flex-col gap-6 overflow-y-auto no-scrollbar min-h-0 pb-6 pr-1">
-                            {/* Cards de Resumo de Carteiras */}
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 flex-shrink-0">
-                              {/* Card Cofrinhos */}
-                              <div className="bg-emerald-500/5 border border-emerald-500/10 dark:border-emerald-500/20 rounded-2xl p-5 text-left flex items-center justify-between">
-                                <div>
-                                  <span className="text-[8px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400">Total em Cofrinhos</span>
-                                  <div className="text-xl font-black text-slate-900 dark:text-white mt-1">
-                                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalSavingsBalance)}
-                                  </div>
-                                  <span className="text-[8px] font-bold text-muted-foreground uppercase mt-1 block">Reservas de liquidez e poupança</span>
-                                </div>
-                                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center">
-                                  <PiggyBank size={20} />
-                                </div>
-                              </div>
-
-                              {/* Card Lista de Desejos */}
-                              <div className="bg-amber-500/5 border border-amber-500/10 dark:border-amber-500/20 rounded-2xl p-5 text-left flex items-center justify-between">
-                                <div>
-                                  <span className="text-[8px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-400">Total em Lista de Desejos</span>
-                                  <div className="text-xl font-black text-slate-900 dark:text-white mt-1">
-                                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalWishlistBalance)}
-                                  </div>
-                                  <span className="text-[8px] font-bold text-muted-foreground uppercase mt-1 block">Objetivos de consumo e sonhos</span>
-                                </div>
-                                <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center">
-                                  <Star size={20} />
-                                </div>
-                              </div>
-                            </div>
-
                             {/* Gráfico Dívidas vs Patrimônio */}
                             <div className="bg-slate-50 dark:bg-slate-950/40 border border-border rounded-3xl p-6 flex-shrink-0 space-y-4">
                               <div>
@@ -4162,6 +4135,37 @@ export const Meetings: React.FC = () => {
                               </div>
                             </div>
 
+                            {/* Cards de Resumo de Carteiras */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 flex-shrink-0">
+                              {/* Card Cofrinhos */}
+                              <div className="bg-emerald-500/5 border border-emerald-500/10 dark:border-emerald-500/20 rounded-2xl p-5 text-left flex items-center justify-between">
+                                <div>
+                                  <span className="text-[8px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400">Total em Cofrinhos</span>
+                                  <div className="text-xl font-black text-slate-900 dark:text-white mt-1">
+                                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalSavingsBalance)}
+                                  </div>
+                                  <span className="text-[8px] font-bold text-muted-foreground uppercase mt-1 block">Reservas de liquidez e poupança</span>
+                                </div>
+                                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center">
+                                  <PiggyBank size={20} />
+                                </div>
+                              </div>
+
+                              {/* Card Lista de Desejos */}
+                              <div className="bg-amber-500/5 border border-amber-500/10 dark:border-amber-500/20 rounded-2xl p-5 text-left flex items-center justify-between">
+                                <div>
+                                  <span className="text-[8px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-400">Total em Lista de Desejos</span>
+                                  <div className="text-xl font-black text-slate-900 dark:text-white mt-1">
+                                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalWishlistBalance)}
+                                  </div>
+                                  <span className="text-[8px] font-bold text-muted-foreground uppercase mt-1 block">Objetivos de consumo e sonhos</span>
+                                </div>
+                                <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center">
+                                  <Star size={20} />
+                                </div>
+                              </div>
+                            </div>
+
                             {/* Seção de Metas (Grid de Duas Colunas) */}
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 flex-shrink-0">
                               {/* Coluna 1: Cofrinhos */}
@@ -4226,7 +4230,7 @@ export const Meetings: React.FC = () => {
                               <div className="space-y-4">
                                 <h4 className="text-[10px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-400 flex items-center gap-1.5 border-b border-border/55 pb-2">
                                   <Star size={14} />
-                                  Metas de Desejos ({wishlistWithGoals.length})
+                                  Metas de Desejos ({wishlistWithGoals.length}) <span className="text-[8.5px] font-normal text-muted-foreground lowercase normal-case tracking-normal ml-1">(*não contabiliza objetivos concluídos)</span>
                                 </h4>
 
                                 {wishlistWithGoals.length === 0 ? (
