@@ -278,11 +278,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
     
+    // Definir o ID imediatamente para evitar delay/flicker e race conditions no carregamento de dados
+    setViewingUserId(id);
+    
     // Buscar perfil COM metadados para saber quais espaços estão ativos
     const p = await fetchProfile(id, true);
     if (p) {
-      setViewingUserId(id);
       setViewingProfile(p);
+    } else {
+      // Se falhar ao buscar o perfil, desfaz a impersonação
+      setViewingUserId(null);
     }
   };
 

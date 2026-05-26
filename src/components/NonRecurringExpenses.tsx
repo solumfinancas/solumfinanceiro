@@ -662,87 +662,87 @@ export const NonRecurringExpenses: React.FC<NonRecurringExpensesProps> = ({
           {/* Summary Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
             {/* Card 1: No Orçamento */}
-            <div className="relative group overflow-hidden bg-card border border-border rounded-[2.5rem] px-5 py-7 shadow-xl shadow-slate-200/40 dark:shadow-none flex flex-col justify-center">
+            <div className="relative group overflow-hidden bg-card border border-border rounded-[2.5rem] p-6 shadow-xl shadow-slate-200/40 dark:shadow-none flex flex-col justify-between h-full min-h-[130px]">
               <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-3xl -mr-16 -mt-16 transition-all group-hover:scale-110" />
-              <div className="relative flex items-center justify-between gap-2 min-w-0">
-                <div className="min-w-0 flex-1">
-                  <p className="text-[9px] font-black uppercase tracking-[0.05em] text-primary mb-1.5 leading-tight">No Orçamento (Mensal)</p>
-                  <h2 className="text-2xl font-black tracking-tighter text-foreground truncate" title={formatCurrency(summary.inBudget.monthly)}>
-                    {formatCurrency(summary.inBudget.monthly)}
-                  </h2>
-                  <p className="text-[8px] font-bold text-muted-foreground mt-1 uppercase tracking-widest leading-normal">{summary.inBudget.count} itens planejados</p>
+              <div className="relative flex items-start justify-between gap-2 w-full">
+                <p className="text-[9px] font-black uppercase tracking-[0.05em] text-primary leading-tight mt-1">No Orçamento (Mensal)</p>
+                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary shadow-inner shrink-0">
+                  <PiggyBank size={18} />
                 </div>
-                <div className="w-11 h-11 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-inner shrink-0">
-                  <PiggyBank size={20} />
-                </div>
+              </div>
+              <div className="relative mt-4 w-full">
+                <h2 className="text-xl lg:text-2xl font-black tracking-tighter text-foreground break-all" title={formatCurrency(summary.inBudget.monthly)}>
+                  {formatCurrency(summary.inBudget.monthly)}
+                </h2>
+                <p className="text-[8px] font-bold text-muted-foreground mt-1 uppercase tracking-widest leading-normal">{summary.inBudget.count} itens planejados</p>
               </div>
             </div>
 
             {/* Card 2: Guardado no Orçamento */}
-            <div className="relative group overflow-hidden bg-card border border-border rounded-[2.5rem] px-5 py-7 shadow-xl shadow-slate-200/40 dark:shadow-none flex flex-col justify-center">
+            <div className="relative group overflow-hidden bg-card border border-border rounded-[2.5rem] p-6 shadow-xl shadow-slate-200/40 dark:shadow-none flex flex-col justify-between h-full min-h-[130px]">
               <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 rounded-full blur-3xl -mr-16 -mt-16 transition-all group-hover:scale-110" />
-              <div className="relative flex items-center justify-between gap-2 min-w-0">
-                <div className="min-w-0 flex-1">
-                  <p className="text-[9px] font-black uppercase tracking-[0.05em] text-emerald-500 mb-1.5 leading-tight">Guardado no Orçamento</p>
-                  <h2 className="text-2xl font-black tracking-tighter text-foreground truncate" title={formatCurrency(summary.inBudget.saved)}>
-                    {formatCurrency(summary.inBudget.saved)}
-                  </h2>
-                  <p className="text-[8px] font-bold text-muted-foreground mt-1 uppercase tracking-widest leading-normal">Acumulado líquido ativo</p>
+              <div className="relative flex items-start justify-between gap-2 w-full">
+                <p className="text-[9px] font-black uppercase tracking-[0.05em] text-emerald-500 leading-tight mt-1">Guardado no Orçamento</p>
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-500 shadow-inner shrink-0">
+                  <PiggyBank size={18} />
                 </div>
-                <div className="w-11 h-11 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-500 shadow-inner shrink-0">
-                  <PiggyBank size={20} />
-                </div>
+              </div>
+              <div className="relative mt-4 w-full">
+                <h2 className="text-xl lg:text-2xl font-black tracking-tighter text-foreground break-all" title={formatCurrency(summary.inBudget.saved)}>
+                  {formatCurrency(summary.inBudget.saved)}
+                </h2>
+                <p className="text-[8px] font-bold text-muted-foreground mt-1 uppercase tracking-widest leading-normal">Acumulado líquido ativo</p>
               </div>
             </div>
 
             {/* Card 3: Fora do Orçamento */}
-            <div className="relative group overflow-hidden bg-card border border-border rounded-[2.5rem] px-5 py-7 shadow-xl shadow-slate-200/40 dark:shadow-none flex flex-col justify-center">
+            <div className="relative group overflow-hidden bg-card border border-border rounded-[2.5rem] p-6 shadow-xl shadow-slate-200/40 dark:shadow-none flex flex-col justify-between h-full min-h-[130px]">
               <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 rounded-full blur-3xl -mr-16 -mt-16 transition-all group-hover:scale-110" />
-              <div className="relative flex items-center justify-between gap-2 min-w-0">
-                <div className="min-w-0 flex-1">
-                  <p className="text-[9px] font-black uppercase tracking-[0.05em] text-amber-500 mb-1.5 leading-tight">Fora do Orçamento (Mensal)</p>
-                  <h2 className="text-2xl font-black tracking-tighter text-foreground truncate" title={formatCurrency(summary.outBudget.monthly)}>
-                    {formatCurrency(summary.outBudget.monthly)}
-                  </h2>
-                  <p className="text-[8px] font-bold text-muted-foreground mt-1 uppercase tracking-widest leading-normal">{summary.outBudget.count} itens aguardando</p>
+              <div className="relative flex items-start justify-between gap-2 w-full">
+                <p className="text-[9px] font-black uppercase tracking-[0.05em] text-amber-500 leading-tight mt-1">Fora do Orçamento (Mensal)</p>
+                <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-500 shadow-inner shrink-0">
+                  <AlertCircle size={18} />
                 </div>
-                <div className="w-11 h-11 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-500 shadow-inner shrink-0">
-                  <AlertCircle size={20} />
-                </div>
+              </div>
+              <div className="relative mt-4 w-full">
+                <h2 className="text-xl lg:text-2xl font-black tracking-tighter text-foreground break-all" title={formatCurrency(summary.outBudget.monthly)}>
+                  {formatCurrency(summary.outBudget.monthly)}
+                </h2>
+                <p className="text-[8px] font-bold text-muted-foreground mt-1 uppercase tracking-widest leading-normal">{summary.outBudget.count} itens aguardando</p>
               </div>
             </div>
 
             {/* Card 4: Guardado Finalizados */}
-            <div className="relative group overflow-hidden bg-card border border-border rounded-[2.5rem] px-5 py-7 shadow-xl shadow-slate-200/40 dark:shadow-none flex flex-col justify-center">
+            <div className="relative group overflow-hidden bg-card border border-border rounded-[2.5rem] p-6 shadow-xl shadow-slate-200/40 dark:shadow-none flex flex-col justify-between h-full min-h-[130px]">
               <div className="absolute top-0 right-0 w-32 h-32 bg-rose-500/5 rounded-full blur-3xl -mr-16 -mt-16 transition-all group-hover:scale-110" />
-              <div className="relative flex items-center justify-between gap-2 min-w-0">
-                <div className="min-w-0 flex-1">
-                  <p className="text-[9px] font-black uppercase tracking-[0.05em] text-rose-500 mb-1.5 leading-tight">Guardado Finalizados</p>
-                  <h2 className="text-2xl font-black tracking-tighter text-foreground truncate" title={formatCurrency(summary.finished.saved)}>
-                    {formatCurrency(summary.finished.saved)}
-                  </h2>
-                  <p className="text-[8px] font-bold text-muted-foreground mt-1 uppercase tracking-widest leading-normal">{summary.finished.count} itens concluídos</p>
+              <div className="relative flex items-start justify-between gap-2 w-full">
+                <p className="text-[9px] font-black uppercase tracking-[0.05em] text-rose-500 leading-tight mt-1">Guardado Finalizados</p>
+                <div className="w-10 h-10 rounded-xl bg-rose-500/10 flex items-center justify-center text-rose-500 shadow-inner shrink-0">
+                  <Trophy size={18} />
                 </div>
-                <div className="w-11 h-11 rounded-2xl bg-rose-500/10 flex items-center justify-center text-rose-500 shadow-inner shrink-0">
-                  <Trophy size={20} />
-                </div>
+              </div>
+              <div className="relative mt-4 w-full">
+                <h2 className="text-xl lg:text-2xl font-black tracking-tighter text-foreground break-all" title={formatCurrency(summary.finished.saved)}>
+                  {formatCurrency(summary.finished.saved)}
+                </h2>
+                <p className="text-[8px] font-bold text-muted-foreground mt-1 uppercase tracking-widest leading-normal">{summary.finished.count} itens concluídos</p>
               </div>
             </div>
 
             {/* Card 5: Reserva Mensal Total */}
-            <div className="relative group overflow-hidden bg-card border border-border rounded-[2.5rem] px-5 py-7 shadow-xl shadow-slate-200/40 dark:shadow-none flex flex-col justify-center">
+            <div className="relative group overflow-hidden bg-card border border-border rounded-[2.5rem] p-6 shadow-xl shadow-slate-200/40 dark:shadow-none flex flex-col justify-between h-full min-h-[130px]">
               <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 rounded-full blur-3xl -mr-16 -mt-16 transition-all group-hover:scale-110" />
-              <div className="relative flex items-center justify-between gap-2 min-w-0">
-                <div className="min-w-0 flex-1">
-                  <p className="text-[9px] font-black uppercase tracking-[0.05em] text-blue-500 mb-1.5 leading-tight">Reserva Mensal Total</p>
-                  <h2 className="text-2xl font-black tracking-tighter text-foreground truncate" title={formatCurrency(summary.totalMonthly)}>
-                    {formatCurrency(summary.totalMonthly)}
-                  </h2>
-                  <p className="text-[8px] font-bold text-muted-foreground mt-1 uppercase tracking-widest leading-normal">Soma de todos os ciclos</p>
+              <div className="relative flex items-start justify-between gap-2 w-full">
+                <p className="text-[9px] font-black uppercase tracking-[0.05em] text-blue-500 leading-tight mt-1">Reserva Mensal Total</p>
+                <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-500 shadow-inner shrink-0">
+                  <DollarSign size={18} />
                 </div>
-                <div className="w-11 h-11 rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-500 shadow-inner shrink-0">
-                  <DollarSign size={20} />
-                </div>
+              </div>
+              <div className="relative mt-4 w-full">
+                <h2 className="text-xl lg:text-2xl font-black tracking-tighter text-foreground break-all" title={formatCurrency(summary.totalMonthly)}>
+                  {formatCurrency(summary.totalMonthly)}
+                </h2>
+                <p className="text-[8px] font-bold text-muted-foreground mt-1 uppercase tracking-widest leading-normal">Soma de todos os ciclos</p>
               </div>
             </div>
           </div>
@@ -1287,13 +1287,15 @@ export const NonRecurringExpenses: React.FC<NonRecurringExpensesProps> = ({
                         type="button"
                         onClick={() => setForm(prev => ({ ...prev, is_recurrent: !prev.is_recurrent }))}
                         className={cn(
-                          "w-12 h-6 rounded-full transition-all relative flex items-center px-1 shadow-inner",
+                          "w-11 h-6 rounded-full transition-colors relative flex items-center px-1 shadow-inner cursor-pointer",
                           form.is_recurrent ? "bg-blue-500" : "bg-slate-300 dark:bg-slate-700"
                         )}
                       >
-                        <motion.div
-                          animate={{ x: form.is_recurrent ? 24 : 0 }}
-                          className="w-4 h-4 rounded-full bg-white shadow-lg"
+                        <div
+                          className={cn(
+                            "w-4 h-4 rounded-full bg-white shadow-lg transition-transform duration-200",
+                            form.is_recurrent ? "translate-x-5" : "translate-x-0"
+                          )}
                         />
                       </button>
                     </div>
@@ -1323,13 +1325,15 @@ export const NonRecurringExpenses: React.FC<NonRecurringExpensesProps> = ({
                         };
                       })}
                       className={cn(
-                        "w-12 h-6 rounded-full transition-all relative flex items-center px-1 shadow-inner",
+                        "w-11 h-6 rounded-full transition-colors relative flex items-center px-1 shadow-inner cursor-pointer",
                         form.in_budget ? "bg-emerald-500" : "bg-slate-300 dark:bg-slate-700"
                       )}
                     >
-                      <motion.div
-                        animate={{ x: form.in_budget ? 24 : 0 }}
-                        className="w-4 h-4 rounded-full bg-white shadow-lg"
+                      <div
+                        className={cn(
+                          "w-4 h-4 rounded-full bg-white shadow-lg transition-transform duration-200",
+                          form.in_budget ? "translate-x-5" : "translate-x-0"
+                        )}
                       />
                     </button>
                   </div>
@@ -1386,12 +1390,14 @@ export const NonRecurringExpenses: React.FC<NonRecurringExpensesProps> = ({
                   )}
                 </div>
 
-                <button
-                  type="submit"
-                  className="w-full h-16 bg-primary text-white rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] shadow-xl shadow-primary/30 hover:scale-[1.02] active:scale-95 transition-all mt-4"
-                >
-                  {editingExpense ? 'Salvar Alterações' : 'Confirmar Cadastro'}
-                </button>
+                <div className="px-3 pb-3 pt-1 shrink-0 w-full">
+                  <button
+                    type="submit"
+                    className="w-full h-16 bg-primary text-white rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] shadow-xl shadow-primary/30 hover:scale-[1.02] active:scale-95 transition-all"
+                  >
+                    {editingExpense ? 'Salvar Alterações' : 'Confirmar Cadastro'}
+                  </button>
+                </div>
               </form>
             </motion.div>
           </div>

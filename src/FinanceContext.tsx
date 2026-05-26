@@ -127,21 +127,31 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const lastActivityUpdate = React.useRef<number>(0);
   const lastFetchedId = React.useRef<string>('');
   const lastFetchedSpace = React.useRef<string>('');
+  const currentFetchIdentity = React.useRef<{ userId: string; space: string } | null>(null);
  
   const effectiveUserId = viewingUserId || user?.id;
   const storageId = user?.id;
 
   const fetchData = useCallback(async () => {
-    if (!user || !effectiveUserId || !isSpaceInitialized || isFetchingData.current) {
-      // Se não há requisitos ou já está buscando, não bloqueia a tela infinitamente
+    if (!user || !effectiveUserId || !isSpaceInitialized) {
       if (!isFetchingData.current) setLoading(false);
       return;
     }
     
+    const targetUserId = effectiveUserId;
+    const targetSpace = activeSpace;
+
+    // Detectar mudança de identidade (usuário ou espaço)
+    const identityChanged = lastFetchedId.current !== targetUserId || lastFetchedSpace.current !== targetSpace;
+    
+    if (isFetchingData.current && !identityChanged) {
+      return;
+    }
+
     isFetchingData.current = true;
+    currentFetchIdentity.current = { userId: targetUserId, space: targetSpace };
 
     // Detectar mudança de identidade (usuário ou espaço) para limpar o estado imediatamente
-    const identityChanged = lastFetchedId.current !== effectiveUserId || lastFetchedSpace.current !== activeSpace;
     if (identityChanged) {
       setTransactions([]);
       setCategories([]);
@@ -156,22 +166,25 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setOrderedCards([]);
       setOrderedAccounts([]);
       
-      lastFetchedId.current = effectiveUserId || '';
-      lastFetchedSpace.current = activeSpace;
+      lastFetchedId.current = targetUserId;
+      lastFetchedSpace.current = targetSpace;
     }
 
     setLoading(true);
     try {
       // 1. Categorias
-
       const { data: cats, error: catErr } = await supabase
         .from('categories')
         .select('*')
-        .eq('userId', effectiveUserId)
-        .eq('space', activeSpace)
+        .eq('userId', targetUserId)
+        .eq('space', targetSpace)
         .order('name');
       
       if (catErr) throw catErr;
+
+      if (currentFetchIdentity.current?.userId !== targetUserId || currentFetchIdentity.current?.space !== targetSpace) {
+        return;
+      }
 
       let finalCats = cats || [];
       setCategories(prev => {
@@ -184,10 +197,15 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       const { data: wals, error: walErr } = await supabase
         .from('wallets')
         .select('*')
-        .eq('userId', effectiveUserId)
-        .eq('space', activeSpace)
+        .eq('userId', targetUserId)
+        .eq('space', targetSpace)
         .order('created_at');
       if (walErr) throw walErr;
+
+      if (currentFetchIdentity.current?.userId !== targetUserId || currentFetchIdentity.current?.space !== targetSpace) {
+        return;
+      }
+
       const fetchedWallets = wals || [];
       // Preservar itens otimistas (temp-) que ainda não foram confirmados, para evitar que desapareçam se o fetchData rodar rápido demais
       setRawWallets(prev => {
@@ -200,8 +218,8 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       // 3. Carregar Ordenação do user_metadata
       if (user.user_metadata) {
         const metadata = user.user_metadata;
-        const cardOrderKey = `wallet_order_${activeSpace}_cards`;
-        const accountOrderKey = `wallet_order_${activeSpace}_accounts`;
+        const cardOrderKey = `wallet_order_${targetSpace}_cards`;
+        const accountOrderKey = `wallet_order_${targetSpace}_accounts`;
         
         // Sincronizar Cartões
         const cards = fetchedWallets.filter(w => w.type === 'credit_card' && w.isActive !== false).map(w => w.id);
@@ -234,11 +252,16 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       const { data: txs, error: txErr } = await supabase
         .from('transactions')
         .select('*')
-        .eq('userId', effectiveUserId)
-        .eq('space', activeSpace)
+        .eq('userId', targetUserId)
+        .eq('space', targetSpace)
         .order('date', { ascending: false })
         .order('created_at', { ascending: false });
       if (txErr) throw txErr;
+
+      if (currentFetchIdentity.current?.userId !== targetUserId || currentFetchIdentity.current?.space !== targetSpace) {
+        return;
+      }
+
       const txsData = txs || [];
       setTransactions(prev => {
         const optimistic = prev.filter(t => typeof t.id === 'string' && t.id.startsWith('temp-'));
@@ -249,9 +272,13 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       const { data: fetchedTasks, error: taskErr } = await supabase
         .from('tasks')
         .select('*')
-        .eq('user_id', effectiveUserId)
+        .eq('user_id', targetUserId)
         .eq('archived', false);
       
+      if (currentFetchIdentity.current?.userId !== targetUserId || currentFetchIdentity.current?.space !== targetSpace) {
+        return;
+      }
+
       if (!taskErr) {
         setGlobalTasks(fetchedTasks || []);
       }
@@ -262,10 +289,14 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         const { data: svcs, error: svcsErr } = await supabase
           .from('contracted_services')
           .select('*')
-          .eq('client_id', effectiveUserId)
+          .eq('client_id', targetUserId)
           .eq('status', 'pending')
           .lt('due_date', today);
         
+        if (currentFetchIdentity.current?.userId !== targetUserId || currentFetchIdentity.current?.space !== targetSpace) {
+          return;
+        }
+
         if (!svcsErr) {
           setOverdueServices(svcs || []);
         }
@@ -277,11 +308,16 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       const { data: eAssets, error: eAssetsErr } = await supabase
         .from('equity_assets')
         .select('*')
-        .eq('user_id', effectiveUserId)
-        .eq('space', activeSpace)
+        .eq('user_id', targetUserId)
+        .eq('space', targetSpace)
         .order('created_at', { ascending: false });
 
       if (eAssetsErr) throw eAssetsErr;
+
+      if (currentFetchIdentity.current?.userId !== targetUserId || currentFetchIdentity.current?.space !== targetSpace) {
+        return;
+      }
+
       const fetchedEquity = eAssets || [];
       setEquityAssets(prev => {
         const optimistic = prev.filter(a => typeof a.id === 'string' && a.id.startsWith('temp-'));
@@ -297,6 +333,11 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
           .in('asset_id', assetIds);
 
         if (eHistoryErr) throw eHistoryErr;
+
+        if (currentFetchIdentity.current?.userId !== targetUserId || currentFetchIdentity.current?.space !== targetSpace) {
+          return;
+        }
+
         setEquityHistory(eHistory || []);
       } else {
         setEquityHistory([]);
@@ -306,11 +347,16 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       const { data: dData, error: dErr } = await supabase
         .from('debts')
         .select('*')
-        .eq('user_id', effectiveUserId)
-        .eq('space', activeSpace)
+        .eq('user_id', targetUserId)
+        .eq('space', targetSpace)
         .order('created_at', { ascending: false });
 
       if (dErr) throw dErr;
+
+      if (currentFetchIdentity.current?.userId !== targetUserId || currentFetchIdentity.current?.space !== targetSpace) {
+        return;
+      }
+
       const fetchedDebts = dData || [];
       setDebts(prev => {
         const optimistic = prev.filter(a => typeof a.id === 'string' && a.id.startsWith('temp-'));
@@ -326,6 +372,11 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
           .in('debt_id', debtIds);
 
         if (dHistoryErr) throw dHistoryErr;
+
+        if (currentFetchIdentity.current?.userId !== targetUserId || currentFetchIdentity.current?.space !== targetSpace) {
+          return;
+        }
+
         setDebtHistory(dHistory || []);
       } else {
         setDebtHistory([]);
@@ -335,11 +386,16 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       const { data: nrData, error: nrErr } = await supabase
         .from('non_recurring_expenses')
         .select('*')
-        .eq('user_id', effectiveUserId)
-        .eq('space', activeSpace)
+        .eq('user_id', targetUserId)
+        .eq('space', targetSpace)
         .order('created_at', { ascending: false });
 
       if (nrErr) throw nrErr;
+
+      if (currentFetchIdentity.current?.userId !== targetUserId || currentFetchIdentity.current?.space !== targetSpace) {
+        return;
+      }
+
       const fetchedNR = nrData || [];
       setNonRecurringExpenses(prev => {
         const optimistic = prev.filter(a => typeof a.id === 'string' && a.id.startsWith('temp-'));
@@ -349,8 +405,10 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     } catch (err) {
       console.error('Erro ao buscar dados:', err);
     } finally {
-      setLoading(false);
-      isFetchingData.current = false;
+      if (currentFetchIdentity.current?.userId === targetUserId && currentFetchIdentity.current?.space === targetSpace) {
+        setLoading(false);
+        isFetchingData.current = false;
+      }
     }
   }, [user, effectiveUserId, activeSpace, isSpaceInitialized]);
 
