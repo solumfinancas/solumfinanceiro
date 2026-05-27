@@ -817,6 +817,18 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     let txToUpdate = { ...updatedTx };
     
     const currentTx = transactions.find(t => t.id === id);
+    
+    // Limpar a categoria se o tipo de lançamento não tiver categoria ou se for pagamento de fatura
+    const finalDescription = txToUpdate.description || currentTx?.description;
+    const isInvoicePayment = !!finalDescription?.toLowerCase().includes('pagamento de fatura');
+    const finalType = txToUpdate.type || currentTx?.type;
+    
+    if (isInvoicePayment || (finalType && !['income', 'expense'].includes(finalType))) {
+      (txToUpdate as any).categoryId = null;
+    } else if ('categoryId' in txToUpdate && (txToUpdate.categoryId === undefined || txToUpdate.categoryId === null)) {
+      (txToUpdate as any).categoryId = null;
+    }
+
     if (txToUpdate.walletId || txToUpdate.date) {
       const walletId = txToUpdate.walletId || currentTx?.walletId;
       const date = txToUpdate.date || currentTx?.date;
