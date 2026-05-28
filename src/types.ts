@@ -143,6 +143,7 @@ export interface NonRecurringExpense {
   history?: NonRecurringExpenseHistoryItem[];
   is_recurrent?: boolean;
   category?: 'expense' | 'objective';
+  priority_order?: number | null;
 }
 
 export interface MeetingTopic {

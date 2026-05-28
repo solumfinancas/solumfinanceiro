@@ -1300,7 +1300,8 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       ...expense, 
       id: tempId, 
       user_id: effectiveUserId, 
-      created_at: new Date().toISOString() 
+      created_at: new Date().toISOString(),
+      priority_order: null
     } as NonRecurringExpense;
 
     setNonRecurringExpenses(prev => [newExpense, ...prev]);
@@ -1319,7 +1320,8 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
           budget_entry_date: expense.budget_entry_date,
           observation: expense.observation,
           is_recurrent: expense.is_recurrent,
-          category: expense.category || 'expense'
+          category: expense.category || 'expense',
+          priority_order: null
         }])
         .select()
         .single();

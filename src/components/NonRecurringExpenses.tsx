@@ -23,12 +23,14 @@ import {
   SkipForward,
   ArrowUpRight,
   Target,
-  Trophy
+  Trophy,
+  ArrowUpDown
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ConfirmModal } from './ui/ConfirmModal';
 import { NonRecurringExpense } from '../types';
+import { supabase } from '../lib/supabase';
 
 interface NonRecurringExpensesProps {
   category?: 'expense' | 'objective';
@@ -60,6 +62,15 @@ export const NonRecurringExpenses: React.FC<NonRecurringExpensesProps> = ({
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<NonRecurringExpense | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Estado para ordenação por prioridades par a par
+  const [comparison, setComparison] = useState<{
+    itemsToOrder: NonRecurringExpense[];
+    sortedItems: NonRecurringExpense[];
+    currentIndex: number;
+    low: number;
+    high: number;
+  } | null>(null);
 
   // Estados de navegação mensal
   const [selectedMonth, setSelectedMonth] = useState(() => {
@@ -525,9 +536,18 @@ export const NonRecurringExpenses: React.FC<NonRecurringExpensesProps> = ({
     });
 
     grouped.outBudgetExpenses.sort((a, b) => {
-      const dateA = a.identification_date ? new Date(a.identification_date + 'T12:00:00').getTime() : 0;
-      const dateB = b.identification_date ? new Date(b.identification_date + 'T12:00:00').getTime() : 0;
-      return dateA - dateB;
+      const hasPriorityA = a.priority_order !== null && a.priority_order !== undefined;
+      const hasPriorityB = b.priority_order !== null && b.priority_order !== undefined;
+
+      if (hasPriorityA && hasPriorityB) {
+        return a.priority_order! - b.priority_order!;
+      }
+      if (hasPriorityA) return -1;
+      if (hasPriorityB) return 1;
+
+      const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
+      return timeA - timeB;
     });
 
     grouped.finishedExpenses.sort((a, b) => {
@@ -538,6 +558,113 @@ export const NonRecurringExpenses: React.FC<NonRecurringExpensesProps> = ({
 
     return grouped;
   }, [nonRecurringExpenses, searchQuery, selectedMonth, category]);
+
+  // Cálculos de prioridade
+  const metaKey = isObjective ? 'last_priority_update_objective' : 'last_priority_update_expense';
+  const lastPriorityUpdateMonth = user?.user_metadata?.[metaKey];
+
+  const isPriorityPending = useMemo(() => {
+    return outBudgetExpenses.length > 1 && lastPriorityUpdateMonth !== selectedMonthStr;
+  }, [outBudgetExpenses, lastPriorityUpdateMonth, selectedMonthStr]);
+
+  const hasPreviousOrdering = useMemo(() => {
+    return outBudgetExpenses.some(e => e.priority_order !== null && e.priority_order !== undefined);
+  }, [outBudgetExpenses]);
+
+  const handleKeepPreviousOrdering = async () => {
+    try {
+      const { error } = await supabase.auth.updateUser({
+        data: {
+          [metaKey]: selectedMonthStr
+        }
+      });
+
+      if (error) throw error;
+      showAlert('Sucesso', 'Ordenação anterior mantida para o mês atual', 'success');
+    } catch (err) {
+      console.error('Erro ao manter ordenação:', err);
+      showAlert('Erro', 'Não foi possível confirmar a ordenação anterior', 'danger');
+    }
+  };
+
+  const startPriorityOrdering = () => {
+    if (outBudgetExpenses.length <= 1) return;
+    const items = [...outBudgetExpenses];
+    setComparison({
+      itemsToOrder: items,
+      sortedItems: [items[0]],
+      currentIndex: 1,
+      low: 0,
+      high: 0,
+    });
+  };
+
+  const handleComparisonChoice = async (chosenItem: NonRecurringExpense) => {
+    if (!comparison) return;
+
+    const { itemsToOrder, sortedItems, currentIndex, low, high } = comparison;
+    const currentItem = itemsToOrder[currentIndex];
+    const mid = Math.floor((low + high) / 2);
+
+    let nextLow = low;
+    let nextHigh = high;
+
+    if (chosenItem.id === currentItem.id) {
+      nextHigh = mid - 1;
+    } else {
+      nextLow = mid + 1;
+    }
+
+    if (nextLow <= nextHigh) {
+      setComparison({
+        ...comparison,
+        low: nextLow,
+        high: nextHigh,
+      });
+    } else {
+      const newSortedItems = [...sortedItems];
+      newSortedItems.splice(nextLow, 0, currentItem);
+
+      const nextIndex = currentIndex + 1;
+
+      if (nextIndex < itemsToOrder.length) {
+        setComparison({
+          itemsToOrder,
+          sortedItems: newSortedItems,
+          currentIndex: nextIndex,
+          low: 0,
+          high: newSortedItems.length - 1,
+        });
+      } else {
+        setComparison(null);
+        await savePriorityOrdering(newSortedItems);
+      }
+    }
+  };
+
+  const savePriorityOrdering = async (orderedList: NonRecurringExpense[]) => {
+    try {
+      const updates = orderedList.map((item, index) => {
+        return updateNonRecurringExpense(item.id, {
+          priority_order: index + 1
+        });
+      });
+
+      await Promise.all(updates);
+
+      const { error } = await supabase.auth.updateUser({
+        data: {
+          [metaKey]: selectedMonthStr
+        }
+      });
+
+      if (error) throw error;
+      showAlert('Sucesso', 'Prioridades definidas com sucesso para este mês', 'success');
+    } catch (err) {
+      console.error('Erro ao salvar prioridades:', err);
+      showAlert('Erro', 'Não foi possível salvar a nova ordenação', 'danger');
+    }
+  };
 
   const pendingUpdates = useMemo(() => {
     return inBudgetExpenses.filter(exp => {
@@ -627,6 +754,44 @@ export const NonRecurringExpenses: React.FC<NonRecurringExpensesProps> = ({
             <p className="text-[10px] font-semibold leading-relaxed uppercase tracking-wider text-muted-foreground">
               Você possui {pendingUpdates.length} {pendingUpdates.length === 1 ? labelLow : labelPluralLow} no orçamento de <span className="font-black text-foreground">{formattedSelectedMonth}</span> que ainda não {pendingUpdates.length === 1 ? 'foi atualizado' : 'foram atualizados'} (valor guardado ou mês pulado). Clique no nome do {labelLow} na tabela abaixo para gerenciar.
             </p>
+          </div>
+        </motion.div>
+      )}
+
+      {isPriorityPending && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-primary/10 border border-primary/20 text-primary p-5 rounded-3xl flex flex-col md:flex-row md:items-center justify-between gap-4 text-left shadow-sm animate-fadeIn"
+        >
+          <div className="flex items-start gap-4">
+            <div className="p-2 rounded-2xl bg-primary/10 text-primary shrink-0 mt-0.5">
+              <AlertCircle size={20} />
+            </div>
+            <div className="space-y-1">
+              <h4 className="text-xs font-black uppercase tracking-wider">Definição de Prioridades Pendente</h4>
+              <p className="text-[10px] font-semibold leading-relaxed uppercase tracking-wider text-muted-foreground">
+                A prioridade para o mês de <span className="font-black text-foreground">{formattedSelectedMonth}</span> ainda não foi definida ou confirmada para os itens fora do orçamento.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 self-end md:self-auto shrink-0">
+            {hasPreviousOrdering && (
+              <button
+                type="button"
+                onClick={handleKeepPreviousOrdering}
+                className="px-4 py-2 bg-card border border-border hover:bg-muted text-foreground text-[9px] font-black uppercase tracking-widest rounded-xl transition-all shadow-sm cursor-pointer"
+              >
+                Manter Ordenação Anterior
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={startPriorityOrdering}
+              className="px-4 py-2 bg-primary hover:scale-[1.02] active:scale-95 text-white text-[9px] font-black uppercase tracking-widest rounded-xl transition-all shadow-md shadow-primary/20 cursor-pointer"
+            >
+              Definir Prioridades
+            </button>
           </div>
         </motion.div>
       )}
@@ -913,7 +1078,7 @@ export const NonRecurringExpenses: React.FC<NonRecurringExpensesProps> = ({
 
             {/* Table: Fora do Orçamento */}
             <div className="bg-card border border-border rounded-[3rem] overflow-hidden shadow-xl shadow-slate-200/20 dark:shadow-none">
-              <div className="p-8 border-b border-border bg-amber-500/5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="p-8 border-b border-border bg-amber-500/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                   <div className="flex items-center gap-2 mb-1">
                     <div className="w-2 h-2 rounded-full bg-amber-500" />
@@ -921,12 +1086,24 @@ export const NonRecurringExpenses: React.FC<NonRecurringExpensesProps> = ({
                   </div>
                   <p className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest">{labelPluralCap} futuros ou ainda não provisionados</p>
                 </div>
+
+                {outBudgetExpenses.length > 1 && !isPriorityPending && (
+                  <button
+                    type="button"
+                    onClick={startPriorityOrdering}
+                    className="h-10 px-4 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 text-amber-600 flex items-center gap-2 text-[9px] font-black uppercase tracking-widest transition-all cursor-pointer self-start sm:self-auto"
+                    title="Atualizar prioridades e reordenar itens fora do orçamento"
+                  >
+                    <ArrowUpDown size={14} /> Reordenar Itens
+                  </button>
+                )}
               </div>
 
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-border bg-muted/10">
+                      <th className="text-left px-8 py-5 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Prioridade</th>
                       <th className="text-left px-8 py-5 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Identificação</th>
                       <th className="text-left px-8 py-5 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Descrição</th>
                       <th className="text-center px-8 py-5 text-[10px] font-black uppercase tracking-widest text-muted-foreground">{isObjective ? 'Tempo para Alcançar' : 'Frequência'}</th>
@@ -938,13 +1115,24 @@ export const NonRecurringExpenses: React.FC<NonRecurringExpensesProps> = ({
                   <tbody>
                     {outBudgetExpenses.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="px-8 py-12 text-center">
+                        <td colSpan={7} className="px-8 py-12 text-center">
                           <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Nenhum {labelLow} fora do orçamento.</p>
                         </td>
                       </tr>
                     ) : (
                       outBudgetExpenses.map(expense => (
                         <tr key={expense.id} className="group border-b border-border last:border-none hover:bg-muted/30 transition-all">
+                          <td className="px-8 py-6">
+                            {expense.priority_order !== null && expense.priority_order !== undefined ? (
+                              <div className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-primary/10 border border-primary/20 text-primary text-xs font-black">
+                                {expense.priority_order}º
+                              </div>
+                            ) : (
+                              <div className="inline-flex items-center justify-center px-2 py-0.5 rounded-lg bg-muted border border-border text-muted-foreground text-[8px] font-black uppercase tracking-widest">
+                                N/D
+                              </div>
+                            )}
+                          </td>
                           <td className="px-8 py-6">
                             <span className="text-[10px] font-black uppercase tracking-tight text-muted-foreground">
                               {expense.identification_date ? new Date(expense.identification_date + 'T12:00:00').toLocaleDateString('pt-BR') : '-'}
@@ -2050,6 +2238,126 @@ export const NonRecurringExpenses: React.FC<NonRecurringExpensesProps> = ({
                 className="w-full h-12 bg-muted border border-border rounded-xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-muted/80 active:scale-95 transition-all text-muted-foreground mt-2"
               >
                 Voltar
+              </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Modal de Definição de Prioridades Par a Par */}
+      <AnimatePresence>
+        {comparison && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm"
+              onClick={() => setComparison(null)}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-2xl bg-card border border-border rounded-[3rem] p-8 shadow-2xl overflow-hidden flex flex-col gap-6"
+              onClick={e => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between shrink-0">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <Target className="text-primary" size={20} />
+                    <span className="text-[10px] font-black uppercase tracking-[0.3em] text-primary">
+                      Definir Prioridades ({formattedSelectedMonth})
+                    </span>
+                  </div>
+                  <h2 className="text-xl font-black uppercase tracking-tighter text-foreground">
+                    Qual item tem maior prioridade?
+                  </h2>
+                </div>
+                <button
+                  onClick={() => setComparison(null)}
+                  className="w-10 h-10 rounded-xl bg-muted border border-border flex items-center justify-center text-muted-foreground hover:text-rose-500 transition-all"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <p className="text-xs text-muted-foreground leading-relaxed font-semibold uppercase tracking-wider pl-1 text-center">
+                Selecione a opção que deve ter maior prioridade para ser inserida/poupada no orçamento neste mês.
+              </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 my-2">
+                {/* Opção A: currentItem */}
+                {(() => {
+                  const currentItem = comparison.itemsToOrder[comparison.currentIndex];
+                  if (!currentItem) return null;
+                  return (
+                    <button
+                      type="button"
+                      onClick={() => handleComparisonChoice(currentItem)}
+                      className="p-6 rounded-[2rem] bg-muted/20 border-2 border-border hover:border-primary hover:bg-primary/5 text-left transition-all group flex flex-col justify-between h-48 active:scale-98 cursor-pointer shadow-sm"
+                    >
+                      <span className="inline-flex px-2 py-0.5 rounded-lg bg-primary/10 border border-primary/20 text-primary text-[8px] font-black uppercase tracking-widest">
+                        Opção A
+                      </span>
+                      <h3 className="text-sm font-black uppercase tracking-tight text-foreground line-clamp-3 my-2 break-all group-hover:text-primary transition-colors">
+                        {currentItem.description}
+                      </h3>
+                      <div className="space-y-0.5 mt-auto">
+                        <p className="text-[10px] font-bold text-muted-foreground">Valor Total: {formatCurrency(currentItem.amount)}</p>
+                        <p className="text-[10px] font-bold text-emerald-500">Mensal: {formatCurrency(currentItem.amount / currentItem.frequency_months)}</p>
+                      </div>
+                    </button>
+                  );
+                })()}
+
+                {/* Opção B: midItem */}
+                {(() => {
+                  const mid = Math.floor((comparison.low + comparison.high) / 2);
+                  const midItem = comparison.sortedItems[mid];
+                  if (!midItem) return null;
+                  return (
+                    <button
+                      type="button"
+                      onClick={() => handleComparisonChoice(midItem)}
+                      className="p-6 rounded-[2rem] bg-muted/20 border-2 border-border hover:border-primary hover:bg-primary/5 text-left transition-all group flex flex-col justify-between h-48 active:scale-98 cursor-pointer shadow-sm"
+                    >
+                      <span className="inline-flex px-2 py-0.5 rounded-lg bg-primary/10 border border-primary/20 text-primary text-[8px] font-black uppercase tracking-widest">
+                        Opção B
+                      </span>
+                      <h3 className="text-sm font-black uppercase tracking-tight text-foreground line-clamp-3 my-2 break-all group-hover:text-primary transition-colors">
+                        {midItem.description}
+                      </h3>
+                      <div className="space-y-0.5 mt-auto">
+                        <p className="text-[10px] font-bold text-muted-foreground">Valor Total: {formatCurrency(midItem.amount)}</p>
+                        <p className="text-[10px] font-bold text-emerald-500">Mensal: {formatCurrency(midItem.amount / midItem.frequency_months)}</p>
+                      </div>
+                    </button>
+                  );
+                })()}
+              </div>
+
+              {/* Progress bar */}
+              <div className="space-y-2 shrink-0">
+                <div className="flex justify-between text-[8px] font-black uppercase tracking-widest text-muted-foreground">
+                  <span>Progresso da Ordenação</span>
+                  <span>Item {comparison.currentIndex + 1} de {comparison.itemsToOrder.length}</span>
+                </div>
+                <div className="w-full h-2 bg-muted border border-border/50 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-primary transition-all duration-300"
+                    style={{ width: `${(comparison.currentIndex / comparison.itemsToOrder.length) * 100}%` }}
+                  />
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setComparison(null)}
+                className="w-full h-12 bg-muted border border-border rounded-xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-muted/80 active:scale-95 transition-all text-muted-foreground"
+              >
+                Cancelar Ordenação
               </button>
             </motion.div>
           </div>
