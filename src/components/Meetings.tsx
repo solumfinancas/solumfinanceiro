@@ -2847,7 +2847,7 @@ export const Meetings: React.FC = () => {
                                 <span>{workSettings[selectedPresentationMonth]?.hours ?? 8}h diárias</span>
                               </div>
                             </div>
-                            
+
                             <button
                               type="button"
                               onClick={() => setHourlyRateConfirmed(false)}
@@ -3059,351 +3059,351 @@ export const Meetings: React.FC = () => {
                         </div>
                       ) : (
                         <div className="space-y-8 animate-fadeIn text-left">
-                        {/* Seção 1: Comparador Custo de Vida */}
-                        <div className="space-y-4">
-                          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                            <div>
-                              <h3 className="text-sm font-black uppercase tracking-wider text-slate-800 dark:text-white">
-                                Custo de Vida: Antes vs. Depois
-                              </h3>
-                              <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider mt-1">
-                                Análise comparativa da redução do custo de vida real em relação aos limites de gastos estabelecidos.
-                              </p>
-                            </div>
-
-                            {/* Seleção do Mês de Referência */}
-                            <div className="flex items-center gap-2 shrink-0 bg-slate-50 dark:bg-slate-950/40 p-2 rounded-2xl border border-border">
-                              <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 px-2">Cenário "Antes":</span>
-                              <div className="flex gap-2">
-                                <select
-                                  value={beforeMonth}
-                                  onChange={e => setBeforeMonth(e.target.value)}
-                                  className="bg-white dark:bg-slate-900 border border-border rounded-xl h-9 px-3 text-xs font-bold text-foreground outline-none focus:border-primary/50 transition-all cursor-pointer min-w-[110px]"
-                                >
-                                  <option value="01">Janeiro</option>
-                                  <option value="02">Fevereiro</option>
-                                  <option value="03">Março</option>
-                                  <option value="04">Abril</option>
-                                  <option value="05">Maio</option>
-                                  <option value="06">Junho</option>
-                                  <option value="07">Julho</option>
-                                  <option value="08">Agosto</option>
-                                  <option value="09">Setembro</option>
-                                  <option value="10">Outubro</option>
-                                  <option value="11">Novembro</option>
-                                  <option value="12">Dezembro</option>
-                                </select>
-                                <select
-                                  value={beforeYear}
-                                  onChange={e => setBeforeYear(e.target.value)}
-                                  className="bg-white dark:bg-slate-900 border border-border rounded-xl h-9 px-3 text-xs font-bold text-foreground outline-none focus:border-primary/50 transition-all cursor-pointer min-w-[80px]"
-                                >
-                                  {availableYears.map(y => (
-                                    <option key={y} value={String(y)}>{y}</option>
-                                  ))}
-                                </select>
+                          {/* Seção 1: Comparador Custo de Vida */}
+                          <div className="space-y-4">
+                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                              <div>
+                                <h3 className="text-sm font-black uppercase tracking-wider text-slate-800 dark:text-white">
+                                  Custo de Vida: Antes vs. Depois
+                                </h3>
+                                <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider mt-1">
+                                  Análise comparativa da redução do custo de vida real em relação aos limites de gastos estabelecidos.
+                                </p>
                               </div>
-                            </div>
-                          </div>
 
-                          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                            {/* Card Antes */}
-                            <div className="bg-rose-500/5 border border-rose-500/10 dark:border-rose-500/20 rounded-3xl p-6 relative overflow-hidden flex flex-col justify-between min-h-[160px]">
-                              <div className="absolute top-0 right-0 w-24 h-24 bg-rose-500/5 rounded-full blur-2xl pointer-events-none" />
-                              <div className="space-y-1">
-                                <span className="text-[8px] font-black uppercase tracking-widest text-rose-600 dark:text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded-full">Cenário Antes (Gasto Real)</span>
-                                <h4 className="text-[10px] text-muted-foreground uppercase font-bold mt-1">Total de Despesas no Mês de Referência</h4>
-                              </div>
-                              <div className="mt-4">
-                                <div className="text-3xl font-black text-rose-600 dark:text-rose-400 tracking-tight">
-                                  {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(beforeTotal)}
+                              {/* Seleção do Mês de Referência */}
+                              <div className="flex items-center gap-2 shrink-0 bg-slate-50 dark:bg-slate-950/40 p-2 rounded-2xl border border-border">
+                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 px-2">Cenário "Antes":</span>
+                                <div className="flex gap-2">
+                                  <select
+                                    value={beforeMonth}
+                                    onChange={e => setBeforeMonth(e.target.value)}
+                                    className="bg-white dark:bg-slate-900 border border-border rounded-xl h-9 px-3 text-xs font-bold text-foreground outline-none focus:border-primary/50 transition-all cursor-pointer min-w-[110px]"
+                                  >
+                                    <option value="01">Janeiro</option>
+                                    <option value="02">Fevereiro</option>
+                                    <option value="03">Março</option>
+                                    <option value="04">Abril</option>
+                                    <option value="05">Maio</option>
+                                    <option value="06">Junho</option>
+                                    <option value="07">Julho</option>
+                                    <option value="08">Agosto</option>
+                                    <option value="09">Setembro</option>
+                                    <option value="10">Outubro</option>
+                                    <option value="11">Novembro</option>
+                                    <option value="12">Dezembro</option>
+                                  </select>
+                                  <select
+                                    value={beforeYear}
+                                    onChange={e => setBeforeYear(e.target.value)}
+                                    className="bg-white dark:bg-slate-900 border border-border rounded-xl h-9 px-3 text-xs font-bold text-foreground outline-none focus:border-primary/50 transition-all cursor-pointer min-w-[80px]"
+                                  >
+                                    {availableYears.map(y => (
+                                      <option key={y} value={String(y)}>{y}</option>
+                                    ))}
+                                  </select>
                                 </div>
-                                <span className="text-[9px] font-semibold text-muted-foreground block mt-1">
-                                  Soma de todas as despesas no Espaço Pessoal em {beforeMonth}/{beforeYear}
-                                </span>
                               </div>
                             </div>
 
-                            {/* Card Depois */}
-                            <div className="bg-emerald-500/5 border border-emerald-500/10 dark:border-emerald-500/20 rounded-3xl p-6 relative overflow-hidden flex flex-col justify-between min-h-[160px]">
-                              <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full blur-2xl pointer-events-none" />
-                              <div className="space-y-1">
-                                <span className="text-[8px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">Cenário Depois (Limites de Gastos)</span>
-                                <h4 className="text-[10px] text-muted-foreground uppercase font-bold mt-1">Orçamento Planejado e Otimizado</h4>
-                              </div>
-                              <div className="mt-4">
-                                <div className="text-3xl font-black text-emerald-600 dark:text-emerald-400 tracking-tight">
-                                  {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(afterTotal)}
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                              {/* Card Antes */}
+                              <div className="bg-rose-500/5 border border-rose-500/10 dark:border-rose-500/20 rounded-3xl p-6 relative overflow-hidden flex flex-col justify-between min-h-[160px]">
+                                <div className="absolute top-0 right-0 w-24 h-24 bg-rose-500/5 rounded-full blur-2xl pointer-events-none" />
+                                <div className="space-y-1">
+                                  <span className="text-[8px] font-black uppercase tracking-widest text-rose-600 dark:text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded-full">Cenário Antes (Gasto Real)</span>
+                                  <h4 className="text-[10px] text-muted-foreground uppercase font-bold mt-1">Total de Despesas no Mês de Referência</h4>
                                 </div>
-                                <span className="text-[9px] font-semibold text-muted-foreground block mt-1">
-                                  Soma dos limites mensais definidos em categorias de despesas
-                                </span>
+                                <div className="mt-4">
+                                  <div className="text-3xl font-black text-rose-600 dark:text-rose-400 tracking-tight">
+                                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(beforeTotal)}
+                                  </div>
+                                  <span className="text-[9px] font-semibold text-muted-foreground block mt-1">
+                                    Soma de todas as despesas no Espaço Pessoal em {beforeMonth}/{beforeYear}
+                                  </span>
+                                </div>
+                              </div>
+
+                              {/* Card Depois */}
+                              <div className="bg-emerald-500/5 border border-emerald-500/10 dark:border-emerald-500/20 rounded-3xl p-6 relative overflow-hidden flex flex-col justify-between min-h-[160px]">
+                                <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full blur-2xl pointer-events-none" />
+                                <div className="space-y-1">
+                                  <span className="text-[8px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">Cenário Depois (Limites de Gastos)</span>
+                                  <h4 className="text-[10px] text-muted-foreground uppercase font-bold mt-1">Orçamento Planejado e Otimizado</h4>
+                                </div>
+                                <div className="mt-4">
+                                  <div className="text-3xl font-black text-emerald-600 dark:text-emerald-400 tracking-tight">
+                                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(afterTotal)}
+                                  </div>
+                                  <span className="text-[9px] font-semibold text-muted-foreground block mt-1">
+                                    Soma dos limites mensais definidos em categorias de despesas
+                                  </span>
+                                </div>
+                              </div>
+
+                              {/* Card Economia */}
+                              <div className="bg-gradient-to-br from-primary/10 via-primary/5 to-transparent border border-primary/20 rounded-3xl p-6 relative overflow-hidden flex flex-col justify-between min-h-[160px]">
+                                <div className="absolute -right-4 -bottom-4 w-28 h-28 bg-primary/5 rounded-full blur-2xl pointer-events-none" />
+                                <div className="space-y-1">
+                                  <span className="text-[8px] font-black uppercase tracking-widest text-primary bg-primary/10 px-2 py-0.5 rounded-full">Impacto e Economia</span>
+                                  <h4 className="text-[10px] text-muted-foreground uppercase font-bold mt-1">Redução Projetada do Custo de Vida</h4>
+                                </div>
+                                <div className="mt-4">
+                                  <div className="text-3xl font-black text-primary tracking-tight flex items-baseline gap-2">
+                                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(beforeTotal > afterTotal ? beforeTotal - afterTotal : 0)}
+                                    {beforeTotal > afterTotal && beforeTotal > 0 && (
+                                      <span className="text-sm font-extrabold text-emerald-500">
+                                        (-{((beforeTotal - afterTotal) / beforeTotal * 100).toFixed(0)}%)
+                                      </span>
+                                    )}
+                                  </div>
+                                  <span className="text-[9px] font-semibold text-muted-foreground block mt-1">
+                                    {beforeTotal > afterTotal
+                                      ? "O estabelecimento de tetos orçamentários gera esta folga financeira mensal."
+                                      : "Defina limites mais saudáveis nas categorias de despesas para gerar economia projetada."}
+                                  </span>
+                                </div>
                               </div>
                             </div>
 
-                            {/* Card Economia */}
-                            <div className="bg-gradient-to-br from-primary/10 via-primary/5 to-transparent border border-primary/20 rounded-3xl p-6 relative overflow-hidden flex flex-col justify-between min-h-[160px]">
-                              <div className="absolute -right-4 -bottom-4 w-28 h-28 bg-primary/5 rounded-full blur-2xl pointer-events-none" />
-                              <div className="space-y-1">
-                                <span className="text-[8px] font-black uppercase tracking-widest text-primary bg-primary/10 px-2 py-0.5 rounded-full">Impacto e Economia</span>
-                                <h4 className="text-[10px] text-muted-foreground uppercase font-bold mt-1">Redução Projetada do Custo de Vida</h4>
-                              </div>
-                              <div className="mt-4">
-                                <div className="text-3xl font-black text-primary tracking-tight flex items-baseline gap-2">
-                                  {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(beforeTotal > afterTotal ? beforeTotal - afterTotal : 0)}
-                                  {beforeTotal > afterTotal && beforeTotal > 0 && (
-                                    <span className="text-sm font-extrabold text-emerald-500">
-                                      (-{((beforeTotal - afterTotal) / beforeTotal * 100).toFixed(0)}%)
-                                    </span>
-                                  )}
-                                </div>
-                                <span className="text-[9px] font-semibold text-muted-foreground block mt-1">
-                                  {beforeTotal > afterTotal
-                                    ? "O estabelecimento de tetos orçamentários gera esta folga financeira mensal."
-                                    : "Defina limites mais saudáveis nas categorias de despesas para gerar economia projetada."}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Comparativo de Custo de Vida em Balizas */}
-                          <div className="p-6 bg-slate-50 dark:bg-slate-950/40 border border-border rounded-3xl space-y-6">
-                            <div className="flex items-center justify-between border-b border-border/55 pb-3">
-                              <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Fluxo de Caixa Otimizado</span>
-                              {beforeTotal > afterTotal && (
-                                <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest bg-emerald-500/10 px-2.5 py-1 rounded-lg">
-                                  Redução de {((beforeTotal - afterTotal) / beforeTotal * 100).toFixed(1)}% no custo de vida
-                                </span>
-                              )}
-                            </div>
-
-                            {/* Gráfico de Balizas Verticais */}
-                            <div className="flex items-end justify-center gap-24 sm:gap-36 w-full pt-10 pb-4 h-64 relative select-none">
-                              
-                              {/* Baliza 1: Cenário Antes */}
-                              <div className="flex flex-col items-center gap-3 h-full justify-end relative group">
-                                {/* Valor no Topo */}
-                                <div className="absolute -top-7 bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 px-3 py-1 rounded-xl text-[10px] font-black shadow-sm group-hover:scale-105 transition-all">
-                                  {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(beforeTotal)}
-                                </div>
-                                
-                                {/* Coluna Vertical */}
-                                <div 
-                                  className="w-16 sm:w-20 bg-gradient-to-t from-rose-500/10 to-rose-500/70 border border-rose-500/30 rounded-2xl relative shadow-lg shadow-rose-500/5 transition-all duration-1000 ease-out hover:brightness-105"
-                                  style={{ height: beforeTotal > 0 ? '100%' : '0%' }}
-                                >
-                                  <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl" />
-                                </div>
-
-                                {/* Rótulo Inferior */}
-                                <div className="text-center">
-                                  <span className="text-[9px] font-black text-slate-900 dark:text-white uppercase tracking-wider block">Cenário Antes</span>
-                                  <span className="text-[7.5px] font-bold text-rose-500 uppercase tracking-widest block mt-0.5">Gasto Real</span>
-                                </div>
+                            {/* Comparativo de Custo de Vida em Balizas */}
+                            <div className="p-6 bg-slate-50 dark:bg-slate-950/40 border border-border rounded-3xl space-y-6">
+                              <div className="flex items-center justify-between border-b border-border/55 pb-3">
+                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Fluxo de Caixa Otimizado</span>
+                                {beforeTotal > afterTotal && (
+                                  <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest bg-emerald-500/10 px-2.5 py-1 rounded-lg">
+                                    Redução de {((beforeTotal - afterTotal) / beforeTotal * 100).toFixed(1)}% no custo de vida
+                                  </span>
+                                )}
                               </div>
 
-                              {/* Conector Central (Informações de Redução Consolidadas) */}
-                              {beforeTotal > afterTotal && (
-                                <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 flex flex-col items-center justify-center pointer-events-none z-10 pt-4">
-                                  {/* Card Pílula Centralizado */}
-                                  <div className="bg-emerald-500 text-white shadow-2xl shadow-emerald-500/30 px-4 py-2.5 rounded-2xl flex flex-col items-center justify-center border border-emerald-400/20 translate-y-6">
-                                    <div className="flex items-center gap-1">
-                                      <ArrowDown size={12} className="stroke-[3] animate-bounce" />
-                                      <span className="text-[12px] font-black leading-none">-{((beforeTotal - afterTotal) / beforeTotal * 100).toFixed(0)}%</span>
-                                    </div>
-                                    <span className="text-[8px] font-black text-emerald-100 uppercase tracking-wider mt-1 block whitespace-nowrap">
-                                      Economia de {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(beforeTotal - afterTotal)}/mês
-                                    </span>
+                              {/* Gráfico de Balizas Verticais */}
+                              <div className="flex items-end justify-center gap-24 sm:gap-36 w-full pt-10 pb-4 h-64 relative select-none">
+
+                                {/* Baliza 1: Cenário Antes */}
+                                <div className="flex flex-col items-center gap-3 h-full justify-end relative group">
+                                  {/* Valor no Topo */}
+                                  <div className="absolute -top-7 bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 px-3 py-1 rounded-xl text-[10px] font-black shadow-sm group-hover:scale-105 transition-all">
+                                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(beforeTotal)}
+                                  </div>
+
+                                  {/* Coluna Vertical */}
+                                  <div
+                                    className="w-16 sm:w-20 bg-gradient-to-t from-rose-500/10 to-rose-500/70 border border-rose-500/30 rounded-2xl relative shadow-lg shadow-rose-500/5 transition-all duration-1000 ease-out hover:brightness-105"
+                                    style={{ height: beforeTotal > 0 ? '100%' : '0%' }}
+                                  >
+                                    <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl" />
+                                  </div>
+
+                                  {/* Rótulo Inferior */}
+                                  <div className="text-center">
+                                    <span className="text-[9px] font-black text-slate-900 dark:text-white uppercase tracking-wider block">Cenário Antes</span>
+                                    <span className="text-[7.5px] font-bold text-rose-500 uppercase tracking-widest block mt-0.5">Gasto Real</span>
                                   </div>
                                 </div>
-                              )}
 
-                              {/* Baliza 2: Cenário Depois */}
-                              <div className="flex flex-col items-center gap-3 h-full justify-end relative group">
-                                {/* Valor no Topo */}
-                                <div className="absolute -top-7 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 px-3 py-1 rounded-xl text-[10px] font-black shadow-sm group-hover:scale-105 transition-all">
-                                  {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(afterTotal)}
+                                {/* Conector Central (Informações de Redução Consolidadas) */}
+                                {beforeTotal > afterTotal && (
+                                  <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 flex flex-col items-center justify-center pointer-events-none z-10 pt-4">
+                                    {/* Card Pílula Centralizado */}
+                                    <div className="bg-emerald-500 text-white shadow-2xl shadow-emerald-500/30 px-4 py-2.5 rounded-2xl flex flex-col items-center justify-center border border-emerald-400/20 translate-y-6">
+                                      <div className="flex items-center gap-1">
+                                        <ArrowDown size={12} className="stroke-[3] animate-bounce" />
+                                        <span className="text-[12px] font-black leading-none">-{((beforeTotal - afterTotal) / beforeTotal * 100).toFixed(0)}%</span>
+                                      </div>
+                                      <span className="text-[8px] font-black text-emerald-100 uppercase tracking-wider mt-1 block whitespace-nowrap">
+                                        Economia de {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(beforeTotal - afterTotal)}/mês
+                                      </span>
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Baliza 2: Cenário Depois */}
+                                <div className="flex flex-col items-center gap-3 h-full justify-end relative group">
+                                  {/* Valor no Topo */}
+                                  <div className="absolute -top-7 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 px-3 py-1 rounded-xl text-[10px] font-black shadow-sm group-hover:scale-105 transition-all">
+                                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(afterTotal)}
+                                  </div>
+
+                                  {/* Coluna Vertical Otimizada */}
+                                  <div
+                                    className="w-16 sm:w-20 bg-gradient-to-t from-emerald-500/10 to-emerald-500/70 border border-emerald-500/30 rounded-2xl relative shadow-lg shadow-emerald-500/5 transition-all duration-1000 ease-out hover:brightness-105"
+                                    style={{
+                                      height: beforeTotal > 0
+                                        ? `${Math.max(20, Math.min((afterTotal / beforeTotal) * 100, 100))}%`
+                                        : afterTotal > 0 ? '100%' : '0%'
+                                    }}
+                                  >
+                                    <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl" />
+                                  </div>
+
+                                  {/* Rótulo Inferior */}
+                                  <div className="text-center">
+                                    <span className="text-[9px] font-black text-slate-900 dark:text-white uppercase tracking-wider block">Cenário Depois</span>
+                                    <span className="text-[7.5px] font-bold text-emerald-500 uppercase tracking-widest block mt-0.5">Planejado</span>
+                                  </div>
                                 </div>
 
-                                {/* Coluna Vertical Otimizada */}
-                                <div 
-                                  className="w-16 sm:w-20 bg-gradient-to-t from-emerald-500/10 to-emerald-500/70 border border-emerald-500/30 rounded-2xl relative shadow-lg shadow-emerald-500/5 transition-all duration-1000 ease-out hover:brightness-105"
-                                  style={{ 
-                                    height: beforeTotal > 0 
-                                      ? `${Math.max(20, Math.min((afterTotal / beforeTotal) * 100, 100))}%`
-                                      : afterTotal > 0 ? '100%' : '0%' 
-                                  }}
-                                >
-                                  <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl" />
-                                </div>
-
-                                {/* Rótulo Inferior */}
-                                <div className="text-center">
-                                  <span className="text-[9px] font-black text-slate-900 dark:text-white uppercase tracking-wider block">Cenário Depois</span>
-                                  <span className="text-[7.5px] font-bold text-emerald-500 uppercase tracking-widest block mt-0.5">Planejado</span>
-                                </div>
-                              </div>
-
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Seção 2: Sugestões para Impactar (Nossos Pilares de Impacto) */}
-                        <div className="space-y-4">
-                          <h3 className="text-sm font-black uppercase tracking-wider text-slate-800 dark:text-white">
-                            Transformação e Organização da Vida Financeira
-                          </h3>
-                          <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">
-                            Como estruturamos sua base financeira e o que foi integrado para tirar suas contas do caos.
-                          </p>
-
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {/* Card 1: Centralização */}
-                            <div className="bg-slate-50 dark:bg-slate-950/40 border border-border rounded-3xl p-5 hover:scale-[1.01] transition-all flex gap-4 text-left">
-                              <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
-                                <Building size={20} />
-                              </div>
-                              <div className="space-y-1">
-                                <h4 className="text-xs font-black uppercase text-foreground">Centralização Contra o Caos</h4>
-                                <p className="text-[10px] text-muted-foreground leading-relaxed font-semibold">
-                                  Centralizamos suas contas e cartões para unificar e organizar suas informações em um só lugar (ou no menor número de lugares possível), eliminando a bagunça financeira.
-                                </p>
-                              </div>
-                            </div>
-
-                            {/* Card 2: Rastreabilidade */}
-                            <div className="bg-slate-50 dark:bg-slate-950/40 border border-border rounded-3xl p-5 hover:scale-[1.01] transition-all flex gap-4 text-left">
-                              <div className="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center shrink-0">
-                                <Search size={20} />
-                              </div>
-                              <div className="space-y-1">
-                                <h4 className="text-xs font-black uppercase text-foreground">Sistema Fácil de Rastreamento</h4>
-                                <p className="text-[10px] text-muted-foreground leading-relaxed font-semibold">
-                                  Além de apenas limitar seus gastos, integramos uma ferramenta intuitiva que ajuda a identificar com facilidade e rapidez exatamente com o que você está gastando seu dinheiro.
-                                </p>
-                              </div>
-                            </div>
-
-                            {/* Card 3: Dinheiro Sobrando */}
-                            <div className="bg-slate-50 dark:bg-slate-950/40 border border-border rounded-3xl p-5 hover:scale-[1.01] transition-all flex gap-4 text-left">
-                              <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center shrink-0">
-                                <PiggyBank size={20} />
-                              </div>
-                              <div className="space-y-1">
-                                <h4 className="text-xs font-black uppercase text-foreground">Foco em Sobra Financeira</h4>
-                                <p className="text-[10px] text-muted-foreground leading-relaxed font-semibold">
-                                  Ajustamos seu fluxo de caixa e organizamos seu orçamento mensal para que a sobra financeira no fim do mês seja uma consequência natural e garantida do seu planejamento.
-                                </p>
-                              </div>
-                            </div>
-
-                            {/* Card 4: Controle de Dívidas */}
-                            <div className="bg-slate-50 dark:bg-slate-950/40 border border-border rounded-3xl p-5 hover:scale-[1.01] transition-all flex gap-4 text-left">
-                              <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center shrink-0">
-                                <AlertCircle size={20} />
-                              </div>
-                              <div className="space-y-1">
-                                <h4 className="text-xs font-black uppercase text-foreground">Gestão Inteligente de Dívidas</h4>
-                                <p className="text-[10px] text-muted-foreground leading-relaxed font-semibold">
-                                  Organizamos suas dívidas dentro do orçamento viável. Aquelas que não cabem hoje ficam mapeadas e registradas estruturadamente para que nunca sejam esquecidas até a quitação.
-                                </p>
                               </div>
                             </div>
                           </div>
-                        </div>
 
-                        {/* Seção 3: Roadmap de Temas a Trabalhar */}
-                        <div className="space-y-4">
-                          <h3 className="text-sm font-black uppercase tracking-wider text-slate-800 dark:text-white">
-                            O Que Iremos Construir a Seguir
-                          </h3>
-                          <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">
-                            Os próximos pilares estratégicos de evolução financeira que trabalharemos ao longo da sua jornada de consultoria.
-                          </p>
+                          {/* Seção 2: Sugestões para Impactar (Nossos Pilares de Impacto) */}
+                          <div className="space-y-4">
+                            <h3 className="text-sm font-black uppercase tracking-wider text-slate-800 dark:text-white">
+                              Transformação e Organização da Vida Financeira
+                            </h3>
+                            <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">
+                              Como estruturamos sua base financeira e o que foi integrado para tirar suas contas do caos.
+                            </p>
 
-                          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-                            {/* Pilar 1: Metas */}
-                            <div className="bg-slate-50 dark:bg-slate-950/40 border border-border rounded-2xl p-4 flex flex-col justify-between gap-3 text-left hover:border-primary/40 transition-colors">
-                              <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
-                                <TrendingUp size={16} />
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              {/* Card 1: Centralização */}
+                              <div className="bg-slate-50 dark:bg-slate-950/40 border border-border rounded-3xl p-5 hover:scale-[1.01] transition-all flex gap-4 text-left">
+                                <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                                  <Building size={20} />
+                                </div>
+                                <div className="space-y-1">
+                                  <h4 className="text-xs font-black uppercase text-foreground">Centralização Contra o Caos</h4>
+                                  <p className="text-[10px] text-muted-foreground leading-relaxed font-semibold">
+                                    Centralizamos suas contas e cartões para unificar e organizar suas informações em um só lugar (ou no menor número de lugares possível), eliminando a bagunça financeira.
+                                  </p>
+                                </div>
                               </div>
-                              <div className="space-y-1">
-                                <h4 className="text-[10px] font-black uppercase text-foreground leading-tight">Metas</h4>
-                                <p className="text-[8px] text-muted-foreground leading-normal font-medium">
-                                  Conquistas de curto, médio e longo prazo.
-                                </p>
+
+                              {/* Card 2: Rastreabilidade */}
+                              <div className="bg-slate-50 dark:bg-slate-950/40 border border-border rounded-3xl p-5 hover:scale-[1.01] transition-all flex gap-4 text-left">
+                                <div className="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center shrink-0">
+                                  <Search size={20} />
+                                </div>
+                                <div className="space-y-1">
+                                  <h4 className="text-xs font-black uppercase text-foreground">Sistema Fácil de Rastreamento</h4>
+                                  <p className="text-[10px] text-muted-foreground leading-relaxed font-semibold">
+                                    Além de apenas limitar seus gastos, integramos uma ferramenta intuitiva que ajuda a identificar com facilidade e rapidez exatamente com o que você está gastando seu dinheiro.
+                                  </p>
+                                </div>
+                              </div>
+
+                              {/* Card 3: Dinheiro Sobrando */}
+                              <div className="bg-slate-50 dark:bg-slate-950/40 border border-border rounded-3xl p-5 hover:scale-[1.01] transition-all flex gap-4 text-left">
+                                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center shrink-0">
+                                  <PiggyBank size={20} />
+                                </div>
+                                <div className="space-y-1">
+                                  <h4 className="text-xs font-black uppercase text-foreground">Foco em Sobra Financeira</h4>
+                                  <p className="text-[10px] text-muted-foreground leading-relaxed font-semibold">
+                                    Ajustamos seu fluxo de caixa e organizamos seu orçamento mensal para que a sobra financeira no fim do mês seja uma consequência natural e garantida do seu planejamento.
+                                  </p>
+                                </div>
+                              </div>
+
+                              {/* Card 4: Controle de Dívidas */}
+                              <div className="bg-slate-50 dark:bg-slate-950/40 border border-border rounded-3xl p-5 hover:scale-[1.01] transition-all flex gap-4 text-left">
+                                <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center shrink-0">
+                                  <AlertCircle size={20} />
+                                </div>
+                                <div className="space-y-1">
+                                  <h4 className="text-xs font-black uppercase text-foreground">Gestão Inteligente de Dívidas</h4>
+                                  <p className="text-[10px] text-muted-foreground leading-relaxed font-semibold">
+                                    Organizamos suas dívidas dentro do orçamento viável. Aquelas que não cabem hoje ficam mapeadas e registradas estruturadamente para que nunca sejam esquecidas até a quitação.
+                                  </p>
+                                </div>
                               </div>
                             </div>
+                          </div>
 
-                            {/* Pilar 2: Reservas */}
-                            <div className="bg-slate-50 dark:bg-slate-950/40 border border-border rounded-2xl p-4 flex flex-col justify-between gap-3 text-left hover:border-primary/40 transition-colors">
-                              <div className="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-500 flex items-center justify-center shrink-0">
-                                <Shield size={16} />
-                              </div>
-                              <div className="space-y-1">
-                                <h4 className="text-[10px] font-black uppercase text-foreground leading-tight">Reservas</h4>
-                                <p className="text-[8px] text-muted-foreground leading-normal font-medium">
-                                  Proteção e segurança para cobrir imprevistos.
-                                </p>
-                              </div>
-                            </div>
+                          {/* Seção 3: Roadmap de Temas a Trabalhar */}
+                          <div className="space-y-4">
+                            <h3 className="text-sm font-black uppercase tracking-wider text-slate-800 dark:text-white">
+                              O Que Iremos Construir a Seguir
+                            </h3>
+                            <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">
+                              Os próximos pilares estratégicos de evolução financeira que trabalharemos ao longo da sua jornada de consultoria.
+                            </p>
 
-                            {/* Pilar 3: Gastos Eventuais */}
-                            <div className="bg-slate-50 dark:bg-slate-950/40 border border-border rounded-2xl p-4 flex flex-col justify-between gap-3 text-left hover:border-primary/40 transition-colors">
-                              <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-500 flex items-center justify-center shrink-0">
-                                <Coins size={16} />
+                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                              {/* Pilar 1: Metas */}
+                              <div className="bg-slate-50 dark:bg-slate-950/40 border border-border rounded-2xl p-4 flex flex-col justify-between gap-3 text-left hover:border-primary/40 transition-colors">
+                                <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                                  <TrendingUp size={16} />
+                                </div>
+                                <div className="space-y-1">
+                                  <h4 className="text-[10px] font-black uppercase text-foreground leading-tight">Metas</h4>
+                                  <p className="text-[8px] text-muted-foreground leading-normal font-medium">
+                                    Conquistas de curto, médio e longo prazo.
+                                  </p>
+                                </div>
                               </div>
-                              <div className="space-y-1">
-                                <h4 className="text-[10px] font-black uppercase text-foreground leading-tight">Gastos Eventuais</h4>
-                                <p className="text-[8px] text-muted-foreground leading-normal font-medium">
-                                  Dinheiro planejado para compras periódicas e lazer.
-                                </p>
-                              </div>
-                            </div>
 
-                            {/* Pilar 4: Plano de Dívidas */}
-                            <div className="bg-slate-50 dark:bg-slate-950/40 border border-border rounded-2xl p-4 flex flex-col justify-between gap-3 text-left hover:border-primary/40 transition-colors">
-                              <div className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-500 flex items-center justify-center shrink-0">
-                                <Handshake size={16} />
+                              {/* Pilar 2: Reservas */}
+                              <div className="bg-slate-50 dark:bg-slate-950/40 border border-border rounded-2xl p-4 flex flex-col justify-between gap-3 text-left hover:border-primary/40 transition-colors">
+                                <div className="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-500 flex items-center justify-center shrink-0">
+                                  <Shield size={16} />
+                                </div>
+                                <div className="space-y-1">
+                                  <h4 className="text-[10px] font-black uppercase text-foreground leading-tight">Reservas</h4>
+                                  <p className="text-[8px] text-muted-foreground leading-normal font-medium">
+                                    Proteção e segurança para cobrir imprevistos.
+                                  </p>
+                                </div>
                               </div>
-                              <div className="space-y-1">
-                                <h4 className="text-[10px] font-black uppercase text-foreground leading-tight">Plano de Dívidas</h4>
-                                <p className="text-[8px] text-muted-foreground leading-normal font-medium">
-                                  Estratégias de amortização e negociação com credores.
-                                </p>
-                              </div>
-                            </div>
 
-                            {/* Pilar 5: Cartão de Crédito */}
-                            <div className="bg-slate-50 dark:bg-slate-950/40 border border-border rounded-2xl p-4 flex flex-col justify-between gap-3 text-left hover:border-primary/40 transition-colors">
-                              <div className="w-8 h-8 rounded-lg bg-indigo-500/10 text-indigo-500 flex items-center justify-center shrink-0">
-                                <CreditCard size={16} />
+                              {/* Pilar 3: Gastos Eventuais */}
+                              <div className="bg-slate-50 dark:bg-slate-950/40 border border-border rounded-2xl p-4 flex flex-col justify-between gap-3 text-left hover:border-primary/40 transition-colors">
+                                <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-500 flex items-center justify-center shrink-0">
+                                  <Coins size={16} />
+                                </div>
+                                <div className="space-y-1">
+                                  <h4 className="text-[10px] font-black uppercase text-foreground leading-tight">Gastos Eventuais</h4>
+                                  <p className="text-[8px] text-muted-foreground leading-normal font-medium">
+                                    Dinheiro planejado para compras periódicas e lazer.
+                                  </p>
+                                </div>
                               </div>
-                              <div className="space-y-1">
-                                <h4 className="text-[10px] font-black uppercase text-foreground leading-tight">Uso do Cartão</h4>
-                                <p className="text-[8px] text-muted-foreground leading-normal font-medium">
-                                  Uso correto como meio de pagamento e controle de fluxo.
-                                </p>
-                              </div>
-                            </div>
 
-                            {/* Pilar 6: Patrimônio */}
-                            <div className="bg-slate-50 dark:bg-slate-950/40 border border-border rounded-2xl p-4 flex flex-col justify-between gap-3 text-left hover:border-primary/40 transition-colors">
-                              <div className="w-8 h-8 rounded-lg bg-violet-500/10 text-violet-500 flex items-center justify-center shrink-0">
-                                <Building size={16} />
+                              {/* Pilar 4: Plano de Dívidas */}
+                              <div className="bg-slate-50 dark:bg-slate-950/40 border border-border rounded-2xl p-4 flex flex-col justify-between gap-3 text-left hover:border-primary/40 transition-colors">
+                                <div className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-500 flex items-center justify-center shrink-0">
+                                  <Handshake size={16} />
+                                </div>
+                                <div className="space-y-1">
+                                  <h4 className="text-[10px] font-black uppercase text-foreground leading-tight">Plano de Dívidas</h4>
+                                  <p className="text-[8px] text-muted-foreground leading-normal font-medium">
+                                    Estratégias de amortização e negociação com credores.
+                                  </p>
+                                </div>
                               </div>
-                              <div className="space-y-1">
-                                <h4 className="text-[10px] font-black uppercase text-foreground leading-tight">Patrimônio</h4>
-                                <p className="text-[8px] text-muted-foreground leading-normal font-medium">
-                                  Evolução patrimonial, ativos e investimentos iniciais.
-                                </p>
+
+                              {/* Pilar 5: Cartão de Crédito */}
+                              <div className="bg-slate-50 dark:bg-slate-950/40 border border-border rounded-2xl p-4 flex flex-col justify-between gap-3 text-left hover:border-primary/40 transition-colors">
+                                <div className="w-8 h-8 rounded-lg bg-indigo-500/10 text-indigo-500 flex items-center justify-center shrink-0">
+                                  <CreditCard size={16} />
+                                </div>
+                                <div className="space-y-1">
+                                  <h4 className="text-[10px] font-black uppercase text-foreground leading-tight">Uso do Cartão</h4>
+                                  <p className="text-[8px] text-muted-foreground leading-normal font-medium">
+                                    Uso correto como meio de pagamento e controle de fluxo.
+                                  </p>
+                                </div>
+                              </div>
+
+                              {/* Pilar 6: Patrimônio */}
+                              <div className="bg-slate-50 dark:bg-slate-950/40 border border-border rounded-2xl p-4 flex flex-col justify-between gap-3 text-left hover:border-primary/40 transition-colors">
+                                <div className="w-8 h-8 rounded-lg bg-violet-500/10 text-violet-500 flex items-center justify-center shrink-0">
+                                  <Building size={16} />
+                                </div>
+                                <div className="space-y-1">
+                                  <h4 className="text-[10px] font-black uppercase text-foreground leading-tight">Patrimônio</h4>
+                                  <p className="text-[8px] text-muted-foreground leading-normal font-medium">
+                                    Evolução patrimonial, ativos e investimentos iniciais.
+                                  </p>
+                                </div>
                               </div>
                             </div>
                           </div>
                         </div>
-                      </div>
-                    )
-                  )}
+                      )
+                    )}
 
                     {activePresentationSlide === 'credit_card' && (
                       <div className="space-y-8">
@@ -3539,7 +3539,7 @@ export const Meetings: React.FC = () => {
                           {/* Seta Conta -> Cartão (Ponta integrada no path, "Paga Fatura") */}
                           <div className="flex flex-col items-center justify-center h-full w-full px-2">
                             <span className="text-[10px] font-black uppercase tracking-wider mb-1 text-center text-rose-500 leading-none">
-                              6. Paga Fatura
+                              6. Paga Fatura (Mês seguinte)
                             </span>
                             <svg className="w-full h-6 overflow-visible" viewBox="0 0 100 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                               <path
@@ -3681,7 +3681,7 @@ export const Meetings: React.FC = () => {
                               </svg>
                             </div>
                             <div className="flex flex-col items-center">
-                              <span className="text-[9px] font-black uppercase text-emerald-500 leading-none mb-1">5. Resgatar</span>
+                              <span className="text-[9px] font-black uppercase text-emerald-500 leading-none mb-1">5. Resgatar (Mês seguinte)</span>
                               <svg className="w-4 h-12 overflow-visible" viewBox="0 0 24 50" fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
                                 <path
                                   d="M12,50 V8"

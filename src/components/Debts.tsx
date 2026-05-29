@@ -100,10 +100,68 @@ export const Debts: React.FC = () => {
   const [editingValue, setEditingValue] = useState<{
     debtId: string;
     value: number;
+    originalValue?: number;
     observation: string;
     monthYear: string;
     step?: 'choice' | 'confirm_keep' | 'pay_installment_simple' | 'pay_installment_obs' | 'full_adjust';
   } | null>(null);
+
+  const [amortizationTab, setAmortizationTab] = useState<'amortize' | 'manual'>('amortize');
+  const [installmentsToAmortize, setInstallmentsToAmortize] = useState<number>(1);
+  const [payNormalInstallment, setPayNormalInstallment] = useState<boolean>(true);
+  const [amortizationAmountPaid, setAmortizationAmountPaid] = useState<number>(0);
+  const [isObservationEdited, setIsObservationEdited] = useState<boolean>(false);
+
+  // Atualizar saldo devedor e observação no fluxo de amortização
+  useEffect(() => {
+    if (!editingValue || editingValue.step !== 'full_adjust' || amortizationTab !== 'amortize') return;
+
+    const currentDebt = debts.find(d => d.id === editingValue.debtId);
+    if (!currentDebt) return;
+
+    const originalValue = editingValue.originalValue ?? editingValue.value;
+    const valorParcela = currentDebt.monthly_payment;
+
+    const totalInstallmentsToDeduct = Number(installmentsToAmortize) + (payNormalInstallment ? 1 : 0);
+    const calculatedNewValue = Math.max(0, originalValue - (totalInstallmentsToDeduct * valorParcela));
+
+    // Formatar nome do mês
+    let monthName = '';
+    try {
+      const date = new Date(editingValue.monthYear + 'T12:00:00');
+      monthName = date.toLocaleDateString('pt-BR', { month: 'long' }).toUpperCase();
+    } catch (e) {
+      monthName = '';
+    }
+
+    const totalPaid = Number(amortizationAmountPaid) + (payNormalInstallment ? valorParcela : 0);
+
+    const generatedObs = `AMORTIZAÇÃO DE ${installmentsToAmortize} PARCELA${installmentsToAmortize > 1 ? 'S' : ''} REALIZADA${installmentsToAmortize > 1 ? 'S' : ''} (${formatCurrency(amortizationAmountPaid)})` + 
+      (payNormalInstallment ? ` E PAGAMENTO DA PARCELA MENSAL DE ${monthName} - TOTAL DE ${formatCurrency(totalPaid)} PAGOS` : ` - TOTAL DE ${formatCurrency(amortizationAmountPaid)} PAGOS`);
+
+    // Atualiza apenas se houver diferença real para evitar loops infinitos
+    if (editingValue.value !== calculatedNewValue || (!isObservationEdited && editingValue.observation !== generatedObs)) {
+      setEditingValue(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          value: calculatedNewValue,
+          observation: isObservationEdited ? prev.observation : generatedObs
+        };
+      });
+    }
+  }, [
+    amortizationTab,
+    installmentsToAmortize,
+    payNormalInstallment,
+    amortizationAmountPaid,
+    isObservationEdited,
+    editingValue?.step,
+    editingValue?.monthYear,
+    editingValue?.debtId,
+    debts
+  ]);
+
   const [showUpdateSuccessAfterQuittance, setShowUpdateSuccessAfterQuittance] = useState(false);
 
   const [chartRange, setChartRange] = useState<'12m' | '24m' | 'all'>('12m');
@@ -744,7 +802,7 @@ export const Debts: React.FC = () => {
                                 )}
 
                                 {debt.status === 'active' && debt.monthly_payment > 0 && displayValue > 0 && (() => {
-                                  const remainingMonths = Math.floor(displayValue / debt.monthly_payment);
+                                  const remainingMonths = Math.round(displayValue / debt.monthly_payment);
                                   const targetDate = new Date(selectedMonth);
                                   targetDate.setMonth(targetDate.getMonth() + remainingMonths);
                                   const formattedTarget = targetDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
@@ -789,7 +847,7 @@ export const Debts: React.FC = () => {
                               {debt.status === 'active' && debt.monthly_payment > 0 && displayValue > 0 && (
                                 <div className="mt-1">
                                   <span className="px-2 py-0.5 rounded-md bg-slate-500/10 text-slate-500 text-[8px] font-black uppercase tracking-widest">
-                                    {Math.floor(displayValue / debt.monthly_payment)} RESTANTES
+                                    {Math.round(displayValue / debt.monthly_payment)} RESTANTES
                                   </span>
                                 </div>
                               )}
@@ -873,13 +931,21 @@ export const Debts: React.FC = () => {
                                 </button>
                               ) : (
                                 <button
-                                  onClick={() => setEditingValue({
-                                    debtId: debt.id,
-                                    value: displayValue,
-                                    observation: '',
-                                    monthYear: monthStr,
-                                    step: 'choice'
-                                  })}
+                                  onClick={() => {
+                                    setEditingValue({
+                                      debtId: debt.id,
+                                      value: displayValue,
+                                      originalValue: displayValue,
+                                      observation: '',
+                                      monthYear: monthStr,
+                                      step: 'choice'
+                                    });
+                                    setAmortizationTab('amortize');
+                                    setInstallmentsToAmortize(1);
+                                    setPayNormalInstallment(true);
+                                    setAmortizationAmountPaid(0);
+                                    setIsObservationEdited(false);
+                                  }}
                                   title="Atualizar Saldo Devedor Mensal"
                                   className="w-10 h-10 rounded-xl bg-emerald-500/5 text-emerald-500 border border-emerald-500/10 flex items-center justify-center hover:bg-emerald-500 hover:text-white transition-all shadow-sm"
                                 >
@@ -1532,50 +1598,193 @@ export const Debts: React.FC = () => {
                       {editingValue.step === 'confirm_keep' && 'Confirmar Manutenção'}
                       {editingValue.step === 'pay_installment_simple' && 'Confirmar Pagamento'}
                       {editingValue.step === 'pay_installment_obs' && 'Pagamento com Obs'}
-                      {editingValue.step === 'full_adjust' && 'Informar Novo Saldo'}
+                      {editingValue.step === 'full_adjust' && (amortizationTab === 'amortize' ? 'Amortização de Parcelas' : 'Ajuste de Saldo')}
                     </h3>
                     <button onClick={() => setEditingValue({ ...editingValue, step: 'choice' })} className="text-muted-foreground hover:text-foreground">
                       <ChevronLeft size={20} />
                     </button>
                   </div>
 
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Saldo Devedor Atual</label>
-                      <div className="relative">
-                        <span className="absolute left-6 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground">R$</span>
-                        <input
-                          type="text"
-                          value={(editingValue.value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          onChange={e => {
-                            const val = e.target.value.replace(/\D/g, '');
-                            setEditingValue({ ...editingValue, value: Number(val) / 100 });
-                          }}
-                          disabled={editingValue.step === 'confirm_keep' || editingValue.step === 'pay_installment_simple' || editingValue.step === 'pay_installment_obs'}
-                          className={cn(
-                            "w-full h-14 bg-muted border border-border rounded-2xl pl-12 pr-6 text-sm font-black focus:ring-2 focus:ring-primary/20 transition-all",
-                            (editingValue.step === 'confirm_keep' || editingValue.step === 'pay_installment_simple' || editingValue.step === 'pay_installment_obs') && "opacity-70 cursor-not-allowed"
-                          )}
-                        />
-                      </div>
+                  {editingValue.step === 'full_adjust' && (
+                    <div className="flex bg-muted/65 p-1 rounded-xl">
+                      <button
+                        type="button"
+                        onClick={() => setAmortizationTab('amortize')}
+                        className={cn(
+                          "flex-1 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all",
+                          amortizationTab === 'amortize'
+                            ? "bg-card text-primary shadow-sm"
+                            : "text-muted-foreground hover:text-foreground"
+                        )}
+                      >
+                        Amortização
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setAmortizationTab('manual')}
+                        className={cn(
+                          "flex-1 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all",
+                          amortizationTab === 'manual'
+                            ? "bg-card text-primary shadow-sm"
+                            : "text-muted-foreground hover:text-foreground"
+                        )}
+                      >
+                        Ajuste Manual
+                      </button>
                     </div>
+                  )}
 
-                    {editingValue.step !== 'pay_installment_simple' && (
+                  {editingValue.step === 'full_adjust' && amortizationTab === 'amortize' ? (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Qtd. de Parcelas a Amortizar</label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={installmentsToAmortize}
+                            onChange={e => {
+                              setInstallmentsToAmortize(Math.max(0, parseInt(e.target.value) || 0));
+                              setIsObservationEdited(false);
+                            }}
+                            className="w-full h-14 bg-muted border border-border rounded-2xl px-6 text-sm font-bold focus:ring-2 focus:ring-primary/20 transition-all"
+                          />
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Pagar Parcela Mensal?</label>
+                          <div className="grid grid-cols-2 bg-muted p-1 rounded-2xl h-14 border border-border">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setPayNormalInstallment(true);
+                                setIsObservationEdited(false);
+                              }}
+                              className={cn(
+                                "rounded-xl text-[9px] font-black uppercase tracking-widest transition-all",
+                                payNormalInstallment ? "bg-card text-primary shadow-sm" : "text-muted-foreground"
+                              )}
+                            >
+                              Sim
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setPayNormalInstallment(false);
+                                setIsObservationEdited(false);
+                              }}
+                              className={cn(
+                                "rounded-xl text-[9px] font-black uppercase tracking-widest transition-all",
+                                !payNormalInstallment ? "bg-card text-rose-500 shadow-sm" : "text-muted-foreground"
+                              )}
+                            >
+                              Não
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Valor Pago como Amortização ao Banco</label>
+                        <div className="relative">
+                          <span className="absolute left-6 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground">R$</span>
+                          <input
+                            type="text"
+                            placeholder="0,00"
+                            value={(amortizationAmountPaid || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            onChange={e => {
+                              const val = e.target.value.replace(/\D/g, '');
+                              setAmortizationAmountPaid(Number(val) / 100);
+                              setIsObservationEdited(false);
+                            }}
+                            className="w-full h-14 bg-muted border border-border rounded-2xl pl-12 pr-6 text-sm font-bold focus:ring-2 focus:ring-primary/20 transition-all"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Box de Resumo Simulado */}
+                      {(() => {
+                        const currentDebt = debts.find(d => d.id === editingValue.debtId);
+                        const totalDeduct = installmentsToAmortize + (payNormalInstallment ? 1 : 0);
+                        const currentVal = editingValue.originalValue ?? editingValue.value;
+                        const nextVal = editingValue.value;
+
+                        return (
+                          <div className="p-4 bg-primary/5 border border-primary/10 rounded-2xl space-y-2">
+                            <p className="text-[9px] font-black uppercase tracking-widest text-primary flex items-center gap-2">
+                              <Info size={12} />
+                              Resumo da Simulação
+                            </p>
+                            <div className="grid grid-cols-2 gap-4 text-left">
+                              <div>
+                                <p className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest">Saldo Devedor</p>
+                                <p className="text-xs font-black text-foreground">
+                                  {formatCurrency(currentVal)} → <span className="text-emerald-500">{formatCurrency(nextVal)}</span>
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest">Parcelas Restantes</p>
+                                <p className="text-xs font-black text-foreground">
+                                  {currentDebt ? Math.round(currentVal / currentDebt.monthly_payment) : 0} → <span className="text-primary">{currentDebt ? Math.round(nextVal / currentDebt.monthly_payment) : 0}</span>
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })()}
+
                       <div className="space-y-2">
                         <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Observação deste mês</label>
                         <textarea
-                          placeholder={
-                            editingValue.step === 'confirm_keep'
-                              ? "Descreva o motivo da manutenção (ex: imprevisto financeiro)..."
-                              : "Descreva detalhes (ex: amortização extra, renegociação)..."
-                          }
+                          placeholder="Descreva detalhes adicionais..."
                           value={editingValue.observation}
-                          onChange={e => setEditingValue({ ...editingValue, observation: e.target.value })}
+                          onChange={e => {
+                            setEditingValue({ ...editingValue, observation: e.target.value });
+                            setIsObservationEdited(true);
+                          }}
                           className="w-full h-24 bg-muted border border-border rounded-2xl p-6 text-sm font-medium focus:ring-2 focus:ring-primary/20 transition-all resize-none"
                         />
                       </div>
-                    )}
-                  </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Saldo Devedor Atual</label>
+                        <div className="relative">
+                          <span className="absolute left-6 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground">R$</span>
+                          <input
+                            type="text"
+                            value={(editingValue.value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            onChange={e => {
+                              const val = e.target.value.replace(/\D/g, '');
+                              setEditingValue({ ...editingValue, value: Number(val) / 100 });
+                            }}
+                            disabled={editingValue.step === 'confirm_keep' || editingValue.step === 'pay_installment_simple' || editingValue.step === 'pay_installment_obs'}
+                            className={cn(
+                              "w-full h-14 bg-muted border border-border rounded-2xl pl-12 pr-6 text-sm font-black focus:ring-2 focus:ring-primary/20 transition-all",
+                              (editingValue.step === 'confirm_keep' || editingValue.step === 'pay_installment_simple' || editingValue.step === 'pay_installment_obs') && "opacity-70 cursor-not-allowed"
+                            )}
+                          />
+                        </div>
+                      </div>
+
+                      {editingValue.step !== 'pay_installment_simple' && (
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Observação deste mês</label>
+                          <textarea
+                            placeholder={
+                              editingValue.step === 'confirm_keep'
+                                ? "Descreva o motivo da manutenção (ex: imprevisto financeiro)..."
+                                : "Descreva detalhes (ex: amortização extra, renegociação)..."
+                            }
+                            value={editingValue.observation}
+                            onChange={e => setEditingValue({ ...editingValue, observation: e.target.value })}
+                            className="w-full h-24 bg-muted border border-border rounded-2xl p-6 text-sm font-medium focus:ring-2 focus:ring-primary/20 transition-all resize-none"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   <button
                     onClick={handleUpdateValue}
