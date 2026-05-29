@@ -4,6 +4,7 @@ import { Mail, Lock, User as UserIcon, Loader2, ArrowRight, GraduationCap } from
 import { motion, AnimatePresence } from 'framer-motion';
 
 export const Auth: React.FC = () => {
+  const isSignUpEnabled = false; // Altere para true para liberar o cadastro
   const [loading, setLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
@@ -115,144 +116,171 @@ export const Auth: React.FC = () => {
             </button>
           </div>
 
-          <form onSubmit={handleAuth} className="space-y-6">
-            <AnimatePresence mode="wait">
-              {isSignUp && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="space-y-6 overflow-hidden"
-                >
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Nome Completo</label>
-                    <div className="relative group">
-                      <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none text-slate-600 group-focus-within:text-primary transition-colors">
-                        <UserIcon size={18} />
-                      </div>
-                      <input 
-                        type="text" 
-                        value={fullName}
-                        onChange={(e) => setFullName(e.target.value)}
-                        placeholder="Seu nome aqui"
-                        className="w-full bg-slate-950 border border-white/5 rounded-2xl h-14 pl-12 pr-5 text-sm text-white placeholder:text-slate-700 outline-none focus:border-primary/50 focus:ring-4 focus:ring-primary/5 transition-all"
-                        required={isSignUp}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-3">
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Tipo de Perfil</label>
-                    <div className="grid grid-cols-2 gap-3">
-                      <button
-                        type="button"
-                        onClick={() => setRole('user')}
-                        className={`p-4 rounded-2xl border transition-all text-left group ${
-                          role === 'user' 
-                            ? 'bg-primary/10 border-primary text-white shadow-lg shadow-primary/5' 
-                            : 'bg-slate-950/50 border-white/5 text-slate-500 hover:border-white/10'
-                        }`}
-                      >
-                        <div className={`w-10 h-10 rounded-xl mb-3 flex items-center justify-center transition-colors ${
-                          role === 'user' ? 'bg-primary text-white' : 'bg-slate-900 text-slate-600'
-                        }`}>
-                          <UserIcon size={20} />
-                        </div>
-                        <p className="text-[11px] font-black uppercase tracking-wider">Apenas Uso</p>
-                        <p className="text-[9px] font-medium text-slate-500 mt-1">Gestão pessoal</p>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setRole('educator')}
-                        className={`p-4 rounded-2xl border transition-all text-left group ${
-                          role === 'educator' 
-                            ? 'bg-emerald-500/10 border-emerald-500 text-white shadow-lg shadow-emerald-500/5' 
-                            : 'bg-slate-950/50 border-white/5 text-slate-500 hover:border-white/10'
-                        }`}
-                      >
-                        <div className={`w-10 h-10 rounded-xl mb-3 flex items-center justify-center transition-colors ${
-                          role === 'educator' ? 'bg-emerald-500 text-white' : 'bg-slate-900 text-slate-600'
-                        }`}>
-                          <GraduationCap size={20} />
-                        </div>
-                        <p className="text-[11px] font-black uppercase tracking-wider">Educador</p>
-                        <p className="text-[9px] font-medium text-slate-500 mt-1">Gestão de clientes</p>
-                      </button>
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            <div className="space-y-6">
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Seu E-mail</label>
-                <div className="relative group">
-                  <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none text-slate-600 group-focus-within:text-primary transition-colors">
-                    <Mail size={18} />
-                  </div>
-                  <input 
-                    type="email" 
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="exemplo@email.com"
-                    className="w-full bg-slate-950 border border-white/5 rounded-2xl h-14 pl-12 pr-5 text-sm text-white placeholder:text-slate-700 outline-none focus:border-primary/50 focus:ring-4 focus:ring-primary/5 transition-all"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Sua Senha</label>
-                <div className="relative group">
-                  <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none text-slate-600 group-focus-within:text-primary transition-colors">
-                    <Lock size={18} />
-                  </div>
-                  <input 
-                    type="password" 
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                    className="w-full bg-slate-950 border border-white/5 rounded-2xl h-14 pl-12 pr-5 text-sm text-white placeholder:text-slate-700 outline-none focus:border-primary/50 focus:ring-4 focus:ring-primary/5 transition-all"
-                    required
-                  />
-                </div>
-              </div>
-            </div>
-
-            <AnimatePresence mode="wait">
-              {error && (
-                <motion.div 
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="bg-rose-500/10 border border-rose-500/20 p-4 rounded-xl text-xs text-rose-500 text-center font-bold"
-                >
-                  {error}
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            <button 
-              type="submit" 
-              disabled={loading}
-              className={`w-full h-14 rounded-2xl flex items-center justify-center gap-3 text-white font-black uppercase tracking-widest text-[11px] shadow-2xl transition-all disabled:opacity-50 disabled:pointer-events-none hover:scale-[1.02] active:scale-[0.98] ${
-                isSignUp && role === 'educator' 
-                  ? 'bg-emerald-500 shadow-emerald-500/30' 
-                  : 'bg-primary shadow-primary/30'
-              }`}
+          {isSignUp && !isSignUpEnabled ? (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="space-y-6 text-center py-4"
             >
-              {loading ? (
-                <Loader2 size={18} className="animate-spin" />
-              ) : (
-                <>
-                  {isSignUp ? 'Finalizar Cadastro' : 'Acessar Plataforma'}
-                  <ArrowRight size={18} />
-                </>
-              )}
-            </button>
-          </form>
+              <div className="w-16 h-16 bg-amber-500/10 rounded-full flex items-center justify-center mx-auto mb-2 text-amber-500 border border-amber-500/20">
+                <Lock size={24} />
+              </div>
+              <div className="space-y-2">
+                <h3 className="text-lg font-black text-white uppercase tracking-tighter">
+                  Cadastro Indisponível
+                </h3>
+                <p className="text-slate-400 text-xs font-semibold leading-relaxed uppercase tracking-wider">
+                  A criação de novas contas está temporariamente desativada. Por favor, tente novamente mais tarde.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsSignUp(false)}
+                className="w-full h-14 bg-slate-800 text-white rounded-2xl font-black uppercase tracking-widest text-[11px] hover:bg-slate-700 transition-all border border-slate-700/50 shadow-lg"
+              >
+                Voltar para Login
+              </button>
+            </motion.div>
+          ) : (
+            <form onSubmit={handleAuth} className="space-y-6">
+              <AnimatePresence mode="wait">
+                {isSignUp && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="space-y-6 overflow-hidden"
+                  >
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Nome Completo</label>
+                      <div className="relative group">
+                        <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none text-slate-600 group-focus-within:text-primary transition-colors">
+                          <UserIcon size={18} />
+                        </div>
+                        <input 
+                          type="text" 
+                          value={fullName}
+                          onChange={(e) => setFullName(e.target.value)}
+                          placeholder="Seu nome aqui"
+                          className="w-full bg-slate-950 border border-white/5 rounded-2xl h-14 pl-12 pr-5 text-sm text-white placeholder:text-slate-700 outline-none focus:border-primary/50 focus:ring-4 focus:ring-primary/5 transition-all"
+                          required={isSignUp}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Tipo de Perfil</label>
+                      <div className="grid grid-cols-2 gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setRole('user')}
+                          className={`p-4 rounded-2xl border transition-all text-left group ${
+                            role === 'user' 
+                              ? 'bg-primary/10 border-primary text-white shadow-lg shadow-primary/5' 
+                              : 'bg-slate-950/50 border-white/5 text-slate-500 hover:border-white/10'
+                          }`}
+                        >
+                          <div className={`w-10 h-10 rounded-xl mb-3 flex items-center justify-center transition-colors ${
+                            role === 'user' ? 'bg-primary text-white' : 'bg-slate-900 text-slate-600'
+                          }`}>
+                            <UserIcon size={20} />
+                          </div>
+                          <p className="text-[11px] font-black uppercase tracking-wider">Apenas Uso</p>
+                          <p className="text-[9px] font-medium text-slate-500 mt-1">Gestão pessoal</p>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setRole('educator')}
+                          className={`p-4 rounded-2xl border transition-all text-left group ${
+                            role === 'educator' 
+                              ? 'bg-emerald-500/10 border-emerald-500 text-white shadow-lg shadow-emerald-500/5' 
+                              : 'bg-slate-950/50 border-white/5 text-slate-500 hover:border-white/10'
+                          }`}
+                        >
+                          <div className={`w-10 h-10 rounded-xl mb-3 flex items-center justify-center transition-colors ${
+                            role === 'educator' ? 'bg-emerald-500 text-white' : 'bg-slate-900 text-slate-600'
+                          }`}>
+                            <GraduationCap size={20} />
+                          </div>
+                          <p className="text-[11px] font-black uppercase tracking-wider">Educador</p>
+                          <p className="text-[9px] font-medium text-slate-500 mt-1">Gestão de clientes</p>
+                        </button>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              <div className="space-y-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Seu E-mail</label>
+                  <div className="relative group">
+                    <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none text-slate-600 group-focus-within:text-primary transition-colors">
+                      <Mail size={18} />
+                    </div>
+                    <input 
+                      type="email" 
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="exemplo@email.com"
+                      className="w-full bg-slate-950 border border-white/5 rounded-2xl h-14 pl-12 pr-5 text-sm text-white placeholder:text-slate-700 outline-none focus:border-primary/50 focus:ring-4 focus:ring-primary/5 transition-all"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Sua Senha</label>
+                  <div className="relative group">
+                    <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none text-slate-600 group-focus-within:text-primary transition-colors">
+                      <Lock size={18} />
+                    </div>
+                    <input 
+                      type="password" 
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="w-full bg-slate-950 border border-white/5 rounded-2xl h-14 pl-12 pr-5 text-sm text-white placeholder:text-slate-700 outline-none focus:border-primary/50 focus:ring-4 focus:ring-primary/5 transition-all"
+                      required
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <AnimatePresence mode="wait">
+                {error && (
+                  <motion.div 
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="bg-rose-500/10 border border-rose-500/20 p-4 rounded-xl text-xs text-rose-500 text-center font-bold"
+                  >
+                    {error}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              <button 
+                type="submit" 
+                disabled={loading}
+                className={`w-full h-14 rounded-2xl flex items-center justify-center gap-3 text-white font-black uppercase tracking-widest text-[11px] shadow-2xl transition-all disabled:opacity-50 disabled:pointer-events-none hover:scale-[1.02] active:scale-[0.98] ${
+                  isSignUp && role === 'educator' 
+                    ? 'bg-emerald-500 shadow-emerald-500/30' 
+                    : 'bg-primary shadow-primary/30'
+                }`}
+              >
+                {loading ? (
+                  <Loader2 size={18} className="animate-spin" />
+                ) : (
+                  <>
+                    {isSignUp ? 'Finalizar Cadastro' : 'Acessar Plataforma'}
+                    <ArrowRight size={18} />
+                  </>
+                )}
+              </button>
+            </form>
+          )}
 
           <p className="mt-8 text-center text-[10px] font-black uppercase tracking-[0.2em] text-slate-600 leading-relaxed">
             Ao continuar, você concorda com nossos <br />
