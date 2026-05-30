@@ -403,7 +403,6 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={() => { if (!budgetAlert) onClose(); }}
               className="absolute inset-0 backdrop-premium"
             />
             <motion.div
