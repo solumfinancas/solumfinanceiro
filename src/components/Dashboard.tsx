@@ -344,8 +344,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, setTxFilter,
 
       const data = Object.entries(expenseByCat)
          .map(([name, value]) => ({ name, value }))
-         .sort((a, b) => b.value - a.value)
-         .slice(0, 5);
+         .sort((a, b) => b.value - a.value);
 
       return { topSpendingData: data, totalCategorySpending: total };
    }, [transactions, categories, reportReferenceDate, reportPeriod, currentMonth, currentYear]);
@@ -397,6 +396,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, setTxFilter,
    }, [selectedCategoryDetail, transactions, categories, reportReferenceDate, reportPeriod, currentMonth, currentYear]);
 
    const budgetProgress = useMemo(() => {
+      const isReportMonthSelected = reportPeriod === 1;
+      const refMonth = isReportMonthSelected ? reportReferenceDate.getUTCMonth() + 1 : currentMonth;
+      const refYear = isReportMonthSelected ? reportReferenceDate.getUTCFullYear() : currentYear;
+
       return categories
          .filter(c => c.limit && c.limit > 0 && c.isActive !== false && !c.parentId)
          .map(cat => {
@@ -405,7 +408,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, setTxFilter,
                .filter(t => {
                   const d = new Date(t.date);
                   const isMatchingCategory = relevantIds.includes(t.categoryId);
-                  const isMatchingMonth = (d.getUTCMonth() + 1) === currentMonth && d.getUTCFullYear() === currentYear;
+                  const isMatchingMonth = (d.getUTCMonth() + 1) === refMonth && d.getUTCFullYear() === refYear;
                   const isExpense = t.type === 'expense' || t.type === 'provision' || t.type === 'planned';
                   // Para o progresso do orçamento, consideramos tudo o que foi planejado/provisionado/gasto no mês
                   return isMatchingCategory && isMatchingMonth && isExpense;
@@ -421,7 +424,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, setTxFilter,
          })
          .sort((a, b) => b.percent - a.percent)
          .slice(0, 5);
-   }, [categories, transactions, currentMonth, currentYear]);
+   }, [categories, transactions, currentMonth, currentYear, reportReferenceDate, reportPeriod]);
 
 
 
@@ -1020,8 +1023,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, setTxFilter,
                         </PieChart>
                      </ResponsiveContainer>
                   </div>
-                  <div className="w-full md:w-1/2 flex flex-col justify-center px-0 md:px-4">
-                     <div className="space-y-3">
+                  <div className="w-full md:w-1/2 flex flex-col justify-between px-0 md:px-4 h-[240px]">
+                     <div className="space-y-3 overflow-y-auto max-h-[170px] pr-2 custom-scrollbar flex-grow">
                         {topSpendingData.map((item, i) => (
                            <div
                               key={i}
@@ -1047,7 +1050,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, setTxFilter,
                         )}
                      </div>
                      {totalCategorySpending > 0 && (
-                        <div className="mt-6 pt-4 border-t border-border/40 flex items-center justify-between">
+                        <div className="mt-4 pt-3 border-t border-border/40 flex items-center justify-between shrink-0">
                            <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Total do Mês</span>
                            <span className="text-sm font-black text-rose-500">{formatCurrency(totalCategorySpending)}</span>
                         </div>
@@ -1063,7 +1066,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, setTxFilter,
                      <h3 className="text-lg font-black uppercase tracking-tighter flex items-center gap-2">
                         <Target size={20} className="text-primary" /> Limite de Gastos
                      </h3>
-                     <p className="text-[10px] font-bold text-muted-foreground uppercase">Proximidade do teto mensal</p>
+                     <p className="text-[10px] font-bold text-muted-foreground uppercase leading-tight mt-1">
+                        {reportPeriod === 1 ? 'Seguindo mês selecionado nos relatórios' : 'Seguindo o mês atual'}
+                     </p>
                   </div>
                   <button onClick={() => setActiveTab('categories')} className="text-[10px] font-black uppercase tracking-widest text-primary hover:underline">Ver Metas</button>
                </div>
