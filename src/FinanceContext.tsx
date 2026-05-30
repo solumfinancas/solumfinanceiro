@@ -1217,7 +1217,8 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
           interest_rate: debt.interest_rate,
           due_date: debt.due_date,
           observation: debt.observation,
-          status: debt.status || 'active'
+          status: debt.status || 'active',
+          interest_type: debt.interest_type || 'PRICE'
         }])
         .select()
         .single();

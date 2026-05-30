@@ -83,18 +83,19 @@ export const Debts: React.FC = () => {
     installments_count: 0,
     interest_rate: 0,
     observation: '',
-    due_date: new Date().toISOString().split('T')[0]
+    due_date: new Date().toISOString().split('T')[0],
+    interest_type: 'PRICE' as 'PRICE' | 'SAC'
   });
 
-  // Cálculo automático do valor total
+  // Cálculo automático do valor total (Apenas para PRICE)
   useEffect(() => {
-    if (debtForm.monthly_payment > 0 && debtForm.installments_count > 0) {
+    if (debtForm.interest_type === 'PRICE' && debtForm.monthly_payment > 0 && debtForm.installments_count > 0) {
       setDebtForm(prev => ({
         ...prev,
         total_value: prev.monthly_payment * prev.installments_count
       }));
     }
-  }, [debtForm.monthly_payment, debtForm.installments_count]);
+  }, [debtForm.monthly_payment, debtForm.installments_count, debtForm.interest_type]);
 
   // Edit Value State
   const [editingValue, setEditingValue] = useState<{
@@ -195,7 +196,8 @@ export const Debts: React.FC = () => {
       installments_count: 0,
       interest_rate: 0,
       observation: '',
-      due_date: new Date().toISOString().split('T')[0]
+      due_date: new Date().toISOString().split('T')[0],
+      interest_type: 'PRICE'
     });
     setEditingDebt(null);
     setIsAddModalOpen(true);
@@ -209,7 +211,8 @@ export const Debts: React.FC = () => {
       installments_count: debt.installments_count,
       interest_rate: debt.interest_rate,
       observation: debt.observation || '',
-      due_date: debt.due_date
+      due_date: debt.due_date,
+      interest_type: debt.interest_type || 'PRICE'
     });
     setEditingDebt(debt);
     setIsAddModalOpen(true);
@@ -228,7 +231,8 @@ export const Debts: React.FC = () => {
           installments_count: debtForm.installments_count,
           interest_rate: debtForm.interest_rate,
           due_date: debtForm.due_date,
-          observation: debtForm.observation
+          observation: debtForm.observation,
+          interest_type: debtForm.interest_type
         });
         setIsAddModalOpen(false);
         setEditingDebt(null);
@@ -243,7 +247,8 @@ export const Debts: React.FC = () => {
           interest_rate: debtForm.interest_rate,
           due_date: debtForm.due_date,
           observation: debtForm.observation,
-          status: 'active'
+          status: 'active',
+          interest_type: debtForm.interest_type
         });
         setIsAddModalOpen(false);
         showAlert('Sucesso', 'Dívida adicionada com sucesso', 'success');
@@ -765,15 +770,25 @@ export const Debts: React.FC = () => {
                         <tr key={debt.id} className="group border-b border-border last:border-none hover:bg-muted/30 transition-all">
                           <td className="px-8 py-6">
                             <div className="flex flex-col gap-1 mb-2">
-                              <button
-                                onClick={() => setViewingDebtDetails(debt)}
-                                className={cn(
-                                  "text-sm font-black uppercase tracking-tight group-hover:text-rose-500 transition-colors text-left",
-                                  debt.status === 'paid' && "text-muted-foreground line-through"
-                                )}
-                              >
-                                {debt.name}
-                              </button>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={() => setViewingDebtDetails(debt)}
+                                  className={cn(
+                                    "text-sm font-black uppercase tracking-tight group-hover:text-rose-500 transition-colors text-left",
+                                    debt.status === 'paid' && "text-muted-foreground line-through"
+                                  )}
+                                >
+                                  {debt.name}
+                                </button>
+                                <span className={cn(
+                                  "px-1.5 py-0.5 rounded-md text-[7px] font-black uppercase tracking-widest border",
+                                  debt.interest_type === 'SAC'
+                                    ? "bg-amber-500/10 text-amber-500 border-amber-500/20"
+                                    : "bg-blue-500/10 text-blue-500 border-blue-500/20"
+                                )}>
+                                  {debt.interest_type || 'PRICE'}
+                                </span>
+                              </div>
                               
                               <div className="flex flex-wrap items-center gap-2">
                                 {debt.status === 'paid' ? (
@@ -932,15 +947,23 @@ export const Debts: React.FC = () => {
                               ) : (
                                 <button
                                   onClick={() => {
+                                    const isSac = debt.interest_type === 'SAC';
+                                    const registrationDate = new Date((debt.due_date || '') + 'T12:00:00');
+                                    const isRegMonth = registrationDate.getMonth() === selectedMonth.getMonth() &&
+                                      registrationDate.getFullYear() === selectedMonth.getFullYear();
+                                    const initialMsg = isSac
+                                      ? (isRegMonth ? "Pagamento parcial / Ajuste no mês de registro" : "Pagamento parcial / Ajuste de saldo")
+                                      : "";
+
                                     setEditingValue({
                                       debtId: debt.id,
                                       value: displayValue,
                                       originalValue: displayValue,
-                                      observation: '',
+                                      observation: initialMsg,
                                       monthYear: monthStr,
-                                      step: 'choice'
+                                      step: isSac ? 'full_adjust' : 'choice'
                                     });
-                                    setAmortizationTab('amortize');
+                                    setAmortizationTab(isSac ? 'manual' : 'amortize');
                                     setInstallmentsToAmortize(1);
                                     setPayNormalInstallment(true);
                                     setAmortizationAmountPaid(0);
@@ -1323,10 +1346,10 @@ export const Debts: React.FC = () => {
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative w-full max-w-lg bg-card border border-border rounded-[3rem] p-8 shadow-2xl overflow-hidden"
+              className="relative w-full max-w-lg bg-card border border-border rounded-[3rem] p-8 shadow-2xl flex flex-col max-h-[90vh] overflow-hidden"
               onClick={e => e.stopPropagation()}
             >
-              <div className="flex items-center justify-between mb-8">
+              <div className="flex items-center justify-between mb-8 shrink-0">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
                     <Plus className="text-rose-500" size={20} />
@@ -1346,7 +1369,34 @@ export const Debts: React.FC = () => {
                 </button>
               </div>
 
-              <form onSubmit={handleSubmitDebt} className="space-y-6">
+              <form onSubmit={handleSubmitDebt} className="flex flex-col flex-1 overflow-hidden">
+                <div className="flex-1 overflow-y-auto pr-2 space-y-6 custom-scrollbar mb-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Tipo de Amortização</label>
+                  <div className="grid grid-cols-2 bg-muted p-1 rounded-2xl h-14 border border-border">
+                    <button
+                      type="button"
+                      onClick={() => setDebtForm({ ...debtForm, interest_type: 'PRICE' })}
+                      className={cn(
+                        "rounded-xl text-[9px] font-black uppercase tracking-widest transition-all",
+                        debtForm.interest_type === 'PRICE' ? "bg-card text-primary shadow-sm" : "text-muted-foreground"
+                      )}
+                    >
+                      PRICE (Parcelas Fixas)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDebtForm({ ...debtForm, interest_type: 'SAC' })}
+                      className={cn(
+                        "rounded-xl text-[9px] font-black uppercase tracking-widest transition-all",
+                        debtForm.interest_type === 'SAC' ? "bg-card text-primary shadow-sm" : "text-muted-foreground"
+                      )}
+                    >
+                      SAC (Tabela Variável)
+                    </button>
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-1 gap-6">
                   <div className="space-y-2">
                     <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Credor / Instituição</label>
@@ -1362,11 +1412,13 @@ export const Debts: React.FC = () => {
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Valor da Parcela</label>
+                      <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">
+                        {debtForm.interest_type === 'PRICE' ? 'Valor da Parcela' : 'Valor da Parcela (Informativo)'}
+                      </label>
                       <div className="relative">
                         <span className="absolute left-6 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground">R$</span>
                         <input
-                          required
+                          required={debtForm.interest_type === 'PRICE'}
                           type="text"
                           placeholder="0,00"
                           value={(debtForm.monthly_payment || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -1393,14 +1445,31 @@ export const Debts: React.FC = () => {
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Valor Total (Auto)</label>
+                      <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">
+                        {debtForm.interest_type === 'PRICE' ? 'Valor Total (Auto)' : 'Valor Total'}
+                      </label>
                       <div className="relative">
-                        <span className="absolute left-6 top-1/2 -translate-y-1/2 text-xs font-bold text-rose-500">R$</span>
+                        <span className={cn(
+                          "absolute left-6 top-1/2 -translate-y-1/2 text-xs font-bold",
+                          debtForm.interest_type === 'PRICE' ? "text-rose-500" : "text-muted-foreground"
+                        )}>R$</span>
                         <input
-                          readOnly
+                          readOnly={debtForm.interest_type === 'PRICE'}
+                          required={debtForm.interest_type === 'SAC'}
                           type="text"
                           value={(debtForm.total_value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          className="w-full h-14 bg-rose-500/5 border border-rose-500/20 rounded-2xl pl-12 pr-6 text-sm font-black text-rose-500 cursor-not-allowed"
+                          onChange={e => {
+                            if (debtForm.interest_type === 'SAC') {
+                              const val = e.target.value.replace(/\D/g, '');
+                              setDebtForm({ ...debtForm, total_value: Number(val) / 100 });
+                            }
+                          }}
+                          className={cn(
+                            "w-full h-14 rounded-2xl pl-12 pr-6 text-sm transition-all",
+                            debtForm.interest_type === 'PRICE'
+                              ? "bg-rose-500/5 border border-rose-500/20 font-black text-rose-500 cursor-not-allowed"
+                              : "bg-muted border border-border font-bold focus:ring-2 focus:ring-rose-500/20"
+                          )}
                         />
                       </div>
                     </div>
@@ -1441,7 +1510,9 @@ export const Debts: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="flex gap-4 pt-4">
+                </div>
+
+                <div className="flex gap-4 pt-4 border-t border-border mt-auto shrink-0">
                   <button
                     type="button"
                     onClick={() => setIsAddModalOpen(false)}
@@ -1569,6 +1640,7 @@ export const Debts: React.FC = () => {
                           : "Pagamento parcial / Ajuste de saldo";
 
                         setEditingValue({ ...editingValue, step: 'full_adjust', observation: msg });
+                        setAmortizationTab(currentDebt?.interest_type === 'SAC' ? 'manual' : 'amortize');
                       }}
                       className="h-16 px-6 rounded-2xl bg-muted border border-border flex items-center justify-between group hover:bg-primary/5 hover:border-primary/20 transition-all"
                     >
@@ -1600,39 +1672,22 @@ export const Debts: React.FC = () => {
                       {editingValue.step === 'pay_installment_obs' && 'Pagamento com Obs'}
                       {editingValue.step === 'full_adjust' && (amortizationTab === 'amortize' ? 'Amortização de Parcelas' : 'Ajuste de Saldo')}
                     </h3>
-                    <button onClick={() => setEditingValue({ ...editingValue, step: 'choice' })} className="text-muted-foreground hover:text-foreground">
+                    <button
+                      onClick={() => {
+                        const currentDebt = debts.find(d => d.id === editingValue.debtId);
+                        if (currentDebt?.interest_type === 'SAC') {
+                          setEditingValue(null);
+                        } else {
+                          setEditingValue({ ...editingValue, step: 'choice' });
+                        }
+                      }}
+                      className="text-muted-foreground hover:text-foreground"
+                    >
                       <ChevronLeft size={20} />
                     </button>
                   </div>
 
-                  {editingValue.step === 'full_adjust' && (
-                    <div className="flex bg-muted/65 p-1 rounded-xl">
-                      <button
-                        type="button"
-                        onClick={() => setAmortizationTab('amortize')}
-                        className={cn(
-                          "flex-1 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all",
-                          amortizationTab === 'amortize'
-                            ? "bg-card text-primary shadow-sm"
-                            : "text-muted-foreground hover:text-foreground"
-                        )}
-                      >
-                        Amortização
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setAmortizationTab('manual')}
-                        className={cn(
-                          "flex-1 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all",
-                          amortizationTab === 'manual'
-                            ? "bg-card text-primary shadow-sm"
-                            : "text-muted-foreground hover:text-foreground"
-                        )}
-                      >
-                        Ajuste Manual
-                      </button>
-                    </div>
-                  )}
+
 
                   {editingValue.step === 'full_adjust' && amortizationTab === 'amortize' ? (
                     <div className="space-y-4">
@@ -1980,57 +2035,78 @@ export const Debts: React.FC = () => {
                     </div>
 
                     <div className="space-y-3">
-                      {debtHistory
-                        .filter(h => h.debt_id === viewingDebtDetails.id)
-                        .sort((a, b) => new Date(b.month_year).getTime() - new Date(a.month_year).getTime())
-                        .map((entry, idx) => (
-                          <div key={entry.id} className="relative pl-6 pb-6 last:pb-0">
-                            {/* Timeline Line */}
-                            <div className="absolute left-0 top-2 bottom-0 w-px bg-border" />
-                            <div className="absolute left-[-4px] top-2 w-2 h-2 rounded-full bg-primary shadow-[0_0_8px_rgba(var(--color-primary-rgb),0.5)]" />
+                      {(() => {
+                        const sortedHistory = debtHistory
+                          .filter(h => h.debt_id === viewingDebtDetails.id)
+                          .sort((a, b) => new Date(b.month_year).getTime() - new Date(a.month_year).getTime());
 
-                            <div className="bg-card border border-border rounded-2xl p-4 hover:shadow-md transition-all group">
-                              <div className="flex items-center justify-between mb-2">
-                                <p className="text-[10px] font-black uppercase tracking-widest text-primary">
-                                  {new Date(entry.month_year + 'T12:00:00').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
-                                </p>
-                                <div className="flex items-center gap-2">
-                                  <button
-                                    onClick={() => {
-                                      setEditingValue({
-                                        debtId: viewingDebtDetails.id,
-                                        value: entry.value,
-                                        observation: entry.observation || '',
-                                        monthYear: entry.month_year,
-                                        step: 'input'
-                                      });
-                                    }}
-                                    className="p-1.5 rounded-lg bg-muted border border-border text-muted-foreground hover:text-primary transition-all"
-                                    title="Editar Atualização"
-                                  >
-                                    <Edit2 size={12} />
-                                  </button>
-                                  <button
-                                    onClick={() => setConfirmDeleteHistory({ id: entry.id, monthYear: entry.month_year })}
-                                    className="p-1.5 rounded-lg bg-muted border border-border text-muted-foreground hover:text-rose-500 transition-all"
-                                    title="Excluir Atualização"
-                                  >
-                                    <Trash2 size={12} />
-                                  </button>
-                                  <span className="text-xs font-black text-foreground">{formatCurrency(entry.value)}</span>
-                                </div>
-                              </div>
-                              {entry.observation && (
-                                <div className="mt-2 flex gap-2">
-                                  <FileText size={12} className="text-muted-foreground shrink-0 mt-0.5" />
-                                  <p className="text-[11px] text-muted-foreground leading-relaxed italic">
-                                    "{entry.observation}"
+                        return sortedHistory.map((entry, idx) => {
+                          const prevVal = sortedHistory[idx + 1] ? sortedHistory[idx + 1].value : viewingDebtDetails.total_value;
+                          const diff = prevVal - entry.value; // Se diff > 0, a dívida diminuiu (verde). Se diff < 0, a dívida aumentou (vermelho).
+
+                          return (
+                            <div key={entry.id} className="relative pl-6 pb-6 last:pb-0">
+                              {/* Timeline Line */}
+                              <div className="absolute left-0 top-2 bottom-0 w-px bg-border" />
+                              <div className="absolute left-[-4px] top-2 w-2 h-2 rounded-full bg-primary shadow-[0_0_8px_rgba(var(--color-primary-rgb),0.5)]" />
+
+                              <div className="bg-card border border-border rounded-2xl p-4 hover:shadow-md transition-all group">
+                                <div className="flex items-center justify-between mb-2">
+                                  <p className="text-[10px] font-black uppercase tracking-widest text-primary">
+                                    {new Date(entry.month_year + 'T12:00:00').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
                                   </p>
+                                  <div className="flex items-center gap-2">
+                                    <button
+                                      onClick={() => {
+                                        setEditingValue({
+                                          debtId: viewingDebtDetails.id,
+                                          value: entry.value,
+                                          observation: entry.observation || '',
+                                          monthYear: entry.month_year,
+                                          step: 'input'
+                                        });
+                                        setAmortizationTab('manual');
+                                      }}
+                                      className="p-1.5 rounded-lg bg-muted border border-border text-muted-foreground hover:text-primary transition-all"
+                                      title="Editar Atualização"
+                                    >
+                                      <Edit2 size={12} />
+                                    </button>
+                                    <button
+                                      onClick={() => setConfirmDeleteHistory({ id: entry.id, monthYear: entry.month_year })}
+                                      className="p-1.5 rounded-lg bg-muted border border-border text-muted-foreground hover:text-rose-500 transition-all"
+                                      title="Excluir Atualização"
+                                    >
+                                      <Trash2 size={12} />
+                                    </button>
+
+                                    {Math.abs(diff) > 0.01 && (
+                                      <span className={cn(
+                                        "text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md border",
+                                        diff > 0
+                                          ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
+                                          : "bg-rose-500/10 text-rose-500 border-rose-500/20"
+                                      )}>
+                                        {diff > 0 ? '-' : '+'} {formatCurrency(Math.abs(diff))}
+                                      </span>
+                                    )}
+
+                                    <span className="text-xs font-black text-foreground">{formatCurrency(entry.value)}</span>
+                                  </div>
                                 </div>
-                              )}
+                                {entry.observation && (
+                                  <div className="mt-2 flex gap-2">
+                                    <FileText size={12} className="text-muted-foreground shrink-0 mt-0.5" />
+                                    <p className="text-[11px] text-muted-foreground leading-relaxed italic">
+                                      "{entry.observation}"
+                                    </p>
+                                  </div>
+                                )}
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          );
+                        });
+                      })()}
 
                       {debtHistory.filter(h => h.debt_id === viewingDebtDetails.id).length === 0 && (
                         <div className="text-center py-12 text-muted-foreground">

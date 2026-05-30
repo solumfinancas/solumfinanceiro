@@ -1437,57 +1437,77 @@ export const Equity: React.FC = () => {
                     </div>
 
                     <div className="space-y-3">
-                      {equityHistory
-                        .filter(h => h.asset_id === viewingAssetDetails.id)
-                        .sort((a, b) => new Date(b.month_year).getTime() - new Date(a.month_year).getTime())
-                        .map((entry, idx) => (
-                          <div key={entry.id} className="relative pl-6 pb-6 last:pb-0">
-                            {/* Timeline Line */}
-                            <div className="absolute left-0 top-2 bottom-0 w-px bg-border" />
-                            <div className="absolute left-[-4px] top-2 w-2 h-2 rounded-full bg-primary shadow-[0_0_8px_rgba(var(--color-primary-rgb),0.5)]" />
-                            
-                            <div className="bg-card border border-border rounded-2xl p-4 hover:shadow-md transition-all group">
-                              <div className="flex items-center justify-between mb-2">
-                                <p className="text-[10px] font-black uppercase tracking-widest text-primary">
-                                  {new Date(entry.month_year + 'T12:00:00').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
-                                </p>
-                                <div className="flex items-center gap-2">
-                                  <button
-                                    onClick={() => {
-                                      setEditingValue({
-                                        assetId: viewingAssetDetails.id,
-                                        value: entry.value,
-                                        observation: entry.observation || '',
-                                        monthYear: entry.month_year,
-                                        step: 'full_adjust'
-                                      });
-                                    }}
-                                    className="p-1.5 rounded-lg bg-muted border border-border text-muted-foreground hover:text-primary transition-all"
-                                    title="Editar Atualização"
-                                  >
-                                    <Edit2 size={12} />
-                                  </button>
-                                  <button
-                                    onClick={() => setConfirmDeleteHistory({ id: entry.id, monthYear: entry.month_year })}
-                                    className="p-1.5 rounded-lg bg-muted border border-border text-muted-foreground hover:text-rose-500 transition-all"
-                                    title="Excluir Atualização"
-                                  >
-                                    <Trash2 size={12} />
-                                  </button>
-                                  <span className="text-xs font-black text-foreground">{formatCurrency(entry.value)}</span>
-                                </div>
-                              </div>
-                              {entry.observation && (
-                                <div className="mt-2 flex gap-2">
-                                  <FileText size={12} className="text-muted-foreground shrink-0 mt-0.5" />
-                                  <p className="text-[11px] text-muted-foreground leading-relaxed italic">
-                                    "{entry.observation}"
+                      {(() => {
+                        const sortedHistory = equityHistory
+                          .filter(h => h.asset_id === viewingAssetDetails.id)
+                          .sort((a, b) => new Date(b.month_year).getTime() - new Date(a.month_year).getTime());
+
+                        return sortedHistory.map((entry, idx) => {
+                          const prevVal = sortedHistory[idx + 1] ? sortedHistory[idx + 1].value : viewingAssetDetails.initial_value;
+                          const diff = entry.value - prevVal; // Se diff > 0, patrimônio aumentou (verde). Se diff < 0, patrimônio diminuiu (vermelho).
+
+                          return (
+                            <div key={entry.id} className="relative pl-6 pb-6 last:pb-0">
+                              {/* Timeline Line */}
+                              <div className="absolute left-0 top-2 bottom-0 w-px bg-border" />
+                              <div className="absolute left-[-4px] top-2 w-2 h-2 rounded-full bg-primary shadow-[0_0_8px_rgba(var(--color-primary-rgb),0.5)]" />
+                              
+                              <div className="bg-card border border-border rounded-2xl p-4 hover:shadow-md transition-all group">
+                                <div className="flex items-center justify-between mb-2">
+                                  <p className="text-[10px] font-black uppercase tracking-widest text-primary">
+                                    {new Date(entry.month_year + 'T12:00:00').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
                                   </p>
+                                  <div className="flex items-center gap-2">
+                                    <button 
+                                      onClick={() => {
+                                        setEditingValue({
+                                          assetId: viewingAssetDetails.id,
+                                          value: entry.value,
+                                          observation: entry.observation || '',
+                                          monthYear: entry.month_year,
+                                          step: 'full_adjust'
+                                        });
+                                      }}
+                                      className="p-1.5 rounded-lg bg-muted border border-border text-muted-foreground hover:text-primary transition-all"
+                                      title="Editar Atualização"
+                                    >
+                                      <Edit2 size={12} />
+                                    </button>
+                                    <button 
+                                      onClick={() => setConfirmDeleteHistory({ id: entry.id, monthYear: entry.month_year })}
+                                      className="p-1.5 rounded-lg bg-muted border border-border text-muted-foreground hover:text-rose-500 transition-all"
+                                      title="Excluir Atualização"
+                                    >
+                                      <Trash2 size={12} />
+                                    </button>
+
+                                    {Math.abs(diff) > 0.01 && (
+                                      <span className={cn(
+                                        "text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md border",
+                                        diff > 0
+                                          ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
+                                          : "bg-rose-500/10 text-rose-500 border-rose-500/20"
+                                      )}>
+                                        {diff > 0 ? '+' : '-'} {formatCurrency(Math.abs(diff))}
+                                      </span>
+                                    )}
+
+                                    <span className="text-xs font-black text-foreground">{formatCurrency(entry.value)}</span>
+                                  </div>
                                 </div>
-                              )}
+                                {entry.observation && (
+                                  <div className="mt-2 flex gap-2">
+                                    <FileText size={12} className="text-muted-foreground shrink-0 mt-0.5" />
+                                    <p className="text-[11px] text-muted-foreground leading-relaxed italic">
+                                      "{entry.observation}"
+                                    </p>
+                                  </div>
+                                )}
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          );
+                        });
+                      })()}
 
                       {equityHistory.filter(h => h.asset_id === viewingAssetDetails.id).length === 0 && (
                         <div className="flex flex-col items-center justify-center py-12 text-center gap-3 bg-muted/20 rounded-[2rem] border border-dashed border-border">

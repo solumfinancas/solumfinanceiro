@@ -105,6 +105,7 @@ export interface Debt {
   observation: string;
   status: 'active' | 'paid';
   created_at: string;
+  interest_type?: 'PRICE' | 'SAC';
 }
 
 export interface DebtHistory {
