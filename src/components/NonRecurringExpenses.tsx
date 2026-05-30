@@ -2296,15 +2296,22 @@ export const NonRecurringExpenses: React.FC<NonRecurringExpensesProps> = ({
                     <button
                       type="button"
                       onClick={() => handleComparisonChoice(currentItem)}
-                      className="p-6 rounded-[2rem] bg-muted/20 border-2 border-border hover:border-primary hover:bg-primary/5 text-left transition-all group flex flex-col justify-between h-48 active:scale-98 cursor-pointer shadow-sm"
+                      className="p-6 rounded-[2rem] bg-muted/20 border-2 border-border hover:border-primary hover:bg-primary/5 text-left transition-all group flex flex-col justify-between h-full min-h-[14rem] active:scale-98 cursor-pointer shadow-sm"
                     >
-                      <span className="inline-flex px-2 py-0.5 rounded-lg bg-primary/10 border border-primary/20 text-primary text-[8px] font-black uppercase tracking-widest">
-                        Opção A
-                      </span>
-                      <h3 className="text-sm font-black uppercase tracking-tight text-foreground line-clamp-3 my-2 break-all group-hover:text-primary transition-colors">
-                        {currentItem.description}
-                      </h3>
-                      <div className="space-y-0.5 mt-auto">
+                      <div>
+                        <span className="inline-flex px-2 py-0.5 rounded-lg bg-primary/10 border border-primary/20 text-primary text-[8px] font-black uppercase tracking-widest">
+                          Opção A
+                        </span>
+                        <h3 className="text-sm font-black uppercase tracking-tight text-foreground line-clamp-2 my-2 break-all group-hover:text-primary transition-colors">
+                          {currentItem.description}
+                        </h3>
+                        {currentItem.observation && (
+                          <p className="text-[10px] text-muted-foreground/85 italic line-clamp-4 border-l-2 border-primary/20 pl-2 leading-relaxed whitespace-pre-wrap uppercase font-medium mt-1">
+                            {currentItem.observation}
+                          </p>
+                        )}
+                      </div>
+                      <div className="space-y-0.5 mt-4">
                         <p className="text-[10px] font-bold text-muted-foreground">Valor Total: {formatCurrency(currentItem.amount)}</p>
                         <p className="text-[10px] font-bold text-emerald-500">Mensal: {formatCurrency(currentItem.amount / currentItem.frequency_months)}</p>
                       </div>
@@ -2321,15 +2328,22 @@ export const NonRecurringExpenses: React.FC<NonRecurringExpensesProps> = ({
                     <button
                       type="button"
                       onClick={() => handleComparisonChoice(midItem)}
-                      className="p-6 rounded-[2rem] bg-muted/20 border-2 border-border hover:border-primary hover:bg-primary/5 text-left transition-all group flex flex-col justify-between h-48 active:scale-98 cursor-pointer shadow-sm"
+                      className="p-6 rounded-[2rem] bg-muted/20 border-2 border-border hover:border-primary hover:bg-primary/5 text-left transition-all group flex flex-col justify-between h-full min-h-[14rem] active:scale-98 cursor-pointer shadow-sm"
                     >
-                      <span className="inline-flex px-2 py-0.5 rounded-lg bg-primary/10 border border-primary/20 text-primary text-[8px] font-black uppercase tracking-widest">
-                        Opção B
-                      </span>
-                      <h3 className="text-sm font-black uppercase tracking-tight text-foreground line-clamp-3 my-2 break-all group-hover:text-primary transition-colors">
-                        {midItem.description}
-                      </h3>
-                      <div className="space-y-0.5 mt-auto">
+                      <div>
+                        <span className="inline-flex px-2 py-0.5 rounded-lg bg-primary/10 border border-primary/20 text-primary text-[8px] font-black uppercase tracking-widest">
+                          Opção B
+                        </span>
+                        <h3 className="text-sm font-black uppercase tracking-tight text-foreground line-clamp-2 my-2 break-all group-hover:text-primary transition-colors">
+                          {midItem.description}
+                        </h3>
+                        {midItem.observation && (
+                          <p className="text-[10px] text-muted-foreground/85 italic line-clamp-4 border-l-2 border-primary/20 pl-2 leading-relaxed whitespace-pre-wrap uppercase font-medium mt-1">
+                            {midItem.observation}
+                          </p>
+                        )}
+                      </div>
+                      <div className="space-y-0.5 mt-4">
                         <p className="text-[10px] font-bold text-muted-foreground">Valor Total: {formatCurrency(midItem.amount)}</p>
                         <p className="text-[10px] font-bold text-emerald-500">Mensal: {formatCurrency(midItem.amount / midItem.frequency_months)}</p>
                       </div>
