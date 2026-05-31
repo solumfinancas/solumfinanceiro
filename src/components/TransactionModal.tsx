@@ -551,9 +551,11 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                           className="w-full px-4 py-2.5 bg-background border border-primary/20 rounded-xl focus:ring-2 focus:ring-primary/20 outline-none font-bold text-xs appearance-none"
                         >
                           {(() => {
-                            const baseDate = new Date((newTx.date || new Date().toISOString().split('T')[0]) + 'T12:00:00Z');
+                            const dateStr = newTx.date || new Date().toISOString().split('T')[0];
+                            const [yearStr, monthStr] = dateStr.split('-');
+                            const baseDate = new Date(Date.UTC(Number(yearStr), Number(monthStr) - 1, 1, 12, 0, 0));
                             const options = [];
-                            for (let i = 0; i <= 4; i++) {
+                            for (let i = 0; i <= 5; i++) {
                               const d = new Date(baseDate);
                               d.setUTCMonth(baseDate.getUTCMonth() + i);
                               const m = d.getUTCMonth() + 1;
