@@ -301,6 +301,18 @@ export const Tasks: React.FC = () => {
 
       setComments(prev => [...prev, data]);
       setNewComment('');
+
+      // Atualiza a contagem de comentários localmente na lista de tarefas
+      setTasks(prev => prev.map(t =>
+        t.id === editingTask.id
+          ? { ...t, commentCount: ((t as any).commentCount || 0) + 1 }
+          : t
+      ));
+
+      // Atualiza também a tarefa selecionada caso o modal de detalhes esteja aberto
+      if (selectedTask?.id === editingTask.id) {
+        setSelectedTask(prev => prev ? { ...prev, commentCount: ((prev as any).commentCount || 0) + 1 } as any : null);
+      }
     } catch (err: any) {
       showAlert('Erro', 'Não foi possível enviar o comentário.', 'danger');
     }
@@ -350,9 +362,14 @@ export const Tasks: React.FC = () => {
       // Update task comment count locally
       setTasks(prev => prev.map(t =>
         t.id === editingTask?.id
-          ? { ...t, commentCount: Math.max(0, (t as any).commentCount - 1) }
+          ? { ...t, commentCount: Math.max(0, ((t as any).commentCount || 0) - 1) }
           : t
       ));
+
+      // Atualiza também a tarefa selecionada caso o modal de detalhes esteja aberto
+      if (selectedTask?.id === editingTask?.id) {
+        setSelectedTask(prev => prev ? { ...prev, commentCount: Math.max(0, ((prev as any).commentCount || 0) - 1) } as any : null);
+      }
     } catch (err) {
       showAlert('Erro', 'Não foi possível excluir o comentário.', 'danger');
     }
