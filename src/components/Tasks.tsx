@@ -816,6 +816,7 @@ export const Tasks: React.FC = () => {
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => {
+                          setEditingTask(selectedTask);
                           fetchComments(selectedTask.id);
                           setShowCommentsModal(true);
                           setShowDetailsModal(false);
