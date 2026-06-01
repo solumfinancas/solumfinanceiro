@@ -193,7 +193,6 @@ export const Transactions: React.FC<TransactionsProps> = ({
       
       const matchesYear = effectiveYear === filterYear;
       const matchesMonth = filterMonth === 'all' || effectiveMonth === filterMonth;
-      const matchesStatus = (showPaid && t.isPaid) || (showPending && !t.isPaid);
       
       const isBankTx = wallet?.type !== 'credit_card' || isInvoicePayment;
 
@@ -209,9 +208,9 @@ export const Transactions: React.FC<TransactionsProps> = ({
                                (necessityFilter === 'invoice' && (isInvoicePayment || isRefund));
 
       if (viewModeContas === 'contas') {
-        return matchesFilter && matchesSearch && matchesYear && matchesMonth && matchesStatus && isBankTx && matchesWallet && matchesNecessity;
+        return matchesFilter && matchesSearch && matchesYear && matchesMonth && isBankTx && matchesWallet && matchesNecessity;
       } else {
-        return matchesFilter && matchesSearch && matchesYear && matchesMonth && matchesStatus && isCardTx && matchesWallet && matchesNecessity;
+        return matchesFilter && matchesSearch && matchesYear && matchesMonth && isCardTx && matchesWallet && matchesNecessity;
       }
     }).sort((a, b) => {
       // Primeiro por data (DESC)
