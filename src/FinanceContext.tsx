@@ -639,12 +639,14 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         if (t.walletId === w.id) {
           if (shouldCountIncome) balanceChange += t.amount;
           if (shouldCountExpense) balanceChange -= t.amount;
-          if (t.type === 'transfer') balanceChange -= t.amount;
+          if (t.type === 'transfer' && t.isPaid !== false) balanceChange -= t.amount;
         }
 
         const isInvoicePayment = t.description.toLowerCase().includes('pagamento de fatura');
         if ((t.type === 'transfer' || t.type === 'provision' || (isCreditCard && isInvoicePayment)) && t.toWalletId === w.id) {
-          balanceChange += t.amount;
+          if (t.isPaid !== false) {
+            balanceChange += t.amount;
+          }
         }
 
         return sum + balanceChange;
