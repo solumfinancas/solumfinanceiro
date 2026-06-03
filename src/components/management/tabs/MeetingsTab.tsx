@@ -713,6 +713,16 @@ export const MeetingsTab: React.FC = () => {
                               </div>
                             ))}
                           </div>
+
+                          <div className="flex flex-wrap gap-2 pt-2 border-t border-emerald-500/10">
+                            <button
+                              onClick={() => handleImpersonation(client)}
+                              className="flex-1 h-9 bg-emerald-500 text-white text-[9px] font-black uppercase tracking-widest rounded-xl hover:bg-emerald-600 transition-all flex items-center justify-center gap-1.5 shadow-sm shadow-emerald-500/10 cursor-pointer"
+                            >
+                              <ExternalLink size={12} />
+                              Reagendar Reunião
+                            </button>
+                          </div>
                         </motion.div>
                       );
                     })

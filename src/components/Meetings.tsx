@@ -580,7 +580,7 @@ export const Meetings: React.FC = () => {
   // Form states
   const [meetingForm, setMeetingForm] = useState({
     title: '',
-    date: format(new Date(), 'yyyy-MM-dd'),
+    date: format(new Date(), "yyyy-MM-dd'T'HH:00"),
     observations: '',
     notes: '',
     topics: [] as MeetingTopic[],
@@ -1258,7 +1258,7 @@ export const Meetings: React.FC = () => {
       // Reset form
       setMeetingForm({
         title: '',
-        date: format(new Date(), 'yyyy-MM-dd'),
+        date: format(new Date(), "yyyy-MM-dd'T'HH:00"),
         observations: '',
         notes: '',
         topics: [],
@@ -1279,7 +1279,7 @@ export const Meetings: React.FC = () => {
     if (!selectedMeeting) return;
     setMeetingForm({
       title: selectedMeeting.title,
-      date: selectedMeeting.date,
+      date: selectedMeeting.date.length === 10 ? `${selectedMeeting.date}T12:00` : selectedMeeting.date.replace(' ', 'T').slice(0, 16),
       observations: selectedMeeting.observations || '',
       notes: selectedMeeting.notes || '',
       topics: [...selectedMeeting.topics],
@@ -1537,7 +1537,11 @@ export const Meetings: React.FC = () => {
   // Formatar data localmente
   const formatDateLabel = (dateStr: string) => {
     try {
-      const parsedDate = parseISO(dateStr);
+      const normalized = dateStr.replace(' ', 'T');
+      const parsedDate = parseISO(normalized);
+      if (normalized.length > 10) {
+        return format(parsedDate, "dd 'de' MMMM 'de' yyyy 'às' HH:mm", { locale: ptBR });
+      }
       return format(parsedDate, "dd 'de' MMMM 'de' yyyy", { locale: ptBR });
     } catch (err) {
       return dateStr;
@@ -1599,7 +1603,7 @@ export const Meetings: React.FC = () => {
               onClick={() => {
                 setMeetingForm({
                   title: '',
-                  date: format(new Date(), 'yyyy-MM-dd'),
+                  date: format(new Date(), "yyyy-MM-dd'T'HH:00"),
                   observations: '',
                   notes: '',
                   topics: [],
@@ -1675,9 +1679,14 @@ export const Meetings: React.FC = () => {
 
                       <div className="space-y-3 pl-2">
                         <div className="flex items-center justify-between gap-2">
-                          <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+                          <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-1.5 flex-wrap">
                             <Calendar size={12} className="text-primary/70" />
-                            {meeting.date.split('-').reverse().join('/')}
+                            {(() => {
+                              const normalized = meeting.date.replace(' ', 'T');
+                              const datePart = normalized.split('T')[0].split('-').reverse().join('/');
+                              const timePart = normalized.includes('T') ? normalized.split('T')[1].slice(0, 5) : '';
+                              return timePart ? `${datePart} às ${timePart}` : datePart;
+                            })()}
                           </span>
 
                           <div className="flex items-center gap-2">
@@ -2068,7 +2077,7 @@ export const Meetings: React.FC = () => {
                       <Calendar className="absolute left-6 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
                       <input
                         required
-                        type="date"
+                        type="datetime-local"
                         value={meetingForm.date}
                         onChange={e => setMeetingForm(prev => ({ ...prev, date: e.target.value }))}
                         className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/5 rounded-2xl h-14 pl-14 pr-6 text-sm text-slate-900 dark:text-white outline-none focus:border-primary/50 transition-all font-semibold"
@@ -2227,7 +2236,7 @@ export const Meetings: React.FC = () => {
                       <Calendar className="absolute left-6 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
                       <input
                         required
-                        type="date"
+                        type="datetime-local"
                         value={meetingForm.date}
                         onChange={e => setMeetingForm(prev => ({ ...prev, date: e.target.value }))}
                         className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/5 rounded-2xl h-14 pl-14 pr-6 text-sm text-slate-900 dark:text-white outline-none focus:border-primary/50 transition-all font-semibold"
