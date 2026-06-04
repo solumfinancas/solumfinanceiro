@@ -33,7 +33,8 @@ import { ClientsTab } from './tabs/ClientsTab';
 import { RegisterServiceModal } from '../RegisterServiceModal';
 import { TasksTab } from './tabs/TasksTab';
 import { MeetingsTab } from './tabs/MeetingsTab';
-import { SimulatorsTab, ReferralsTab } from './tabs/EmptyTabs';
+import { ReferralsTab } from './tabs/EmptyTabs';
+import { SimulatorsTab } from './tabs/SimulatorsTab';
 import { SettingsTab } from './tabs/SettingsTab';
 
 interface ManagementPortalProps {
