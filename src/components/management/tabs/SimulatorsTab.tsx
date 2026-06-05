@@ -85,6 +85,7 @@ export const SimulatorsTab: React.FC = () => {
   const [sim1Months, setSim1Months] = useState(60);
   const [sim1Selic, setSim1Selic] = useState(10.5); // Selic estimada % a.a.
   const [sim1AltRate, setSim1AltRate] = useState(110); // % do CDI
+  const [sim1CustomRate, setSim1CustomRate] = useState(12.0); // % a.a. customizada
   const [sim1IsTaxFree, setSim1IsTaxFree] = useState(false); // LCI/LCA isento
 
   // ==========================================
@@ -133,8 +134,8 @@ export const SimulatorsTab: React.FC = () => {
   // ==========================================
   const sim1Data = useMemo(() => {
     // Poupança mensal: 
-    // se Selic > 8.5%, rende 0.5% + TR (estimando TR como 0.05% a.m. -> 0.55% a.m. total)
-    // se Selic <= 8.5%, rende 70% de Selic / 12 + TR
+    // se Selic estiver acima de 8,5% ao ano: A rentabilidade é de 0,5% ao mês (cerca de 6,17% ao ano) mais a Taxa Referencial (TR).
+    // se Selic estiver igual ou menor a 8,5% ao ano: A rentabilidade cai para 70% da meta da taxa Selic ao ano mais a Taxa Referencial (TR).
     const trMonthly = 0.05 / 100;
     const monthlyPoupança = sim1Selic > 8.5 
       ? 0.5 / 100 + trMonthly 
@@ -146,8 +147,13 @@ export const SimulatorsTab: React.FC = () => {
     const rateAnualAlt = cdiAnual * (sim1AltRate / 100);
     const monthlyAlt = Math.pow(1 + rateAnualAlt, 1/12) - 1;
 
+    // Investimento Customizado
+    const monthlyCustom = Math.pow(1 + (sim1CustomRate / 100), 1/12) - 1;
+
     let saldoP = sim1Initial;
     let totalInvested = sim1Initial;
+    let finalAltLiquidoTaxable = sim1Initial;
+    let finalCustomLiquidoTaxable = sim1Initial;
 
     // Estrutura para calcular IR regressivo de CDB de forma realista depósito por depósito
     const deposits = [{ amount: sim1Initial, month: 0 }];
@@ -157,6 +163,12 @@ export const SimulatorsTab: React.FC = () => {
       Poupança: saldoP,
       InvestimentoBruto: totalInvested,
       InvestimentoLíquido: totalInvested,
+      CustomBruto: totalInvested,
+      CustomLíquido: totalInvested,
+      IRAvalAlt: 0,
+      IRAvalAltTaxable: 0,
+      IRAvalCustom: 0,
+      IRAvalCustomTaxable: 0
     }];
 
     for (let m = 1; m <= sim1Months; m++) {
@@ -164,15 +176,16 @@ export const SimulatorsTab: React.FC = () => {
       totalInvested += sim1Monthly;
       deposits.push({ amount: sim1Monthly, month: m });
 
-      // Calcular o saldo do investimento alternativo
-      // Cada depósito rende individualmente juros compostos baseados em sua idade
+      // Calcular o saldo do investimento alternativo e customizado
       let altBruto = 0;
       let altLiquido = 0;
+      let altLiquidoTaxable = 0;
+      let customBruto = 0;
+      let customLiquido = 0;
+      let customLiquidoTaxable = 0;
 
       deposits.forEach((dep) => {
         const idadeMeses = m - dep.month;
-        const depBruto = dep.amount * Math.pow(1 + monthlyAlt, idadeMeses);
-        const depRendimento = depBruto - dep.amount;
         
         // Alíquota regressiva do IR brasileiro
         let aliquota = 0.15;
@@ -181,16 +194,33 @@ export const SimulatorsTab: React.FC = () => {
         else if (idadeDias <= 360) aliquota = 0.20;
         else if (idadeDias <= 720) aliquota = 0.175;
 
-        const depLiquido = sim1IsTaxFree 
-          ? depBruto 
-          : depBruto - (depRendimento * aliquota);
+        // CDI
+        const depBrutoAlt = dep.amount * Math.pow(1 + monthlyAlt, idadeMeses);
+        const depRendimentoAlt = depBrutoAlt - dep.amount;
+        const depLiquidoAlt = sim1IsTaxFree 
+          ? depBrutoAlt 
+          : depBrutoAlt - (depRendimentoAlt * aliquota);
+        const depLiquidoAltTaxable = depBrutoAlt - (depRendimentoAlt * aliquota);
+        altBruto += depBrutoAlt;
+        altLiquido += depLiquidoAlt;
+        altLiquidoTaxable += depLiquidoAltTaxable;
 
-        altBruto += depBruto;
-        altLiquido += depLiquido;
+        // Customizado
+        const depBrutoCustom = dep.amount * Math.pow(1 + monthlyCustom, idadeMeses);
+        const depRendimentoCustom = depBrutoCustom - dep.amount;
+        const depLiquidoCustom = sim1IsTaxFree 
+          ? depBrutoCustom 
+          : depBrutoCustom - (depRendimentoCustom * aliquota);
+        const depLiquidoCustomTaxable = depBrutoCustom - (depRendimentoCustom * aliquota);
+        customBruto += depBrutoCustom;
+        customLiquido += depLiquidoCustom;
+        customLiquidoTaxable += depLiquidoCustomTaxable;
       });
 
+      finalAltLiquidoTaxable = altLiquidoTaxable;
+      finalCustomLiquidoTaxable = customLiquidoTaxable;
+
       // Apenas adicionamos pontos no gráfico em intervalos para não saturar
-      // (a cada 1 mês se prazo < 24 meses, a cada 3 meses se < 120, senão a cada 6)
       const shouldPush = sim1Months <= 24 
         ? true 
         : sim1Months <= 120 
@@ -204,23 +234,47 @@ export const SimulatorsTab: React.FC = () => {
           Poupança: Math.round(saldoP),
           InvestimentoBruto: Math.round(altBruto),
           InvestimentoLíquido: Math.round(altLiquido),
+          CustomBruto: Math.round(customBruto),
+          CustomLíquido: Math.round(customLiquido),
+          IRAvalAlt: Math.round(altBruto - altLiquido),
+          IRAvalAltTaxable: Math.round(altBruto - altLiquidoTaxable),
+          IRAvalCustom: Math.round(customBruto - customLiquido),
+          IRAvalCustomTaxable: Math.round(customBruto - customLiquidoTaxable)
         });
       }
     }
 
     const finalPoupança = saldoP;
+    
+    // CDI
     const finalAltLid = chartPoints[chartPoints.length - 1].InvestimentoLíquido;
+    const finalAltBruto = chartPoints[chartPoints.length - 1].InvestimentoBruto;
+    const irAlt = finalAltBruto - finalAltLid;
+    const irAltTaxable = finalAltBruto - finalAltLiquidoTaxable;
     const diff = finalAltLid - finalPoupança;
+
+    // Custom
+    const finalCustomLid = chartPoints[chartPoints.length - 1].CustomLíquido;
+    const finalCustomBruto = chartPoints[chartPoints.length - 1].CustomBruto;
+    const irCustom = finalCustomBruto - finalCustomLid;
+    const irCustomTaxable = finalCustomBruto - finalCustomLiquidoTaxable;
+    const diffCustom = finalCustomLid - finalPoupança;
 
     return {
       points: chartPoints,
       totalInvested,
       finalPoupança,
       finalAltLid,
+      irAlt,
+      irAltTaxable,
       diff,
+      finalCustomLid,
+      irCustom,
+      irCustomTaxable,
+      diffCustom,
       cdiAnualNominal: cdiAnual * 100,
     };
-  }, [sim1Initial, sim1Monthly, sim1Months, sim1Selic, sim1AltRate, sim1IsTaxFree]);
+  }, [sim1Initial, sim1Monthly, sim1Months, sim1Selic, sim1AltRate, sim1CustomRate, sim1IsTaxFree]);
 
   // ==========================================
   // CALCULO 2: FINANCIAMENTO (SAC X PRICE)
@@ -698,6 +752,22 @@ export const SimulatorsTab: React.FC = () => {
                     onChange={e => setSim1Selic(Number(e.target.value))} 
                     className="w-full bg-muted/30 border border-border rounded-xl h-12 px-4 text-sm text-foreground outline-none focus:border-primary/50 transition-all font-bold"
                   />
+                  {/* Banner informativo dinâmico da poupança */}
+                  <div className="bg-primary/5 border border-primary/10 rounded-2xl p-4 mt-2 space-y-1.5">
+                    <div className="flex items-center gap-2 text-primary">
+                      <Info size={14} />
+                      <span className="text-[9px] font-black uppercase tracking-widest">Regra da Poupança</span>
+                    </div>
+                    {sim1Selic > 8.5 ? (
+                      <p className="text-xs font-medium text-muted-foreground leading-relaxed">
+                        Selic em <strong className="text-slate-900 dark:text-white">{sim1Selic}% a.a.</strong> (acima de 8,5% a.a.). A rentabilidade da poupança é de <strong className="text-slate-900 dark:text-white">0,5% ao mês</strong> (~6,17% ao ano) + Taxa Referencial (TR).
+                      </p>
+                    ) : (
+                      <p className="text-xs font-medium text-muted-foreground leading-relaxed">
+                        Selic em <strong className="text-slate-900 dark:text-white">{sim1Selic}% a.a.</strong> (igual/menor que 8,5% a.a.). A rentabilidade cai para <strong className="text-slate-900 dark:text-white">70% da Selic</strong> (~{(sim1Selic * 0.7).toFixed(2)}% ao ano) + Taxa Referencial (TR).
+                      </p>
+                    )}
+                  </div>
                 </div>
 
                 <div className="space-y-2">
@@ -708,6 +778,18 @@ export const SimulatorsTab: React.FC = () => {
                     onChange={e => setSim1AltRate(Number(e.target.value))} 
                     className="w-full bg-muted/30 border border-border rounded-xl h-12 px-4 text-sm text-foreground outline-none focus:border-primary/50 transition-all font-bold"
                   />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-2">Taxa Alternativa Customizada (% a.a.)</label>
+                  <input 
+                    type="number" 
+                    value={sim1CustomRate} 
+                    step="0.1"
+                    onChange={e => setSim1CustomRate(Number(e.target.value))} 
+                    className="w-full bg-muted/30 border border-border rounded-xl h-12 px-4 text-sm text-foreground outline-none focus:border-primary/50 transition-all font-bold"
+                  />
+                  <input type="range" min="0" max="30" step="0.5" value={sim1CustomRate} onChange={e => setSim1CustomRate(Number(e.target.value))} className="premium-slider" />
                 </div>
 
                 <div className="flex items-center gap-3 bg-muted/20 border border-border p-4 rounded-2xl">
@@ -996,7 +1078,7 @@ export const SimulatorsTab: React.FC = () => {
         <div className="xl:col-span-2 space-y-6">
           
           {/* CARDS DE SUMÁRIO DO SIMULADOR ATIVO */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className={cn("grid grid-cols-1 gap-4", activeSim === 'investments' ? "sm:grid-cols-4" : "sm:grid-cols-3")}>
             {activeSim === 'investments' && (
               <>
                 <div className="bg-card border border-border p-6 rounded-3xl flex flex-col justify-between">
@@ -1005,12 +1087,26 @@ export const SimulatorsTab: React.FC = () => {
                 </div>
                 <div className="bg-card border border-border p-6 rounded-3xl flex flex-col justify-between">
                   <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground mb-1">Saldo na Poupança</p>
-                  <p className="text-xl font-black text-rose-500">{formatCurrency(sim1Data.finalPoupança)}</p>
+                  <div>
+                    <p className="text-xl font-black text-rose-500">{formatCurrency(sim1Data.finalPoupança)}</p>
+                    <p className="text-[8px] font-bold text-muted-foreground uppercase mt-1 leading-normal">
+                      {sim1Selic > 8.5 
+                        ? "Rendimento: 0,5% a.m. (~6,17% a.a.) + TR" 
+                        : `Rendimento: 70% da Selic (~${(sim1Selic * 0.7).toFixed(2)}% a.a.) + TR`}
+                    </p>
+                  </div>
                 </div>
                 <div className="bg-card border border-border p-6 rounded-3xl flex flex-col justify-between relative overflow-hidden group">
                   <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full blur-xl" />
-                  <p className="text-[9px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400 mb-1">Saldo Invest. Líquido</p>
+                  <p className="text-[9px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400 mb-1">Saldo Invest. CDI</p>
                   <p className="text-xl font-black text-emerald-500">{formatCurrency(sim1Data.finalAltLid)}</p>
+                  <p className="text-[8px] font-bold text-muted-foreground uppercase mt-1">Taxa: {sim1AltRate}% do CDI</p>
+                </div>
+                <div className="bg-card border border-border p-6 rounded-3xl flex flex-col justify-between relative overflow-hidden group">
+                  <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/5 rounded-full blur-xl" />
+                  <p className="text-[9px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-400 mb-1">Saldo Invest. Custom</p>
+                  <p className="text-xl font-black text-amber-500">{formatCurrency(sim1Data.finalCustomLid)}</p>
+                  <p className="text-[8px] font-bold text-muted-foreground uppercase mt-1">Taxa: {sim1CustomRate}% a.a.</p>
                 </div>
               </>
             )}
@@ -1130,6 +1226,10 @@ export const SimulatorsTab: React.FC = () => {
                         <stop offset="5%" stopColor="#10b981" stopOpacity={0.2}/>
                         <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
                       </linearGradient>
+                      <linearGradient id="colorCustom" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.2}/>
+                        <stop offset="95%" stopColor="#f59e0b" stopOpacity={0}/>
+                      </linearGradient>
                       <linearGradient id="colorPoupança" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="#ef4444" stopOpacity={0.1}/>
                         <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
@@ -1138,9 +1238,60 @@ export const SimulatorsTab: React.FC = () => {
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" opacity={0.3} />
                     <XAxis dataKey="mes" tickFormatter={(v) => `Mês ${v}`} tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} />
                     <YAxis tickFormatter={(v) => `R$ ${v/1000}k`} tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} />
-                    <Tooltip formatter={(value: any) => formatCurrency(value)} />
+                    <Tooltip 
+                      content={({ active, payload }) => {
+                        if (active && payload && payload.length) {
+                          const data = payload[0].payload;
+                          return (
+                            <div className="bg-card/90 border border-border p-4 rounded-2xl shadow-2xl backdrop-blur-md text-xs space-y-2.5">
+                              <p className="font-black uppercase tracking-widest text-muted-foreground">Mês {data.mes}</p>
+                              <div className="space-y-1.5 font-medium">
+                                <div className="flex justify-between gap-6">
+                                  <span className="text-muted-foreground">Capital Investido:</span>
+                                  <span className="font-bold text-foreground">{formatCurrency(data.Investido)}</span>
+                                </div>
+                                <div className="flex justify-between gap-6">
+                                  <span className="text-rose-500 font-bold">Poupança:</span>
+                                  <span className="font-bold text-rose-500">{formatCurrency(data.Poupança)}</span>
+                                </div>
+                                <div className="border-t border-border pt-1.5">
+                                  <div className="flex justify-between gap-6">
+                                    <span className="text-emerald-500 font-bold">Invest. CDI (Líquido):</span>
+                                    <span className="font-bold text-emerald-500">{formatCurrency(data.InvestimentoLíquido)}</span>
+                                  </div>
+                                  <div className="flex justify-between gap-6 text-[10px] text-muted-foreground">
+                                    <span>IR Retido Acumulado:</span>
+                                    <span>
+                                      {sim1IsTaxFree 
+                                        ? `Isento (Economia: ${formatCurrency(data.IRAvalAltTaxable)})` 
+                                        : formatCurrency(data.IRAvalAlt)}
+                                    </span>
+                                  </div>
+                                </div>
+                                <div className="border-t border-border pt-1.5">
+                                  <div className="flex justify-between gap-6">
+                                    <span className="text-amber-500 font-bold">Invest. Custom (Líquido):</span>
+                                    <span className="font-bold text-amber-500">{formatCurrency(data.CustomLíquido)}</span>
+                                  </div>
+                                  <div className="flex justify-between gap-6 text-[10px] text-muted-foreground">
+                                    <span>IR Retido Acumulado:</span>
+                                    <span>
+                                      {sim1IsTaxFree 
+                                        ? `Isento (Economia: ${formatCurrency(data.IRAvalCustomTaxable)})` 
+                                        : formatCurrency(data.IRAvalCustom)}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
+                    />
                     <Legend />
-                    <Area type="monotone" name="Investimento Alternativo (Líquido)" dataKey="InvestimentoLíquido" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorAlt)" />
+                    <Area type="monotone" name="Investimento CDI (Líquido)" dataKey="InvestimentoLíquido" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorAlt)" />
+                    <Area type="monotone" name="Investimento Customizado (Líquido)" dataKey="CustomLíquido" stroke="#f59e0b" strokeWidth={3} fillOpacity={1} fill="url(#colorCustom)" />
                     <Area type="monotone" name="Caderneta de Poupança" dataKey="Poupança" stroke="#ef4444" strokeWidth={2} fillOpacity={1} fill="url(#colorPoupança)" />
                     <Area type="monotone" name="Capital Investido" dataKey="Investido" stroke="#94a3b8" strokeWidth={1} strokeDasharray="5 5" fill="none" />
                   </AreaChart>
@@ -1236,19 +1387,113 @@ export const SimulatorsTab: React.FC = () => {
               </h4>
 
               {activeSim === 'investments' && (
-                <div className="bg-muted/30 border border-border p-5 rounded-2xl space-y-3">
-                  <p className="text-sm font-medium text-muted-foreground leading-relaxed">
-                    Aplicando a taxa Selic estimada de <strong className="text-slate-950 dark:text-white">{sim1Selic}% a.a.</strong>, o rendimento alternativo de <strong className="text-slate-950 dark:text-white">{sim1AltRate}% do CDI</strong> (nominal de {sim1Data.cdiAnualNominal.toFixed(2)}% a.a.) acumulou uma rentabilidade líquida total maior que a poupança em <strong className="text-emerald-500 font-bold">{formatCurrency(sim1Data.diff)}</strong> ao final de {sim1Months} meses.
-                  </p>
-                  <div className="flex flex-col gap-1.5 text-xs text-muted-foreground">
-                    <span className="flex items-center gap-2">
-                      <CheckCircle size={14} className="text-emerald-500 shrink-0" />
-                      Rendimento Poupança Líquido: {formatCurrency(sim1Data.finalPoupança - sim1Data.totalInvested)}
-                    </span>
-                    <span className="flex items-center gap-2">
-                      <CheckCircle size={14} className="text-emerald-500 shrink-0" />
-                      Rendimento Alternativo Líquido (após IR): {formatCurrency(sim1Data.finalAltLid - sim1Data.totalInvested)}
-                    </span>
+                <div className="bg-muted/30 border border-border p-5 rounded-2xl space-y-5">
+                  <div className="space-y-2 leading-relaxed">
+                    <p className="text-sm font-medium text-muted-foreground">
+                      Aplicando a taxa Selic estimada de <strong className="text-slate-950 dark:text-white">{sim1Selic}% a.a.</strong>, analisamos dois cenários de investimento em comparação à Caderneta de Poupança:
+                    </p>
+                    <ul className="list-disc list-inside text-xs text-muted-foreground space-y-1">
+                      <li>
+                        <strong>Investimento CDI:</strong> Rendendo {sim1AltRate}% do CDI (rentabilidade nominal de {sim1Data.cdiAnualNominal.toFixed(2)}% a.a.).
+                      </li>
+                      <li>
+                        <strong>Investimento Taxa Customizada:</strong> Rendendo a taxa de {sim1CustomRate}% a.a.
+                      </li>
+                    </ul>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-border pt-4">
+                    {/* Cenário 1: CDI */}
+                    <div className="bg-card p-4 rounded-xl border border-border space-y-2">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-emerald-500 block">Cenário 1: Investimento CDI</span>
+                      <div className="text-xs text-muted-foreground space-y-1">
+                        <div className="flex justify-between">
+                          <span>Rendimento Líquido:</span>
+                          <span className="font-bold text-foreground">{formatCurrency(sim1Data.finalAltLid - sim1Data.totalInvested)}</span>
+                        </div>
+                        <div className="flex justify-between font-bold text-[10px]">
+                          <span>Imposto de Renda (IR):</span>
+                          <span>
+                            {sim1IsTaxFree 
+                              ? `Isento (Economia de ${formatCurrency(sim1Data.irAltTaxable)})` 
+                              : formatCurrency(sim1Data.irAlt)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between border-t border-dashed border-border pt-1 mt-1">
+                          <span className="text-emerald-500 font-bold">Diferença vs Poupança:</span>
+                          <span className="font-black text-emerald-500">+{formatCurrency(sim1Data.diff)}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Cenário 2: Taxa Customizada */}
+                    <div className="bg-card p-4 rounded-xl border border-border space-y-2">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-amber-500 block">Cenário 2: Investimento Customizado</span>
+                      <div className="text-xs text-muted-foreground space-y-1">
+                        <div className="flex justify-between">
+                          <span>Rendimento Líquido:</span>
+                          <span className="font-bold text-foreground">{formatCurrency(sim1Data.finalCustomLid - sim1Data.totalInvested)}</span>
+                        </div>
+                        <div className="flex justify-between font-bold text-[10px]">
+                          <span>Imposto de Renda (IR):</span>
+                          <span>
+                            {sim1IsTaxFree 
+                              ? `Isento (Economia de ${formatCurrency(sim1Data.irCustomTaxable)})` 
+                              : formatCurrency(sim1Data.irCustom)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between border-t border-dashed border-border pt-1 mt-1">
+                          <span className="text-amber-500 font-bold">Diferença vs Poupança:</span>
+                          <span className="font-black text-amber-500">+{formatCurrency(sim1Data.diffCustom)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-3 text-xs text-muted-foreground border-t border-border pt-4">
+                    <div className="space-y-1">
+                      <p className="font-bold text-slate-900 dark:text-white text-[11px] uppercase tracking-wider mb-2">Resumo dos Rendimentos (Líquidos):</p>
+                      <span className="flex items-center gap-2">
+                        <CheckCircle size={14} className="text-emerald-500 shrink-0" />
+                        Poupança: <strong>{formatCurrency(sim1Data.finalPoupança - sim1Data.totalInvested)}</strong>
+                      </span>
+                      <span className="flex items-center gap-2">
+                        <CheckCircle size={14} className="text-emerald-500 shrink-0" />
+                        Investimento CDI {sim1IsTaxFree ? '(Isento)' : '(após IR)'}: <strong>{formatCurrency(sim1Data.finalAltLid - sim1Data.totalInvested)}</strong>
+                        <span className="text-[10px] font-medium text-muted-foreground ml-1">
+                          (Diferença de rendimento: +{formatCurrency(sim1Data.diff)})
+                        </span>
+                      </span>
+                      <span className="flex items-center gap-2">
+                        <CheckCircle size={14} className="text-emerald-500 shrink-0" />
+                        Investimento Customizado {sim1IsTaxFree ? '(Isento)' : '(após IR)'}: <strong>{formatCurrency(sim1Data.finalCustomLid - sim1Data.totalInvested)}</strong>
+                        <span className="text-[10px] font-medium text-muted-foreground ml-1">
+                          (Diferença de rendimento: +{formatCurrency(sim1Data.diffCustom)})
+                        </span>
+                      </span>
+                    </div>
+
+                    <div className="space-y-1 border-t border-border/60 pt-3">
+                      <p className="font-bold text-slate-900 dark:text-white text-[11px] uppercase tracking-wider mb-2">Comparativo de Saldo Final Acumulado (Patrimônio Total):</p>
+                      <span className="flex items-center gap-2">
+                        <CheckCircle size={14} className="text-primary shrink-0" />
+                        Saldo Final Poupança: <strong>{formatCurrency(sim1Data.finalPoupança)}</strong>
+                      </span>
+                      <span className="flex items-center gap-2">
+                        <CheckCircle size={14} className="text-emerald-500 shrink-0" />
+                        Saldo Final Investimento CDI: <strong>{formatCurrency(sim1Data.finalAltLid)}</strong>
+                        <span className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 ml-1">
+                          (Saldo a mais que a Poupança: +{formatCurrency(sim1Data.diff)})
+                        </span>
+                      </span>
+                      <span className="flex items-center gap-2">
+                        <CheckCircle size={14} className="text-amber-500 shrink-0" />
+                        Saldo Final Investimento Customizado: <strong>{formatCurrency(sim1Data.finalCustomLid)}</strong>
+                        <span className="text-[10px] font-black text-amber-600 dark:text-amber-500 ml-1">
+                          (Saldo a mais que a Poupança: +{formatCurrency(sim1Data.diffCustom)})
+                        </span>
+                      </span>
+                    </div>
                   </div>
                 </div>
               )}
