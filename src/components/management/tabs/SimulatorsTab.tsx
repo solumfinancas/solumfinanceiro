@@ -436,76 +436,111 @@ export const SimulatorsTab: React.FC = () => {
     const mesesUsufruto = Math.max(0, (sim3LifeExpectancy - sim3RetireAge) * 12);
     const rMensalReal = Math.pow(1 + (sim3RealRate / 100), 1/12) - 1;
 
-    let saldo = sim3CurrentWealth;
-    const chartPoints = [{
+    // --- Fase 1: Acumulação ---
+    let saldoAcum = sim3CurrentWealth;
+    let totalAportado = sim3CurrentWealth;
+    const acumulacaoPoints = [{
+      mes: 0,
       idade: sim3Age,
-      patrimonio: Math.round(saldo),
-      fase: 'Acumulação'
+      patrimonio: Math.round(saldoAcum),
+      totalAportado: Math.round(totalAportado),
+      jurosAcumulados: 0
     }];
 
-    // Fase 1: Acumulação
     for (let m = 1; m <= mesesAcumulacao; m++) {
-      saldo = (saldo + sim3MonthlyContribution) * (1 + rMensalReal);
-      const idadeCorr = sim3Age + (m / 12);
-      
+      saldoAcum = (saldoAcum + sim3MonthlyContribution) * (1 + rMensalReal);
+      totalAportado += sim3MonthlyContribution;
+
       const shouldPush = mesesAcumulacao <= 120 
-        ? m % 12 === 0 
+        ? m % 12 === 0 || m === mesesAcumulacao
         : m % 24 === 0 || m === mesesAcumulacao;
-        
+
       if (shouldPush) {
-        chartPoints.push({
-          idade: Math.round(idadeCorr),
-          patrimonio: Math.round(saldo),
-          fase: 'Acumulação'
+        acumulacaoPoints.push({
+          mes: m,
+          idade: Math.round(sim3Age + (m / 12)),
+          patrimonio: Math.round(saldoAcum),
+          totalAportado: Math.round(totalAportado),
+          jurosAcumulados: Math.round(Math.max(0, saldoAcum - totalAportado))
         });
       }
     }
 
-    const patrimonioNaAposentadoria = saldo;
+    const patrimonioNaAposentadoria = saldoAcum;
 
-    // Fase 2: Usufruto
+    // --- Fase 2: Saque ---
+    let saldoSaque = patrimonioNaAposentadoria;
+    const saquePoints = [];
     let esgotouIdade: number | null = null;
+
+    // Ponto inicial da fase de saque
+    const rendimentoInicial = saldoSaque * rMensalReal;
+    saquePoints.push({
+      mes: 0,
+      idade: sim3RetireAge,
+      saldo: Math.round(saldoSaque),
+      rendimento: Math.round(rendimentoInicial),
+      saque: sim3DesiredIncome,
+      consumoPrincipal: Math.round(Math.max(0, sim3DesiredIncome - rendimentoInicial))
+    });
+
     for (let m = 1; m <= mesesUsufruto; m++) {
-      if (saldo > 0) {
-        saldo = saldo - sim3DesiredIncome;
-        if (saldo > 0) {
-          saldo = saldo * (1 + rMensalReal);
+      if (saldoSaque > 0) {
+        const rendimentoMes = saldoSaque * rMensalReal;
+        const novoSaldo = (saldoSaque + rendimentoMes) - sim3DesiredIncome;
+
+        if (novoSaldo > 0) {
+          saldoSaque = novoSaldo;
         } else {
-          saldo = 0;
+          saldoSaque = 0;
           if (esgotouIdade === null) {
             esgotouIdade = Math.round(sim3RetireAge + (m / 12));
           }
         }
-      }
-      
-      const idadeCorr = sim3RetireAge + (m / 12);
-      const shouldPush = mesesUsufruto <= 120 
-        ? m % 12 === 0 
-        : m % 24 === 0 || m === mesesUsufruto;
 
-      if (shouldPush) {
-        chartPoints.push({
-          idade: Math.round(idadeCorr),
-          patrimonio: Math.round(saldo),
-          fase: 'Usufruto'
-        });
+        const shouldPush = mesesUsufruto <= 120 
+          ? m % 12 === 0 || m === mesesUsufruto
+          : m % 24 === 0 || m === mesesUsufruto;
+
+        if (shouldPush) {
+          saquePoints.push({
+            mes: m,
+            idade: Math.round(sim3RetireAge + (m / 12)),
+            saldo: Math.round(saldoSaque),
+            rendimento: Math.round(rendimentoMes),
+            saque: sim3DesiredIncome,
+            consumoPrincipal: Math.round(Math.max(0, sim3DesiredIncome - rendimentoMes))
+          });
+        }
+      } else {
+        const shouldPush = mesesUsufruto <= 120 
+          ? m % 12 === 0 || m === mesesUsufruto
+          : m % 24 === 0 || m === mesesUsufruto;
+
+        if (shouldPush) {
+          saquePoints.push({
+            mes: m,
+            idade: Math.round(sim3RetireAge + (m / 12)),
+            saldo: 0,
+            rendimento: 0,
+            saque: sim3DesiredIncome,
+            consumoPrincipal: sim3DesiredIncome
+          });
+        }
       }
     }
 
-    // Rendimento Perpétuo: se retirar apenas a rentabilidade mensal real do patrimônio acumulado
     const rendaPerpetua = patrimonioNaAposentadoria * rMensalReal;
 
     return {
-      points: chartPoints,
+      acumulacaoPoints,
+      saquePoints,
       patrimonioAposentadoria: patrimonioNaAposentadoria,
-      patrimonioFinal: saldo,
+      patrimonioFinal: saldoSaque,
       rendaPerpetua,
       esgotouIdade,
-      isSustentavel: esgotouIdade === null && saldo > 0,
+      isSustentavel: esgotouIdade === null && saldoSaque > 0,
     };
-
-    // Helper simples para contornar escopo local
-    function getContributionValue() { return sim3MonthlyContribution; }
   }, [sim3Age, sim3RetireAge, sim3LifeExpectancy, sim3CurrentWealth, sim3MonthlyContribution, sim3DesiredIncome, sim3RealRate]);
 
   // ==========================================
@@ -1297,7 +1332,126 @@ export const SimulatorsTab: React.FC = () => {
             </h3>
 
             {/* GRÁFICOS DO RECHARTS */}
-            {activeSim !== 'financing' ? (
+            {/* GRÁFICOS DO RECHARTS */}
+            {activeSim === 'retirement' && (
+              <div className="space-y-10">
+                {/* 1. Fase de Acumulação */}
+                <div className="space-y-4">
+                  <div>
+                    <h4 className="text-sm font-black uppercase tracking-wider text-slate-900 dark:text-white">Fase de Acumulação</h4>
+                    <p className="text-xs text-muted-foreground">Crescimento do patrimônio sob juros compostos da idade atual até a idade de aposentadoria.</p>
+                  </div>
+                  <div className="h-[280px] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={sim3Data.acumulacaoPoints} margin={{ top: 10, right: 10, left: 60, bottom: 0 }}>
+                        <defs>
+                          <linearGradient id="colorPatrimonioAcum" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#d97706" stopOpacity={0.15}/>
+                            <stop offset="95%" stopColor="#d97706" stopOpacity={0}/>
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" opacity={0.3} />
+                        <XAxis dataKey="idade" tickFormatter={(v) => `${v} anos`} tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} />
+                        <YAxis width={60} tickFormatter={(v) => `R$ ${(v/1000).toFixed(0)}k`} tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} />
+                        <Tooltip 
+                          content={({ active, payload }) => {
+                            if (active && payload && payload.length) {
+                              const data = payload[0].payload;
+                              return (
+                                <div className="bg-card/90 border border-border p-4 rounded-2xl shadow-2xl backdrop-blur-md text-xs space-y-2.5">
+                                  <p className="font-black uppercase tracking-widest text-muted-foreground">Idade: {data.idade} anos</p>
+                                  <div className="space-y-1.5 font-medium">
+                                    <div className="flex justify-between gap-6 font-bold text-slate-900 dark:text-white border-b border-border pb-1 mb-1">
+                                      <span>Patrimônio Total:</span>
+                                      <span>{formatCurrency(data.patrimonio)}</span>
+                                    </div>
+                                    <div className="flex justify-between gap-6">
+                                      <span className="text-slate-500">Total Aportado:</span>
+                                      <span className="font-semibold text-slate-700 dark:text-slate-350">{formatCurrency(data.totalAportado)}</span>
+                                    </div>
+                                    <div className="flex justify-between gap-6">
+                                      <span className="text-amber-500 font-bold">Juros Acumulados:</span>
+                                      <span className="font-semibold text-amber-500">{formatCurrency(data.jurosAcumulados)}</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            }
+                            return null;
+                          }}
+                        />
+                        <Legend />
+                        <Area type="linear" name="Patrimônio Total" dataKey="patrimonio" stroke="#d97706" strokeWidth={3} fillOpacity={1} fill="url(#colorPatrimonioAcum)" />
+                        <Area type="linear" name="Total Aportado" dataKey="totalAportado" stroke="#94a3b8" strokeWidth={2} strokeDasharray="5 5" fill="none" />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+
+                {/* 2. Fase de Saque */}
+                <div className="space-y-4 pt-6 border-t border-border/60">
+                  <div>
+                    <h4 className="text-sm font-black uppercase tracking-wider text-slate-900 dark:text-white">Fase de Saque (Usufruto)</h4>
+                    <p className="text-xs text-muted-foreground">Consumo do patrimônio acumulado sob o efeito de saques mensais e rendimentos contínuos.</p>
+                  </div>
+                  <div className="h-[280px] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={sim3Data.saquePoints} margin={{ top: 10, right: 10, left: 60, bottom: 0 }}>
+                        <defs>
+                          <linearGradient id="colorPatrimonioSaque" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#10b981" stopOpacity={0.15}/>
+                            <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" opacity={0.3} />
+                        <XAxis dataKey="idade" tickFormatter={(v) => `${v} anos`} tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} />
+                        <YAxis width={60} tickFormatter={(v) => `R$ ${(v/1000).toFixed(0)}k`} tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} />
+                        <Tooltip 
+                          content={({ active, payload }) => {
+                            if (active && payload && payload.length) {
+                              const data = payload[0].payload;
+                              const rendSuficiente = data.rendimento >= data.saque;
+                              return (
+                                <div className="bg-card/90 border border-border p-4 rounded-2xl shadow-2xl backdrop-blur-md text-xs space-y-2.5">
+                                  <p className="font-black uppercase tracking-widest text-muted-foreground">Idade: {data.idade} anos</p>
+                                  <div className="space-y-1.5 font-medium">
+                                    <div className="flex justify-between gap-6 font-bold text-slate-900 dark:text-white border-b border-border pb-1 mb-1">
+                                      <span>Saldo do Patrimônio:</span>
+                                      <span>{formatCurrency(data.saldo)}</span>
+                                    </div>
+                                    <div className="flex justify-between gap-6">
+                                      <span className="text-emerald-500 font-bold">Rendimento Mensal:</span>
+                                      <span className="font-semibold text-emerald-500">{formatCurrency(data.rendimento)}</span>
+                                    </div>
+                                    <div className="flex justify-between gap-6">
+                                      <span className="text-slate-500">Saque Mensal:</span>
+                                      <span className="font-semibold text-slate-750 dark:text-slate-350">{formatCurrency(data.saque)}</span>
+                                    </div>
+                                    <div className="flex justify-between gap-6 border-t border-dashed border-border pt-1">
+                                      <span className={rendSuficiente ? "text-emerald-500 font-bold" : "text-rose-500 font-bold"}>
+                                        {rendSuficiente ? "Sustentado pelos Juros" : "Consumo do Principal:"}
+                                      </span>
+                                      <span className={rendSuficiente ? "text-emerald-500 font-bold" : "text-rose-500 font-bold"}>
+                                        {rendSuficiente ? "R$ 0,00" : formatCurrency(data.consumoPrincipal)}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            }
+                            return null;
+                          }}
+                        />
+                        <Legend />
+                        <Area type="linear" name="Saldo Restante" dataKey="saldo" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorPatrimonioSaque)" />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeSim !== 'financing' && activeSim !== 'retirement' && (
               <div className="h-[320px] w-full">
                 {activeSim === 'investments' && (
                   <ResponsiveContainer width="100%" height="100%">
@@ -1383,25 +1537,6 @@ export const SimulatorsTab: React.FC = () => {
                   </ResponsiveContainer>
                 )}
 
-                {activeSim === 'retirement' && (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={sim3Data.points} margin={{ top: 10, right: 30, left: 10, bottom: 0 }}>
-                      <defs>
-                        <linearGradient id="colorPatrimonio" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#d97706" stopOpacity={0.2}/>
-                          <stop offset="95%" stopColor="#d97706" stopOpacity={0}/>
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" opacity={0.3} />
-                      <XAxis dataKey="idade" tickFormatter={(v) => `${v} anos`} tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} />
-                      <YAxis tickFormatter={(v) => `R$ ${v/1000}k`} tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} />
-                      <Tooltip formatter={(value: any) => formatCurrency(value)} />
-                      <Legend />
-                      <Area type="monotone" name="Patrimônio Real Acumulado" dataKey="patrimonio" stroke="#d97706" strokeWidth={3} fillOpacity={1} fill="url(#colorPatrimonio)" />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                )}
-
                 {activeSim === 'rent-vs-buy' && (
                   <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={sim4Data.points} margin={{ top: 10, right: 30, left: 10, bottom: 0 }}>
@@ -1450,7 +1585,9 @@ export const SimulatorsTab: React.FC = () => {
                   </ResponsiveContainer>
                 )}
               </div>
-            ) : (
+            )}
+
+            {activeSim === 'financing' && (
               <div className="space-y-10">
                 {/* 1. Evolução das Parcelas */}
                 <div className="space-y-4">
@@ -1937,22 +2074,57 @@ export const SimulatorsTab: React.FC = () => {
               )}
 
               {activeSim === 'retirement' && (
-                <div className="bg-muted/30 border border-border p-5 rounded-2xl space-y-3">
-                  <p className="text-sm font-medium text-muted-foreground leading-relaxed">
-                    Com base nos aportes mensais de **{formatCurrency(sim3MonthlyContribution)}** até os {sim3RetireAge} anos, você construirá um patrimônio de **{formatCurrency(sim3Data.patrimonioAposentadoria)}**.
-                  </p>
+                <div className="bg-muted/30 border border-border p-6 rounded-[2rem] space-y-5">
+                  <div className="space-y-3 leading-relaxed">
+                    <p className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider text-[11px]">
+                      Resumo da Projeção de Aposentadoria:
+                    </p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs text-muted-foreground">
+                      <div className="bg-card p-4 rounded-xl border border-border space-y-1.5">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-amber-500 block mb-1">Parâmetros da Fase de Acumulação</span>
+                        <p>• Idade atual de início: <strong className="text-slate-900 dark:text-white">{sim3Age} anos</strong></p>
+                        <p>• Tempo de acumulação: <strong className="text-slate-900 dark:text-white">{sim3RetireAge - sim3Age} anos ({ (sim3RetireAge - sim3Age) * 12 } meses)</strong></p>
+                        <p>• Aportes mensais programados: <strong className="text-slate-900 dark:text-white">{formatCurrency(sim3MonthlyContribution)}</strong></p>
+                        <p>• Patrimônio estimado ao se aposentar: <strong className="text-slate-900 dark:text-white font-black text-amber-500">{formatCurrency(sim3Data.patrimonioAposentadoria)}</strong></p>
+                      </div>
+                      
+                      <div className="bg-card p-4 rounded-xl border border-border space-y-1.5">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-emerald-500 block mb-1">Parâmetros da Fase de Saque (Usufruto)</span>
+                        <p>• Idade de início dos saques: <strong className="text-slate-900 dark:text-white">{sim3RetireAge} anos</strong></p>
+                        <p>• Expectativa de planejamento de vida: <strong className="text-slate-900 dark:text-white">{sim3LifeExpectancy} anos</strong></p>
+                        <p>• Rendimento médio mensal estimado: <strong className="text-emerald-500 font-bold">{formatCurrency(sim3Data.patrimonioAposentadoria * (Math.pow(1 + (sim3RealRate / 100), 1/12) - 1))}</strong></p>
+                        <p>• Renda mensal desejada (saque programado): <strong className="text-slate-900 dark:text-white">{formatCurrency(sim3DesiredIncome)}</strong></p>
+                      </div>
+                    </div>
+                  </div>
+
                   {sim3Data.isSustentavel ? (
                     <div className="flex items-start gap-3 bg-emerald-500/10 border border-emerald-500/20 p-4 rounded-xl">
                       <CheckCircle className="text-emerald-500 shrink-0 mt-0.5" size={18} />
-                      <div className="text-xs text-emerald-800 dark:text-emerald-300 font-medium">
-                        <strong>Patrimônio Sustentável!</strong> Seus investimentos rendem juros reais suficientes para bancar sua renda de {formatCurrency(sim3DesiredIncome)} sem nunca esgotar o capital (retirada abaixo da renda perpétua de {formatCurrency(sim3Data.rendaPerpetua)}).
+                      <div className="text-xs text-emerald-800 dark:text-emerald-300 font-medium space-y-1">
+                        <p className="font-bold text-sm">Patrimônio Sustentável e Perpétuo!</p>
+                        <p>
+                          O rendimento mensal estimado do seu patrimônio acumulado (<strong className="text-emerald-600 dark:text-emerald-400">{formatCurrency(sim3Data.patrimonioAposentadoria * (Math.pow(1 + (sim3RealRate / 100), 1/12) - 1))}</strong>) é superior ao seu saque programado (<strong className="text-slate-900 dark:text-white">{formatCurrency(sim3DesiredIncome)}</strong>).
+                        </p>
+                        <p>
+                          Como você está retirando menos do que os juros gerados, o seu montante principal de <strong className="text-slate-900 dark:text-white">{formatCurrency(sim3Data.patrimonioAposentadoria)}</strong> não sofrerá redução ao longo do tempo, mantendo-se inteiramente preservado para herdeiros ou perpetuidade.
+                        </p>
                       </div>
                     </div>
                   ) : (
                     <div className="flex items-start gap-3 bg-rose-500/10 border border-rose-500/20 p-4 rounded-xl">
                       <AlertTriangle className="text-rose-500 shrink-0 mt-0.5" size={18} />
-                      <div className="text-xs text-rose-800 dark:text-rose-300 font-medium">
-                        <strong>Atenção!</strong> O capital se esgotará aos {sim3Data.esgotouIdade} anos. Para manter o patrimônio até a expectativa de vida desejada ({sim3LifeExpectancy} anos), considere aumentar os aportes na fase de acumulação, adiar a aposentadoria em alguns anos ou reduzir a retirada planejada.
+                      <div className="text-xs text-rose-800 dark:text-rose-300 font-medium space-y-1">
+                        <p className="font-bold text-sm">Atenção: Consumo do Principal!</p>
+                        <p>
+                          O seu saque mensal desejado (<strong className="text-rose-600 dark:text-rose-400">{formatCurrency(sim3DesiredIncome)}</strong>) é maior do que o rendimento mensal gerado pelo capital acumulado (<strong className="text-slate-900 dark:text-white">{formatCurrency(sim3Data.patrimonioAposentadoria * (Math.pow(1 + (sim3RealRate / 100), 1/12) - 1))}</strong>).
+                        </p>
+                        <p>
+                          Isso fará com que o saldo principal seja consumido mensalmente para cobrir a diferença de <strong className="text-rose-700 dark:text-rose-400 font-bold">{formatCurrency(sim3DesiredIncome - (sim3Data.patrimonioAposentadoria * (Math.pow(1 + (sim3RealRate / 100), 1/12) - 1)))}</strong>.
+                        </p>
+                        <p>
+                          O capital acumulado irá se esgotar totalmente aos <strong className="text-rose-600 dark:text-rose-400 font-black">{sim3Data.esgotouIdade} anos</strong>. Recomenda-se aumentar os aportes na fase de acumulação, adiar a aposentadoria ou reduzir o saque mensal para garantir a durabilidade desejada até os {sim3LifeExpectancy} anos.
+                        </p>
                       </div>
                     </div>
                   )}
