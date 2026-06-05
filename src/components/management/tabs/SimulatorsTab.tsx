@@ -72,6 +72,46 @@ const CurrencyInput: React.FC<CurrencyInputProps> = ({ value, onChange, label })
   );
 };
 
+interface PercentInputProps {
+  value: number;
+  onChange: (val: number) => void;
+  label: string;
+  suffix?: string;
+}
+
+const PercentInput: React.FC<PercentInputProps> = ({ value, onChange, label, suffix = "%" }) => {
+  const displayValue = useMemo(() => {
+    return value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }, [value]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const cleanVal = e.target.value.replace(/\D/g, '');
+    if (!cleanVal) {
+      onChange(0);
+      return;
+    }
+    const numVal = parseFloat(cleanVal) / 100;
+    onChange(numVal);
+  };
+
+  return (
+    <div className="space-y-2">
+      <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-2 block">
+        {label}
+      </label>
+      <div className="relative flex items-center">
+        <input 
+          type="text" 
+          value={displayValue} 
+          onChange={handleChange} 
+          className="w-full bg-muted/30 border border-border rounded-xl h-12 pl-4 pr-16 text-sm text-foreground outline-none focus:border-primary/50 transition-all font-bold"
+        />
+        <span className="absolute right-4 text-xs font-black text-muted-foreground/60 select-none">{suffix}</span>
+      </div>
+    </div>
+  );
+};
+
 type SimulatorType = 'investments' | 'financing' | 'retirement' | 'rent-vs-buy' | 'financing-vs-consortium';
 
 export const SimulatorsTab: React.FC = () => {
@@ -86,6 +126,7 @@ export const SimulatorsTab: React.FC = () => {
   const [sim1Selic, setSim1Selic] = useState(10.5); // Selic estimada % a.a.
   const [sim1AltRate, setSim1AltRate] = useState(110); // % do CDI
   const [sim1CustomRate, setSim1CustomRate] = useState(12.0); // % a.a. customizada
+  const [sim1UseCustomRate, setSim1UseCustomRate] = useState(false); // Simular taxa alternativa customizada
   const [sim1IsTaxFree, setSim1IsTaxFree] = useState(false); // LCI/LCA isento
 
   // ==========================================
@@ -265,10 +306,12 @@ export const SimulatorsTab: React.FC = () => {
       totalInvested,
       finalPoupança,
       finalAltLid,
+      finalAltBruto,
       irAlt,
       irAltTaxable,
       diff,
       finalCustomLid,
+      finalCustomBruto,
       irCustom,
       irCustomTaxable,
       diffCustom,
@@ -744,13 +787,11 @@ export const SimulatorsTab: React.FC = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-2">Taxa Selic Estimada (% a.a.)</label>
-                  <input 
-                    type="number" 
-                    value={sim1Selic} 
-                    step="0.25"
-                    onChange={e => setSim1Selic(Number(e.target.value))} 
-                    className="w-full bg-muted/30 border border-border rounded-xl h-12 px-4 text-sm text-foreground outline-none focus:border-primary/50 transition-all font-bold"
+                  <PercentInput 
+                    label="Taxa Selic Estimada (% a.a.)"
+                    value={sim1Selic}
+                    onChange={setSim1Selic}
+                    suffix="% a.a."
                   />
                   {/* Banner informativo dinâmico da poupança */}
                   <div className="bg-primary/5 border border-primary/10 rounded-2xl p-4 mt-2 space-y-1.5">
@@ -760,49 +801,83 @@ export const SimulatorsTab: React.FC = () => {
                     </div>
                     {sim1Selic > 8.5 ? (
                       <p className="text-xs font-medium text-muted-foreground leading-relaxed">
-                        Selic em <strong className="text-slate-900 dark:text-white">{sim1Selic}% a.a.</strong> (acima de 8,5% a.a.). A rentabilidade da poupança é de <strong className="text-slate-900 dark:text-white">0,5% ao mês</strong> (~6,17% ao ano) + Taxa Referencial (TR).
+                        Selic em <strong className="text-slate-900 dark:text-white">{sim1Selic.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}% a.a.</strong> (acima de 8,5% a.a.). A rentabilidade da poupança é de <strong className="text-slate-900 dark:text-white">0,5% ao mês</strong> (~6,17% ao ano) + Taxa Referencial (TR).
                       </p>
                     ) : (
                       <p className="text-xs font-medium text-muted-foreground leading-relaxed">
-                        Selic em <strong className="text-slate-900 dark:text-white">{sim1Selic}% a.a.</strong> (igual/menor que 8,5% a.a.). A rentabilidade cai para <strong className="text-slate-900 dark:text-white">70% da Selic</strong> (~{(sim1Selic * 0.7).toFixed(2)}% ao ano) + Taxa Referencial (TR).
+                        Selic em <strong className="text-slate-900 dark:text-white">{sim1Selic.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}% a.a.</strong> (igual/menor que 8,5% a.a.). A rentabilidade cai para <strong className="text-slate-900 dark:text-white">70% da Selic</strong> (~{(sim1Selic * 0.7).toFixed(2).replace('.', ',')}% ao ano) + Taxa Referencial (TR).
                       </p>
                     )}
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-2">Rendimento Alternativo (% do CDI)</label>
-                  <input 
-                    type="number" 
-                    value={sim1AltRate} 
-                    onChange={e => setSim1AltRate(Number(e.target.value))} 
-                    className="w-full bg-muted/30 border border-border rounded-xl h-12 px-4 text-sm text-foreground outline-none focus:border-primary/50 transition-all font-bold"
+                  <PercentInput 
+                    label="Rendimento Alternativo (% do CDI)"
+                    value={sim1AltRate}
+                    onChange={setSim1AltRate}
+                    suffix="% do CDI"
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-2">Taxa Alternativa Customizada (% a.a.)</label>
-                  <input 
-                    type="number" 
-                    value={sim1CustomRate} 
-                    step="0.1"
-                    onChange={e => setSim1CustomRate(Number(e.target.value))} 
-                    className="w-full bg-muted/30 border border-border rounded-xl h-12 px-4 text-sm text-foreground outline-none focus:border-primary/50 transition-all font-bold"
-                  />
-                  <input type="range" min="0" max="30" step="0.5" value={sim1CustomRate} onChange={e => setSim1CustomRate(Number(e.target.value))} className="premium-slider" />
+                <div
+                  className={cn(
+                    "flex items-center justify-between p-4 rounded-2xl border transition-all cursor-pointer",
+                    sim1UseCustomRate ? "bg-primary/5 border-primary/30" : "bg-muted/10 border-border/50 hover:bg-muted/20"
+                  )}
+                  onClick={() => setSim1UseCustomRate(!sim1UseCustomRate)}
+                >
+                  <div className="flex flex-col">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-0.5">Simular Taxa Alternativa?</span>
+                    <span className={cn("text-xs font-bold", sim1UseCustomRate ? "text-primary" : "text-muted-foreground/60")}>
+                      {sim1UseCustomRate ? 'Ativado' : 'Desativado'}
+                    </span>
+                  </div>
+                  <div className={cn(
+                    "w-12 h-6 rounded-full relative transition-all duration-300",
+                    sim1UseCustomRate ? "bg-primary" : "bg-muted-foreground/30"
+                  )}>
+                    <div className={cn(
+                      "absolute top-1 w-4 h-4 bg-white rounded-full transition-all duration-300 shadow-sm",
+                      sim1UseCustomRate ? "left-7" : "left-1"
+                    )} />
+                  </div>
                 </div>
 
-                <div className="flex items-center gap-3 bg-muted/20 border border-border p-4 rounded-2xl">
-                  <input 
-                    type="checkbox" 
-                    id="sim1IsTaxFree" 
-                    checked={sim1IsTaxFree} 
-                    onChange={e => setSim1IsTaxFree(e.target.checked)} 
-                    className="w-5 h-5 rounded border-border accent-primary focus:ring-0"
-                  />
-                  <label htmlFor="sim1IsTaxFree" className="text-xs font-black uppercase tracking-wider text-muted-foreground select-none cursor-pointer">
-                    Investimento Isento de IR (LCI / LCA)
-                  </label>
+                {sim1UseCustomRate && (
+                  <div className="space-y-2 border border-border bg-muted/10 p-4 rounded-2xl animate-in fade-in slide-in-from-top-2 duration-300">
+                    <PercentInput 
+                      label="Taxa Alternativa Customizada (% a.a.)"
+                      value={sim1CustomRate}
+                      onChange={setSim1CustomRate}
+                      suffix="% a.a."
+                    />
+                    <input type="range" min="0" max="30" step="0.5" value={sim1CustomRate} onChange={e => setSim1CustomRate(Number(e.target.value))} className="premium-slider" />
+                  </div>
+                )}
+
+                <div
+                  className={cn(
+                    "flex items-center justify-between p-4 rounded-2xl border transition-all cursor-pointer",
+                    sim1IsTaxFree ? "bg-primary/5 border-primary/30" : "bg-muted/10 border-border/50 hover:bg-muted/20"
+                  )}
+                  onClick={() => setSim1IsTaxFree(!sim1IsTaxFree)}
+                >
+                  <div className="flex flex-col">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-0.5">Investimento Isento de IR?</span>
+                    <span className={cn("text-xs font-bold", sim1IsTaxFree ? "text-primary" : "text-muted-foreground/60")}>
+                      {sim1IsTaxFree ? 'Isento (LCI / LCA)' : 'Tributável (CDB)'}
+                    </span>
+                  </div>
+                  <div className={cn(
+                    "w-12 h-6 rounded-full relative transition-all duration-300",
+                    sim1IsTaxFree ? "bg-primary" : "bg-muted-foreground/30"
+                  )}>
+                    <div className={cn(
+                      "absolute top-1 w-4 h-4 bg-white rounded-full transition-all duration-300 shadow-sm",
+                      sim1IsTaxFree ? "left-7" : "left-1"
+                    )} />
+                  </div>
                 </div>
               </div>
             )}
@@ -1078,7 +1153,7 @@ export const SimulatorsTab: React.FC = () => {
         <div className="xl:col-span-2 space-y-6">
           
           {/* CARDS DE SUMÁRIO DO SIMULADOR ATIVO */}
-          <div className={cn("grid grid-cols-1 gap-4", activeSim === 'investments' ? "sm:grid-cols-4" : "sm:grid-cols-3")}>
+          <div className={cn("grid grid-cols-1 gap-4", activeSim === 'investments' ? (sim1UseCustomRate ? "sm:grid-cols-4" : "sm:grid-cols-3") : "sm:grid-cols-3")}>
             {activeSim === 'investments' && (
               <>
                 <div className="bg-card border border-border p-6 rounded-3xl flex flex-col justify-between">
@@ -1102,12 +1177,14 @@ export const SimulatorsTab: React.FC = () => {
                   <p className="text-xl font-black text-emerald-500">{formatCurrency(sim1Data.finalAltLid)}</p>
                   <p className="text-[8px] font-bold text-muted-foreground uppercase mt-1">Taxa: {sim1AltRate}% do CDI</p>
                 </div>
-                <div className="bg-card border border-border p-6 rounded-3xl flex flex-col justify-between relative overflow-hidden group">
-                  <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/5 rounded-full blur-xl" />
-                  <p className="text-[9px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-400 mb-1">Saldo Invest. Custom</p>
-                  <p className="text-xl font-black text-amber-500">{formatCurrency(sim1Data.finalCustomLid)}</p>
-                  <p className="text-[8px] font-bold text-muted-foreground uppercase mt-1">Taxa: {sim1CustomRate}% a.a.</p>
-                </div>
+                {sim1UseCustomRate && (
+                  <div className="bg-card border border-border p-6 rounded-3xl flex flex-col justify-between relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/5 rounded-full blur-xl" />
+                    <p className="text-[9px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-400 mb-1">Saldo Invest. Custom</p>
+                    <p className="text-xl font-black text-amber-500">{formatCurrency(sim1Data.finalCustomLid)}</p>
+                    <p className="text-[8px] font-bold text-muted-foreground uppercase mt-1">Taxa: {sim1CustomRate}% a.a.</p>
+                  </div>
+                )}
               </>
             )}
 
@@ -1268,20 +1345,22 @@ export const SimulatorsTab: React.FC = () => {
                                     </span>
                                   </div>
                                 </div>
-                                <div className="border-t border-border pt-1.5">
-                                  <div className="flex justify-between gap-6">
-                                    <span className="text-amber-500 font-bold">Invest. Custom (Líquido):</span>
-                                    <span className="font-bold text-amber-500">{formatCurrency(data.CustomLíquido)}</span>
+                                {sim1UseCustomRate && (
+                                  <div className="border-t border-border pt-1.5 font-medium text-xs">
+                                    <div className="flex justify-between gap-6">
+                                      <span className="text-amber-500 font-bold">Invest. Custom (Líquido):</span>
+                                      <span className="font-bold text-amber-500">{formatCurrency(data.CustomLíquido)}</span>
+                                    </div>
+                                    <div className="flex justify-between gap-6 text-[10px] text-muted-foreground">
+                                      <span>IR Retido Acumulado:</span>
+                                      <span>
+                                        {sim1IsTaxFree 
+                                          ? `Isento (Economia: ${formatCurrency(data.IRAvalCustomTaxable)})` 
+                                          : formatCurrency(data.IRAvalCustom)}
+                                      </span>
+                                    </div>
                                   </div>
-                                  <div className="flex justify-between gap-6 text-[10px] text-muted-foreground">
-                                    <span>IR Retido Acumulado:</span>
-                                    <span>
-                                      {sim1IsTaxFree 
-                                        ? `Isento (Economia: ${formatCurrency(data.IRAvalCustomTaxable)})` 
-                                        : formatCurrency(data.IRAvalCustom)}
-                                    </span>
-                                  </div>
-                                </div>
+                                )}
                               </div>
                             </div>
                           );
@@ -1291,7 +1370,9 @@ export const SimulatorsTab: React.FC = () => {
                     />
                     <Legend />
                     <Area type="monotone" name="Investimento CDI (Líquido)" dataKey="InvestimentoLíquido" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorAlt)" />
-                    <Area type="monotone" name="Investimento Customizado (Líquido)" dataKey="CustomLíquido" stroke="#f59e0b" strokeWidth={3} fillOpacity={1} fill="url(#colorCustom)" />
+                    {sim1UseCustomRate && (
+                      <Area type="monotone" name="Investimento Customizado (Líquido)" dataKey="CustomLíquido" stroke="#f59e0b" strokeWidth={3} fillOpacity={1} fill="url(#colorCustom)" />
+                    )}
                     <Area type="monotone" name="Caderneta de Poupança" dataKey="Poupança" stroke="#ef4444" strokeWidth={2} fillOpacity={1} fill="url(#colorPoupança)" />
                     <Area type="monotone" name="Capital Investido" dataKey="Investido" stroke="#94a3b8" strokeWidth={1} strokeDasharray="5 5" fill="none" />
                   </AreaChart>
@@ -1389,94 +1470,174 @@ export const SimulatorsTab: React.FC = () => {
               {activeSim === 'investments' && (
                 <div className="bg-muted/30 border border-border p-5 rounded-2xl space-y-5">
                   <div className="space-y-2 leading-relaxed">
-                    <p className="text-sm font-medium text-muted-foreground">
-                      Aplicando a taxa Selic estimada de <strong className="text-slate-950 dark:text-white">{sim1Selic}% a.a.</strong>, analisamos dois cenários de investimento em comparação à Caderneta de Poupança:
-                    </p>
-                    <ul className="list-disc list-inside text-xs text-muted-foreground space-y-1">
-                      <li>
-                        <strong>Investimento CDI:</strong> Rendendo {sim1AltRate}% do CDI (rentabilidade nominal de {sim1Data.cdiAnualNominal.toFixed(2)}% a.a.).
-                      </li>
-                      <li>
-                        <strong>Investimento Taxa Customizada:</strong> Rendendo a taxa de {sim1CustomRate}% a.a.
-                      </li>
-                    </ul>
+                    {sim1UseCustomRate ? (
+                      <>
+                        <p className="text-sm font-medium text-muted-foreground">
+                          Aplicando a taxa Selic estimada de <strong className="text-slate-950 dark:text-white">{sim1Selic.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}% a.a.</strong>, analisamos dois cenários de investimento em comparação à Caderneta de Poupança:
+                        </p>
+                        <ul className="list-disc list-inside text-xs text-muted-foreground space-y-1">
+                          <li>
+                            <strong>Investimento CDI:</strong> Rendendo {sim1AltRate.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}% do CDI (rentabilidade nominal de {sim1Data.cdiAnualNominal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}% a.a.).
+                          </li>
+                          <li>
+                            <strong>Investimento Taxa Customizada:</strong> Rendendo a taxa de {sim1CustomRate.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}% a.a.
+                          </li>
+                        </ul>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-sm font-medium text-muted-foreground">
+                          Aplicando a taxa Selic estimada de <strong className="text-slate-950 dark:text-white">{sim1Selic.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}% a.a.</strong>, analisamos o cenário de investimento em comparação à Caderneta de Poupança:
+                        </p>
+                        <ul className="list-disc list-inside text-xs text-muted-foreground space-y-1">
+                          <li>
+                            <strong>Investimento CDI:</strong> Rendendo {sim1AltRate.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}% do CDI (rentabilidade nominal de {sim1Data.cdiAnualNominal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}% a.a.).
+                          </li>
+                        </ul>
+                      </>
+                    )}
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-border pt-4">
+                  <div className={cn("grid grid-cols-1 gap-4 border-t border-border pt-4", sim1UseCustomRate ? "md:grid-cols-3" : "md:grid-cols-1")}>
                     {/* Cenário 1: CDI */}
-                    <div className="bg-card p-4 rounded-xl border border-border space-y-2">
-                      <span className="text-[10px] font-black uppercase tracking-widest text-emerald-500 block">Cenário 1: Investimento CDI</span>
-                      <div className="text-xs text-muted-foreground space-y-1">
-                        <div className="flex justify-between">
-                          <span>Rendimento Líquido:</span>
-                          <span className="font-bold text-foreground">{formatCurrency(sim1Data.finalAltLid - sim1Data.totalInvested)}</span>
+                    <div className="bg-card p-4 rounded-xl border border-border space-y-2 flex flex-col justify-between">
+                      <div>
+                        <span className="text-[10px] font-black uppercase tracking-widest text-emerald-500 block mb-2">Cenário 1: Investimento CDI</span>
+                        <div className="text-xs text-muted-foreground space-y-1.5">
+                          <div className="flex justify-between">
+                            <span>Rendimento Bruto:</span>
+                            <span className="font-semibold text-foreground">{formatCurrency(sim1Data.finalAltBruto - sim1Data.totalInvested)}</span>
+                          </div>
+                          <div className="flex justify-between font-bold text-[10px]">
+                            <span>(-) Imposto de Renda (IR):</span>
+                            <span className="text-rose-500">
+                              {sim1IsTaxFree 
+                                ? "Isento (R$ 0,00)" 
+                                : `-${formatCurrency(sim1Data.irAlt)}`}
+                            </span>
+                          </div>
+                          <div className="flex justify-between border-t border-dashed border-border pt-1 font-bold text-foreground">
+                            <span>(=) Subtotal (Rend. Líquido):</span>
+                            <span>{formatCurrency(sim1Data.finalAltLid - sim1Data.totalInvested)}</span>
+                          </div>
+                          <div className="flex justify-between text-[10px]">
+                            <span>(-) Rendimento Poupança:</span>
+                            <span className="text-rose-500">-{formatCurrency(sim1Data.finalPoupança - sim1Data.totalInvested)}</span>
+                          </div>
                         </div>
-                        <div className="flex justify-between font-bold text-[10px]">
-                          <span>Imposto de Renda (IR):</span>
-                          <span>
-                            {sim1IsTaxFree 
-                              ? `Isento (Economia de ${formatCurrency(sim1Data.irAltTaxable)})` 
-                              : formatCurrency(sim1Data.irAlt)}
-                          </span>
-                        </div>
-                        <div className="flex justify-between border-t border-dashed border-border pt-1 mt-1">
-                          <span className="text-emerald-500 font-bold">Diferença vs Poupança:</span>
-                          <span className="font-black text-emerald-500">+{formatCurrency(sim1Data.diff)}</span>
-                        </div>
+                      </div>
+                      <div className="flex justify-between border-t border-dashed border-border pt-1.5 mt-2">
+                        <span className="text-emerald-500 font-bold text-[10px] uppercase">Diferença vs Poupança:</span>
+                        <span className="font-black text-emerald-500">+{formatCurrency(sim1Data.diff)}</span>
                       </div>
                     </div>
 
                     {/* Cenário 2: Taxa Customizada */}
-                    <div className="bg-card p-4 rounded-xl border border-border space-y-2">
-                      <span className="text-[10px] font-black uppercase tracking-widest text-amber-500 block">Cenário 2: Investimento Customizado</span>
-                      <div className="text-xs text-muted-foreground space-y-1">
-                        <div className="flex justify-between">
-                          <span>Rendimento Líquido:</span>
-                          <span className="font-bold text-foreground">{formatCurrency(sim1Data.finalCustomLid - sim1Data.totalInvested)}</span>
+                    {sim1UseCustomRate && (
+                      <div className="bg-card p-4 rounded-xl border border-border space-y-2 flex flex-col justify-between">
+                        <div>
+                          <span className="text-[10px] font-black uppercase tracking-widest text-amber-500 block mb-2">Cenário 2: Investimento Customizado</span>
+                          <div className="text-xs text-muted-foreground space-y-1.5">
+                            <div className="flex justify-between">
+                              <span>Rendimento Bruto:</span>
+                              <span className="font-semibold text-foreground">{formatCurrency(sim1Data.finalCustomBruto - sim1Data.totalInvested)}</span>
+                            </div>
+                            <div className="flex justify-between font-bold text-[10px]">
+                              <span>(-) Imposto de Renda (IR):</span>
+                              <span className="text-rose-500">
+                                {sim1IsTaxFree 
+                                  ? "Isento (R$ 0,00)" 
+                                  : `-${formatCurrency(sim1Data.irCustom)}`}
+                              </span>
+                            </div>
+                            <div className="flex justify-between border-t border-dashed border-border pt-1 font-bold text-foreground">
+                              <span>(=) Subtotal (Rend. Líquido):</span>
+                              <span>{formatCurrency(sim1Data.finalCustomLid - sim1Data.totalInvested)}</span>
+                            </div>
+                            <div className="flex justify-between text-[10px]">
+                              <span>(-) Rendimento Poupança:</span>
+                              <span className="text-rose-500">-{formatCurrency(sim1Data.finalPoupança - sim1Data.totalInvested)}</span>
+                            </div>
+                          </div>
                         </div>
-                        <div className="flex justify-between font-bold text-[10px]">
-                          <span>Imposto de Renda (IR):</span>
-                          <span>
-                            {sim1IsTaxFree 
-                              ? `Isento (Economia de ${formatCurrency(sim1Data.irCustomTaxable)})` 
-                              : formatCurrency(sim1Data.irCustom)}
-                          </span>
-                        </div>
-                        <div className="flex justify-between border-t border-dashed border-border pt-1 mt-1">
-                          <span className="text-amber-500 font-bold">Diferença vs Poupança:</span>
+                        <div className="flex justify-between border-t border-dashed border-border pt-1.5 mt-2">
+                          <span className="text-amber-500 font-bold text-[10px] uppercase">Diferença vs Poupança:</span>
                           <span className="font-black text-amber-500">+{formatCurrency(sim1Data.diffCustom)}</span>
                         </div>
                       </div>
-                    </div>
+                    )}
+
+                    {/* Cenário 3: Comparativo Customizado vs CDI */}
+                    {sim1UseCustomRate && (
+                      <div className="bg-card p-4 rounded-xl border border-border space-y-2 flex flex-col justify-between">
+                        <div>
+                          <span className="text-[10px] font-black uppercase tracking-widest text-primary block mb-2">Cenário 3: Customizado vs CDI</span>
+                          <div className="text-xs text-muted-foreground space-y-1.5">
+                            <div className="flex justify-between">
+                              <span>Rend. Líquido CDI:</span>
+                              <span className="font-semibold text-emerald-500">{formatCurrency(sim1Data.finalAltLid - sim1Data.totalInvested)}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Rend. Líquido Customizado:</span>
+                              <span className="font-semibold text-amber-500">{formatCurrency(sim1Data.finalCustomLid - sim1Data.totalInvested)}</span>
+                            </div>
+                            <div className="flex justify-between border-t border-dashed border-border pt-1.5 font-bold text-foreground">
+                              <span>Mais Vantajoso:</span>
+                              {sim1Data.finalCustomLid >= sim1Data.finalAltLid ? (
+                                <span className="text-amber-500 font-black">Invest. Customizado</span>
+                              ) : (
+                                <span className="text-emerald-500 font-black">Invest. CDI</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex justify-between border-t border-dashed border-border pt-1.5 mt-2">
+                          <span className="text-primary font-bold text-[10px] uppercase">Diferença Líquida:</span>
+                          <span className="font-black text-primary">
+                            {formatCurrency(Math.abs(sim1Data.finalCustomLid - sim1Data.finalAltLid))}
+                          </span>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex flex-col gap-3 text-xs text-muted-foreground border-t border-border pt-4">
                     <div className="space-y-1">
                       <p className="font-bold text-slate-900 dark:text-white text-[11px] uppercase tracking-wider mb-2">Resumo dos Rendimentos (Líquidos):</p>
+                      
+                      <div className="text-xs text-slate-500 dark:text-slate-400 font-semibold mb-3">
+                        Total Aportado no Período: <span className="text-slate-950 dark:text-white font-black">{formatCurrency(sim1Data.totalInvested)}</span>
+                      </div>
+
                       <span className="flex items-center gap-2">
-                        <CheckCircle size={14} className="text-emerald-500 shrink-0" />
+                        <CheckCircle size={14} className="text-rose-500 shrink-0" />
                         Poupança: <strong>{formatCurrency(sim1Data.finalPoupança - sim1Data.totalInvested)}</strong>
+                        <span className="text-[10px] font-medium text-muted-foreground ml-1">
+                          (Total na Poupança: {formatCurrency(sim1Data.finalPoupança)})
+                        </span>
                       </span>
                       <span className="flex items-center gap-2">
                         <CheckCircle size={14} className="text-emerald-500 shrink-0" />
                         Investimento CDI {sim1IsTaxFree ? '(Isento)' : '(após IR)'}: <strong>{formatCurrency(sim1Data.finalAltLid - sim1Data.totalInvested)}</strong>
                         <span className="text-[10px] font-medium text-muted-foreground ml-1">
-                          (Diferença de rendimento: +{formatCurrency(sim1Data.diff)})
+                          (Total no CDI: {formatCurrency(sim1Data.finalAltLid)})
                         </span>
                       </span>
-                      <span className="flex items-center gap-2">
-                        <CheckCircle size={14} className="text-emerald-500 shrink-0" />
-                        Investimento Customizado {sim1IsTaxFree ? '(Isento)' : '(após IR)'}: <strong>{formatCurrency(sim1Data.finalCustomLid - sim1Data.totalInvested)}</strong>
-                        <span className="text-[10px] font-medium text-muted-foreground ml-1">
-                          (Diferença de rendimento: +{formatCurrency(sim1Data.diffCustom)})
+                      {sim1UseCustomRate && (
+                        <span className="flex items-center gap-2">
+                          <CheckCircle size={14} className="text-amber-500 shrink-0" />
+                          Investimento Customizado {sim1IsTaxFree ? '(Isento)' : '(após IR)'}: <strong>{formatCurrency(sim1Data.finalCustomLid - sim1Data.totalInvested)}</strong>
+                          <span className="text-[10px] font-medium text-muted-foreground ml-1">
+                            (Total na Taxa Alternativa: {formatCurrency(sim1Data.finalCustomLid)})
+                          </span>
                         </span>
-                      </span>
+                      )}
                     </div>
 
                     <div className="space-y-1 border-t border-border/60 pt-3">
                       <p className="font-bold text-slate-900 dark:text-white text-[11px] uppercase tracking-wider mb-2">Comparativo de Saldo Final Acumulado (Patrimônio Total):</p>
                       <span className="flex items-center gap-2">
-                        <CheckCircle size={14} className="text-primary shrink-0" />
+                        <CheckCircle size={14} className="text-rose-500 shrink-0" />
                         Saldo Final Poupança: <strong>{formatCurrency(sim1Data.finalPoupança)}</strong>
                       </span>
                       <span className="flex items-center gap-2">
@@ -1486,13 +1647,15 @@ export const SimulatorsTab: React.FC = () => {
                           (Saldo a mais que a Poupança: +{formatCurrency(sim1Data.diff)})
                         </span>
                       </span>
-                      <span className="flex items-center gap-2">
-                        <CheckCircle size={14} className="text-amber-500 shrink-0" />
-                        Saldo Final Investimento Customizado: <strong>{formatCurrency(sim1Data.finalCustomLid)}</strong>
-                        <span className="text-[10px] font-black text-amber-600 dark:text-amber-500 ml-1">
-                          (Saldo a mais que a Poupança: +{formatCurrency(sim1Data.diffCustom)})
+                      {sim1UseCustomRate && (
+                        <span className="flex items-center gap-2">
+                          <CheckCircle size={14} className="text-amber-500 shrink-0" />
+                          Saldo Final Investimento Customizado: <strong>{formatCurrency(sim1Data.finalCustomLid)}</strong>
+                          <span className="text-[10px] font-black text-amber-600 dark:text-amber-500 ml-1">
+                            (Saldo a mais que a Poupança: +{formatCurrency(sim1Data.diffCustom)})
+                          </span>
                         </span>
-                      </span>
+                      )}
                     </div>
                   </div>
                 </div>
