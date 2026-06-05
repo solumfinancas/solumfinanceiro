@@ -377,12 +377,21 @@ export const SimulatorsTab: React.FC = () => {
 
     // Gerar dados unificados para o gráfico de evolução das parcelas
     const chartData = [];
+    let tempSaldoSAC = principal;
+    let tempSaldoPRICE = principal;
+
     for (let m = 1; m <= sim2Months; m++) {
       // SAC
-      const jurosSAC_m = (principal - amortSAC * (m - 1)) * iMensal;
-      const parcSAC_m = amortSAC + jurosSAC_m;
+      const jurosSAC_m = tempSaldoSAC * iMensal;
+      const amortSAC_m = amortSAC;
+      const parcSAC_m = amortSAC_m + jurosSAC_m;
+      tempSaldoSAC = Math.max(0, tempSaldoSAC - amortSAC_m);
 
       // PRICE
+      const jurosPRICE_m = tempSaldoPRICE * iMensal;
+      const amortPRICE_m = parcelaPRICE - jurosPRICE_m;
+      tempSaldoPRICE = Math.max(0, tempSaldoPRICE - amortPRICE_m);
+
       // Para o gráfico vamos amostrar de acordo com o tamanho do prazo
       const shouldPush = sim2Months <= 60 
         ? m % 3 === 0 || m === 1 || m === sim2Months
@@ -393,6 +402,12 @@ export const SimulatorsTab: React.FC = () => {
           mes: m,
           SAC: Math.round(parcSAC_m),
           PRICE: Math.round(parcelaPRICE),
+          saldoSAC: Math.round(tempSaldoSAC),
+          saldoPRICE: Math.round(tempSaldoPRICE),
+          amortizacaoSAC: Math.round(amortSAC_m),
+          jurosSAC: Math.round(jurosSAC_m),
+          amortizacaoPRICE: Math.round(amortPRICE_m),
+          jurosPRICE: Math.round(jurosPRICE_m),
         });
       }
     }
@@ -903,13 +918,11 @@ export const SimulatorsTab: React.FC = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-2">Taxa de Juros (% a.a.)</label>
-                  <input 
-                    type="number" 
-                    value={sim2Rate} 
-                    step="0.1"
-                    onChange={e => setSim2Rate(Number(e.target.value))} 
-                    className="w-full bg-muted/30 border border-border rounded-xl h-12 px-4 text-sm text-foreground outline-none focus:border-primary/50 transition-all font-bold"
+                  <PercentInput 
+                    label="Taxa de Juros (% a.a.)"
+                    value={sim2Rate}
+                    onChange={setSim2Rate}
+                    suffix="% a.a."
                   />
                 </div>
 
@@ -985,13 +998,11 @@ export const SimulatorsTab: React.FC = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-2">Rentabilidade Real (% a.a.)</label>
-                  <input 
-                    type="number" 
-                    value={sim3RealRate} 
-                    step="0.1"
-                    onChange={e => setSim3RealRate(Number(e.target.value))} 
-                    className="w-full bg-muted/30 border border-border rounded-xl h-12 px-4 text-sm text-foreground outline-none focus:border-primary/50 transition-all font-bold"
+                  <PercentInput 
+                    label="Rentabilidade Real (% a.a.)"
+                    value={sim3RealRate}
+                    onChange={setSim3RealRate}
+                    suffix="% a.a."
                   />
                   <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-1">Acima da inflação estimada</p>
                 </div>
@@ -1019,13 +1030,11 @@ export const SimulatorsTab: React.FC = () => {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-2">Juros Fin. (% a.a.)</label>
-                    <input 
-                      type="number" 
-                      value={sim4Rate} 
-                      step="0.1"
-                      onChange={e => setSim4Rate(Number(e.target.value))} 
-                      className="w-full bg-muted/30 border border-border rounded-xl h-12 px-4 text-sm text-foreground outline-none focus:border-primary/50 transition-all font-bold"
+                    <PercentInput 
+                      label="Juros Fin. (% a.a.)"
+                      value={sim4Rate}
+                      onChange={setSim4Rate}
+                      suffix="% a.a."
                     />
                   </div>
                   <div className="space-y-2">
@@ -1048,33 +1057,30 @@ export const SimulatorsTab: React.FC = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-2">Rendimento Investimentos (% a.a.)</label>
-                  <input 
-                    type="number" 
-                    value={sim4InvestmentReturn} 
-                    onChange={e => setSim4InvestmentReturn(Number(e.target.value))} 
-                    className="w-full bg-muted/30 border border-border rounded-xl h-12 px-4 text-sm text-foreground outline-none focus:border-primary/50 transition-all font-bold"
+                  <PercentInput 
+                    label="Rendimento Investimentos (% a.a.)"
+                    value={sim4InvestmentReturn}
+                    onChange={setSim4InvestmentReturn}
+                    suffix="% a.a."
                   />
                   <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-1">Taxa real líquida acima da inflação</p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-2">Val. Imóvel (% a.a.)</label>
-                    <input 
-                      type="number" 
-                      value={sim4PropAppreciation} 
-                      onChange={e => setSim4PropAppreciation(Number(e.target.value))} 
-                      className="w-full bg-muted/30 border border-border rounded-xl h-12 px-4 text-sm text-foreground outline-none focus:border-primary/50 transition-all font-bold"
+                    <PercentInput 
+                      label="Val. Imóvel (% a.a.)"
+                      value={sim4PropAppreciation}
+                      onChange={setSim4PropAppreciation}
+                      suffix="% a.a."
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-2">Inflação (% a.a.)</label>
-                    <input 
-                      type="number" 
-                      value={sim4RentInflation} 
-                      onChange={e => setSim4RentInflation(Number(e.target.value))} 
-                      className="w-full bg-muted/30 border border-border rounded-xl h-12 px-4 text-sm text-foreground outline-none focus:border-primary/50 transition-all font-bold"
+                    <PercentInput 
+                      label="Inflação (% a.a.)"
+                      value={sim4RentInflation}
+                      onChange={setSim4RentInflation}
+                      suffix="% a.a."
                     />
                   </div>
                 </div>
@@ -1094,13 +1100,11 @@ export const SimulatorsTab: React.FC = () => {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-2">Juros Fin. (% a.a.)</label>
-                    <input 
-                      type="number" 
-                      value={sim5FinRate} 
-                      step="0.1"
-                      onChange={e => setSim5FinRate(Number(e.target.value))} 
-                      className="w-full bg-muted/30 border border-border rounded-xl h-12 px-4 text-sm text-foreground outline-none focus:border-primary/50 transition-all font-bold"
+                    <PercentInput 
+                      label="Juros Fin. (% a.a.)"
+                      value={sim5FinRate}
+                      onChange={setSim5FinRate}
+                      suffix="% a.a."
                     />
                   </div>
                   <div className="space-y-2">
@@ -1115,12 +1119,11 @@ export const SimulatorsTab: React.FC = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-2">Taxa Adm. Consórcio (%)</label>
-                  <input 
-                    type="number" 
-                    value={sim5ConsFee} 
-                    onChange={e => setSim5ConsFee(Number(e.target.value))} 
-                    className="w-full bg-muted/30 border border-border rounded-xl h-12 px-4 text-sm text-foreground outline-none focus:border-primary/50 transition-all font-bold"
+                  <PercentInput 
+                    label="Taxa Adm. Consórcio (%)"
+                    value={sim5ConsFee}
+                    onChange={setSim5ConsFee}
+                    suffix="%"
                   />
                   <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-1">Taxa de administração total do período</p>
                 </div>
@@ -1294,172 +1297,380 @@ export const SimulatorsTab: React.FC = () => {
             </h3>
 
             {/* GRÁFICOS DO RECHARTS */}
-            <div className="h-[320px] w-full">
-              {activeSim === 'investments' && (
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={sim1Data.points} margin={{ top: 10, right: 30, left: 10, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="colorAlt" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.2}/>
-                        <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
-                      </linearGradient>
-                      <linearGradient id="colorCustom" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.2}/>
-                        <stop offset="95%" stopColor="#f59e0b" stopOpacity={0}/>
-                      </linearGradient>
-                      <linearGradient id="colorPoupança" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#ef4444" stopOpacity={0.1}/>
-                        <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" opacity={0.3} />
-                    <XAxis dataKey="mes" tickFormatter={(v) => `Mês ${v}`} tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} />
-                    <YAxis tickFormatter={(v) => `R$ ${v/1000}k`} tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} />
-                    <Tooltip 
-                      content={({ active, payload }) => {
-                        if (active && payload && payload.length) {
-                          const data = payload[0].payload;
-                          return (
-                            <div className="bg-card/90 border border-border p-4 rounded-2xl shadow-2xl backdrop-blur-md text-xs space-y-2.5">
-                              <p className="font-black uppercase tracking-widest text-muted-foreground">Mês {data.mes}</p>
-                              <div className="space-y-1.5 font-medium">
-                                <div className="flex justify-between gap-6">
-                                  <span className="text-muted-foreground">Capital Investido:</span>
-                                  <span className="font-bold text-foreground">{formatCurrency(data.Investido)}</span>
-                                </div>
-                                <div className="flex justify-between gap-6">
-                                  <span className="text-rose-500 font-bold">Poupança:</span>
-                                  <span className="font-bold text-rose-500">{formatCurrency(data.Poupança)}</span>
-                                </div>
-                                <div className="border-t border-border pt-1.5">
+            {activeSim !== 'financing' ? (
+              <div className="h-[320px] w-full">
+                {activeSim === 'investments' && (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={sim1Data.points} margin={{ top: 10, right: 30, left: 10, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="colorAlt" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#10b981" stopOpacity={0.2}/>
+                          <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                        </linearGradient>
+                        <linearGradient id="colorCustom" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.2}/>
+                          <stop offset="95%" stopColor="#f59e0b" stopOpacity={0}/>
+                        </linearGradient>
+                        <linearGradient id="colorPoupança" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#ef4444" stopOpacity={0.1}/>
+                          <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" opacity={0.3} />
+                      <XAxis dataKey="mes" tickFormatter={(v) => `Mês ${v}`} tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} />
+                      <YAxis tickFormatter={(v) => `R$ ${v/1000}k`} tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} />
+                      <Tooltip 
+                        content={({ active, payload }) => {
+                          if (active && payload && payload.length) {
+                            const data = payload[0].payload;
+                            return (
+                              <div className="bg-card/90 border border-border p-4 rounded-2xl shadow-2xl backdrop-blur-md text-xs space-y-2.5">
+                                <p className="font-black uppercase tracking-widest text-muted-foreground">Mês {data.mes}</p>
+                                <div className="space-y-1.5 font-medium">
                                   <div className="flex justify-between gap-6">
-                                    <span className="text-emerald-500 font-bold">Invest. CDI (Líquido):</span>
-                                    <span className="font-bold text-emerald-500">{formatCurrency(data.InvestimentoLíquido)}</span>
+                                    <span className="text-muted-foreground">Capital Investido:</span>
+                                    <span className="font-bold text-foreground">{formatCurrency(data.Investido)}</span>
                                   </div>
-                                  <div className="flex justify-between gap-6 text-[10px] text-muted-foreground">
-                                    <span>IR Retido Acumulado:</span>
-                                    <span>
-                                      {sim1IsTaxFree 
-                                        ? `Isento (Economia: ${formatCurrency(data.IRAvalAltTaxable)})` 
-                                        : formatCurrency(data.IRAvalAlt)}
-                                    </span>
+                                  <div className="flex justify-between gap-6">
+                                    <span className="text-rose-500 font-bold">Poupança:</span>
+                                    <span className="font-bold text-rose-500">{formatCurrency(data.Poupança)}</span>
                                   </div>
-                                </div>
-                                {sim1UseCustomRate && (
-                                  <div className="border-t border-border pt-1.5 font-medium text-xs">
+                                  <div className="border-t border-border pt-1.5">
                                     <div className="flex justify-between gap-6">
-                                      <span className="text-amber-500 font-bold">Invest. Custom (Líquido):</span>
-                                      <span className="font-bold text-amber-500">{formatCurrency(data.CustomLíquido)}</span>
+                                      <span className="text-emerald-500 font-bold">Invest. CDI (Líquido):</span>
+                                      <span className="font-bold text-emerald-500">{formatCurrency(data.InvestimentoLíquido)}</span>
                                     </div>
                                     <div className="flex justify-between gap-6 text-[10px] text-muted-foreground">
                                       <span>IR Retido Acumulado:</span>
                                       <span>
                                         {sim1IsTaxFree 
-                                          ? `Isento (Economia: ${formatCurrency(data.IRAvalCustomTaxable)})` 
-                                          : formatCurrency(data.IRAvalCustom)}
+                                          ? `Isento (Economia: ${formatCurrency(data.IRAvalAltTaxable)})` 
+                                          : formatCurrency(data.IRAvalAlt)}
                                       </span>
                                     </div>
                                   </div>
-                                )}
+                                  {sim1UseCustomRate && (
+                                    <div className="border-t border-border pt-1.5 font-medium text-xs">
+                                      <div className="flex justify-between gap-6">
+                                        <span className="text-amber-500 font-bold">Invest. Custom (Líquido):</span>
+                                        <span className="font-bold text-amber-500">{formatCurrency(data.CustomLíquido)}</span>
+                                      </div>
+                                      <div className="flex justify-between gap-6 text-[10px] text-muted-foreground">
+                                        <span>IR Retido Acumulado:</span>
+                                        <span>
+                                          {sim1IsTaxFree 
+                                            ? `Isento (Economia: ${formatCurrency(data.IRAvalCustomTaxable)})` 
+                                            : formatCurrency(data.IRAvalCustom)}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
                               </div>
-                            </div>
-                          );
+                            );
+                          }
+                          return null;
+                        }}
+                      />
+                      <Legend />
+                      <Area type="monotone" name="Investimento CDI (Líquido)" dataKey="InvestimentoLíquido" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorAlt)" />
+                      {sim1UseCustomRate && (
+                        <Area type="monotone" name="Investimento Customizado (Líquido)" dataKey="CustomLíquido" stroke="#f59e0b" strokeWidth={3} fillOpacity={1} fill="url(#colorCustom)" />
+                      )}
+                      <Area type="monotone" name="Caderneta de Poupança" dataKey="Poupança" stroke="#ef4444" strokeWidth={2} fillOpacity={1} fill="url(#colorPoupança)" />
+                      <Area type="monotone" name="Capital Investido" dataKey="Investido" stroke="#94a3b8" strokeWidth={1} strokeDasharray="5 5" fill="none" />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                )}
+
+                {activeSim === 'retirement' && (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={sim3Data.points} margin={{ top: 10, right: 30, left: 10, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="colorPatrimonio" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#d97706" stopOpacity={0.2}/>
+                          <stop offset="95%" stopColor="#d97706" stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" opacity={0.3} />
+                      <XAxis dataKey="idade" tickFormatter={(v) => `${v} anos`} tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} />
+                      <YAxis tickFormatter={(v) => `R$ ${v/1000}k`} tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} />
+                      <Tooltip formatter={(value: any) => formatCurrency(value)} />
+                      <Legend />
+                      <Area type="monotone" name="Patrimônio Real Acumulado" dataKey="patrimonio" stroke="#d97706" strokeWidth={3} fillOpacity={1} fill="url(#colorPatrimonio)" />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                )}
+
+                {activeSim === 'rent-vs-buy' && (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={sim4Data.points} margin={{ top: 10, right: 30, left: 10, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="colorCompra" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#d97706" stopOpacity={0.15}/>
+                          <stop offset="95%" stopColor="#d97706" stopOpacity={0}/>
+                        </linearGradient>
+                        <linearGradient id="colorAluguel" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#10b981" stopOpacity={0.15}/>
+                          <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" opacity={0.3} />
+                      <XAxis dataKey="ano" tickFormatter={(v) => `Ano ${v}`} tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} />
+                      <YAxis tickFormatter={(v) => `R$ ${v/1000}k`} tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} />
+                      <Tooltip formatter={(value: any) => formatCurrency(value)} />
+                      <Legend />
+                      <Area type="monotone" name="Patrimônio Imóvel Próprio" dataKey="ComprarImóvel" stroke="#d97706" strokeWidth={3} fillOpacity={1} fill="url(#colorCompra)" />
+                      <Area type="monotone" name="Carteira Aluguel & Investimentos" dataKey="AlugarEInvestir" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorAluguel)" />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                )}
+
+                {activeSim === 'financing-vs-consortium' && (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={sim5Data.chartData} margin={{ top: 10, right: 30, left: 10, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="colorFinAcum" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#ef4444" stopOpacity={0.15}/>
+                          <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
+                        </linearGradient>
+                        <linearGradient id="colorConsAcum" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#10b981" stopOpacity={0.15}/>
+                          <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" opacity={0.3} />
+                      <XAxis dataKey="mes" tickFormatter={(v) => `Mês ${v}`} tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} />
+                      <YAxis tickFormatter={(v) => `R$ ${v/1000}k`} tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} />
+                      <Tooltip formatter={(value: any) => formatCurrency(value)} />
+                      <Legend />
+                      <Area type="monotone" name="Custo Acumulado Financiamento" dataKey="Financiamento" stroke="#ef4444" strokeWidth={3} fillOpacity={1} fill="url(#colorFinAcum)" />
+                      <Area type="monotone" name="Custo Acumulado Consórcio" dataKey="Consórcio" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorConsAcum)" />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-10">
+                {/* 1. Evolução das Parcelas */}
+                <div className="space-y-4">
+                  <div>
+                    <h4 className="text-sm font-black uppercase tracking-wider text-slate-900 dark:text-white">Evolução das Parcelas</h4>
+                    <p className="text-xs text-muted-foreground">Prestação mensal ao longo do tempo nos sistemas SAC e PRICE.</p>
+                  </div>
+                  <div className="h-[320px] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={sim2Data.chartData} margin={{ top: 10, right: 10, left: 65, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" opacity={0.3} />
+                        <XAxis dataKey="mes" tickFormatter={(v) => `Mês ${v}`} tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} />
+                        <YAxis width={65} tickFormatter={(v) => `R$ ${v.toLocaleString('pt-BR')}`} tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} />
+                        <Tooltip formatter={(value: any) => formatCurrency(value)} />
+                        <Legend />
+                        <Line type="linear" name="SAC (Decrescente)" dataKey="SAC" stroke="#f59e0b" strokeWidth={3} dot={false} />
+                        <Line type="linear" name="PRICE (Constante)" dataKey="PRICE" stroke="#10b981" strokeWidth={3} dot={false} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+
+                {/* 2. Tabela Comparativa */}
+                <div className="bg-muted/10 border border-border p-6 rounded-[2rem] space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-4">
+                    <div>
+                      <h4 className="text-sm font-black uppercase tracking-wider text-slate-900 dark:text-white">Tabela Comparativa SAC vs PRICE</h4>
+                      <p className="text-xs text-muted-foreground">Análise direta das parcelas, juros e custo total do financiamento.</p>
+                    </div>
+                    <div className="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 px-3.5 py-1.5 rounded-xl">
+                      <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                      <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400">
+                        {sim2Data.sacJuros <= sim2Data.priceJuros 
+                          ? `SAC é mais vantajosa (Economia de ${formatCurrency(sim2Data.priceJuros - sim2Data.sacJuros)})` 
+                          : `PRICE é mais vantajosa (Economia de ${formatCurrency(sim2Data.sacJuros - sim2Data.priceJuros)})`
                         }
-                        return null;
-                      }}
-                    />
-                    <Legend />
-                    <Area type="monotone" name="Investimento CDI (Líquido)" dataKey="InvestimentoLíquido" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorAlt)" />
-                    {sim1UseCustomRate && (
-                      <Area type="monotone" name="Investimento Customizado (Líquido)" dataKey="CustomLíquido" stroke="#f59e0b" strokeWidth={3} fillOpacity={1} fill="url(#colorCustom)" />
-                    )}
-                    <Area type="monotone" name="Caderneta de Poupança" dataKey="Poupança" stroke="#ef4444" strokeWidth={2} fillOpacity={1} fill="url(#colorPoupança)" />
-                    <Area type="monotone" name="Capital Investido" dataKey="Investido" stroke="#94a3b8" strokeWidth={1} strokeDasharray="5 5" fill="none" />
-                  </AreaChart>
-                </ResponsiveContainer>
-              )}
+                      </span>
+                    </div>
+                  </div>
 
-              {activeSim === 'financing' && (
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={sim2Data.chartData} margin={{ top: 10, right: 30, left: 10, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" opacity={0.3} />
-                    <XAxis dataKey="mes" tickFormatter={(v) => `Mês ${v}`} tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} />
-                    <YAxis tickFormatter={(v) => `R$ ${v}`} tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} />
-                    <Tooltip formatter={(value: any) => formatCurrency(value)} />
-                    <Legend />
-                    <Line type="monotone" name="SAC (Decrescente)" dataKey="SAC" stroke="#f59e0b" strokeWidth={3} dot={false} />
-                    <Line type="monotone" name="PRICE (Constante)" dataKey="PRICE" stroke="#10b981" strokeWidth={3} dot={false} />
-                  </LineChart>
-                </ResponsiveContainer>
-              )}
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead>
+                        <tr className="border-b border-border/60 text-[10px] font-black uppercase tracking-wider text-muted-foreground">
+                          <th className="py-3 px-4">Métrica</th>
+                          <th className="py-3 px-4 text-right">SAC (Amortização Constante)</th>
+                          <th className="py-3 px-4 text-right">PRICE (Tabela Price)</th>
+                          <th className="py-3 px-4 text-right">Diferença</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border/40 font-medium">
+                        <tr>
+                          <td className="py-3 px-4 font-bold text-muted-foreground uppercase text-[10px] tracking-wider">1ª Parcela (Inicial)</td>
+                          <td className="py-3 px-4 text-right text-foreground font-semibold">{formatCurrency(sim2Data.sacPrimeira)}</td>
+                          <td className="py-3 px-4 text-right text-foreground font-semibold">{formatCurrency(sim2Data.priceParcela)}</td>
+                          <td className="py-3 px-4 text-right font-black text-rose-500">
+                            {sim2Data.sacPrimeira > sim2Data.priceParcela 
+                              ? `+${formatCurrency(sim2Data.sacPrimeira - sim2Data.priceParcela)} (SAC)`
+                              : `+${formatCurrency(sim2Data.priceParcela - sim2Data.sacPrimeira)} (PRICE)`
+                            }
+                          </td>
+                        </tr>
+                        <tr>
+                          <td className="py-3 px-4 font-bold text-muted-foreground uppercase text-[10px] tracking-wider">Última Parcela (Final)</td>
+                          <td className="py-3 px-4 text-right text-foreground font-semibold">{formatCurrency(sim2Data.sacUltima)}</td>
+                          <td className="py-3 px-4 text-right text-foreground font-semibold">{formatCurrency(sim2Data.priceParcela)}</td>
+                          <td className="py-3 px-4 text-right font-black text-emerald-500">
+                            {sim2Data.sacUltima < sim2Data.priceParcela 
+                              ? `-${formatCurrency(sim2Data.priceParcela - sim2Data.sacUltima)} (SAC)`
+                              : `-${formatCurrency(sim2Data.sacUltima - sim2Data.priceParcela)} (PRICE)`
+                            }
+                          </td>
+                        </tr>
+                        <tr>
+                          <td className="py-3 px-4 font-bold text-muted-foreground uppercase text-[10px] tracking-wider">Total de Juros</td>
+                          <td className="py-3 px-4 text-right text-amber-500 font-bold">{formatCurrency(sim2Data.sacJuros)}</td>
+                          <td className="py-3 px-4 text-right text-rose-500 font-bold">{formatCurrency(sim2Data.priceJuros)}</td>
+                          <td className="py-3 px-4 text-right font-black text-emerald-500">
+                            {sim2Data.sacJuros < sim2Data.priceJuros 
+                              ? `-${formatCurrency(sim2Data.priceJuros - sim2Data.sacJuros)} (SAC)`
+                              : `-${formatCurrency(sim2Data.sacJuros - sim2Data.priceJuros)} (PRICE)`
+                            }
+                          </td>
+                        </tr>
+                        <tr className="bg-muted/30">
+                          <td className="py-3 px-4 font-black text-slate-900 dark:text-white uppercase text-[10px] tracking-widest">Custo Total Pago</td>
+                          <td className="py-3 px-4 text-right text-slate-900 dark:text-white font-black">{formatCurrency(sim2Data.sacTotal)}</td>
+                          <td className="py-3 px-4 text-right text-slate-900 dark:text-white font-black">{formatCurrency(sim2Data.priceTotal)}</td>
+                          <td className="py-3 px-4 text-right font-black text-emerald-500">
+                            {sim2Data.sacTotal < sim2Data.priceTotal 
+                              ? `-${formatCurrency(sim2Data.priceTotal - sim2Data.sacTotal)} (SAC)`
+                              : `-${formatCurrency(sim2Data.sacTotal - sim2Data.priceTotal)} (PRICE)`
+                            }
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
 
-              {activeSim === 'retirement' && (
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={sim3Data.points} margin={{ top: 10, right: 30, left: 10, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="colorPatrimonio" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#d97706" stopOpacity={0.2}/>
-                        <stop offset="95%" stopColor="#d97706" stopOpacity={0}/>
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" opacity={0.3} />
-                    <XAxis dataKey="idade" tickFormatter={(v) => `${v} anos`} tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} />
-                    <YAxis tickFormatter={(v) => `R$ ${v/1000}k`} tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} />
-                    <Tooltip formatter={(value: any) => formatCurrency(value)} />
-                    <Legend />
-                    <Area type="monotone" name="Patrimônio Real Acumulado" dataKey="patrimonio" stroke="#d97706" strokeWidth={3} fillOpacity={1} fill="url(#colorPatrimonio)" />
-                  </AreaChart>
-                </ResponsiveContainer>
-              )}
+                {/* 3. Evolução do Saldo Devedor */}
+                <div className="space-y-4 pt-6 border-t border-border/60">
+                  <div>
+                    <h4 className="text-sm font-black uppercase tracking-wider text-slate-900 dark:text-white">Evolução do Saldo Devedor</h4>
+                    <p className="text-xs text-muted-foreground">Velocidade de amortização do saldo devedor ao longo do prazo do financiamento.</p>
+                  </div>
+                  <div className="h-[320px] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={sim2Data.chartData} margin={{ top: 10, right: 10, left: 65, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" opacity={0.3} />
+                        <XAxis dataKey="mes" tickFormatter={(v) => `Mês ${v}`} tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} />
+                        <YAxis width={65} tickFormatter={(v) => `R$ ${(v/1000).toFixed(0)}k`} tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} />
+                        <Tooltip formatter={(value: any) => formatCurrency(value)} />
+                        <Legend />
+                        <Area type="linear" name="Saldo Devedor SAC" dataKey="saldoSAC" stroke="#f59e0b" strokeWidth={3} fill="#f59e0b" fillOpacity={0.15} />
+                        <Area type="linear" name="Saldo Devedor PRICE" dataKey="saldoPRICE" stroke="#10b981" strokeWidth={3} fill="#10b981" fillOpacity={0.15} />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
 
-              {activeSim === 'rent-vs-buy' && (
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={sim4Data.points} margin={{ top: 10, right: 30, left: 10, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="colorCompra" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#d97706" stopOpacity={0.15}/>
-                        <stop offset="95%" stopColor="#d97706" stopOpacity={0}/>
-                      </linearGradient>
-                      <linearGradient id="colorAluguel" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.15}/>
-                        <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" opacity={0.3} />
-                    <XAxis dataKey="ano" tickFormatter={(v) => `Ano ${v}`} tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} />
-                    <YAxis tickFormatter={(v) => `R$ ${v/1000}k`} tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} />
-                    <Tooltip formatter={(value: any) => formatCurrency(value)} />
-                    <Legend />
-                    <Area type="monotone" name="Patrimônio Imóvel Próprio" dataKey="ComprarImóvel" stroke="#d97706" strokeWidth={3} fillOpacity={1} fill="url(#colorCompra)" />
-                    <Area type="monotone" name="Carteira Aluguel & Investimentos" dataKey="AlugarEInvestir" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorAluguel)" />
-                  </AreaChart>
-                </ResponsiveContainer>
-              )}
+                {/* 4. Composição da Parcela */}
+                <div className="space-y-4 pt-6 border-t border-border/60">
+                  <div>
+                    <h4 className="text-sm font-black uppercase tracking-wider text-slate-900 dark:text-white">Composição da Parcela (Amortização vs Juros)</h4>
+                    <p className="text-xs text-muted-foreground">Como o valor de cada parcela é dividido entre o abatimento da dívida (amortização) e os encargos (juros).</p>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    {/* Gráfico SAC */}
+                    <div className="space-y-2 bg-muted/5 border border-border/55 p-4 rounded-2xl">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-amber-500 ml-1 block">Tabela SAC: Parcelas Decrescentes</span>
+                      <div className="h-[260px] w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <AreaChart data={sim2Data.chartData} margin={{ top: 10, right: 10, left: 60, bottom: 0 }}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" opacity={0.3} />
+                            <XAxis dataKey="mes" tickFormatter={(v) => `M ${v}`} tick={{ fontSize: 9 }} />
+                            <YAxis width={60} tickFormatter={(v) => `R$ ${v.toLocaleString('pt-BR')}`} tick={{ fontSize: 9 }} />
+                            <Tooltip 
+                              content={({ active, payload }) => {
+                                if (active && payload && payload.length) {
+                                  const data = payload[0].payload;
+                                  return (
+                                    <div className="bg-card/90 border border-border p-4 rounded-2xl shadow-2xl backdrop-blur-md text-xs space-y-2.5">
+                                      <p className="font-black uppercase tracking-widest text-muted-foreground">Mês {data.mes}</p>
+                                      <div className="space-y-1.5 font-medium">
+                                        <div className="flex justify-between gap-6 font-bold text-slate-900 dark:text-white border-b border-border pb-1 mb-1">
+                                          <span>Valor da Parcela:</span>
+                                          <span>{formatCurrency(data.SAC)}</span>
+                                        </div>
+                                        <div className="flex justify-between gap-6">
+                                          <span className="text-emerald-500 font-bold">Amortização:</span>
+                                          <span className="font-semibold text-emerald-500">{formatCurrency(data.amortizacaoSAC)}</span>
+                                        </div>
+                                        <div className="flex justify-between gap-6">
+                                          <span className="text-rose-500 font-bold">Juros:</span>
+                                          <span className="font-semibold text-rose-500">{formatCurrency(data.jurosSAC)}</span>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                }
+                                return null;
+                              }}
+                            />
+                            <Legend />
+                            <Area type="linear" name="Amortização" dataKey="amortizacaoSAC" stackId="1" stroke="#10b981" fill="#10b981" fillOpacity={0.5} />
+                            <Area type="linear" name="Juros" dataKey="jurosSAC" stackId="1" stroke="#ef4444" fill="#ef4444" fillOpacity={0.5} />
+                          </AreaChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
 
-              {activeSim === 'financing-vs-consortium' && (
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={sim5Data.chartData} margin={{ top: 10, right: 30, left: 10, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="colorFinAcum" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#ef4444" stopOpacity={0.15}/>
-                        <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
-                      </linearGradient>
-                      <linearGradient id="colorConsAcum" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.15}/>
-                        <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" opacity={0.3} />
-                    <XAxis dataKey="mes" tickFormatter={(v) => `Mês ${v}`} tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} />
-                    <YAxis tickFormatter={(v) => `R$ ${v/1000}k`} tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} />
-                    <Tooltip formatter={(value: any) => formatCurrency(value)} />
-                    <Legend />
-                    <Area type="monotone" name="Custo Acumulado Financiamento" dataKey="Financiamento" stroke="#ef4444" strokeWidth={3} fillOpacity={1} fill="url(#colorFinAcum)" />
-                    <Area type="monotone" name="Custo Acumulado Consórcio" dataKey="Consórcio" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorConsAcum)" />
-                  </AreaChart>
-                </ResponsiveContainer>
-              )}
-            </div>
+                    {/* Gráfico PRICE */}
+                    <div className="space-y-2 bg-muted/5 border border-border/55 p-4 rounded-2xl">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-emerald-500 ml-1 block">Tabela PRICE: Parcelas Fixas</span>
+                      <div className="h-[260px] w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <AreaChart data={sim2Data.chartData} margin={{ top: 10, right: 10, left: 60, bottom: 0 }}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" opacity={0.3} />
+                            <XAxis dataKey="mes" tickFormatter={(v) => `M ${v}`} tick={{ fontSize: 9 }} />
+                            <YAxis width={60} tickFormatter={(v) => `R$ ${v.toLocaleString('pt-BR')}`} tick={{ fontSize: 9 }} />
+                            <Tooltip 
+                              content={({ active, payload }) => {
+                                if (active && payload && payload.length) {
+                                  const data = payload[0].payload;
+                                  return (
+                                    <div className="bg-card/90 border border-border p-4 rounded-2xl shadow-2xl backdrop-blur-md text-xs space-y-2.5">
+                                      <p className="font-black uppercase tracking-widest text-muted-foreground">Mês {data.mes}</p>
+                                      <div className="space-y-1.5 font-medium">
+                                        <div className="flex justify-between gap-6 font-bold text-slate-900 dark:text-white border-b border-border pb-1 mb-1">
+                                          <span>Valor da Parcela:</span>
+                                          <span>{formatCurrency(data.PRICE)}</span>
+                                        </div>
+                                        <div className="flex justify-between gap-6">
+                                          <span className="text-emerald-500 font-bold">Amortização:</span>
+                                          <span className="font-semibold text-emerald-500">{formatCurrency(data.amortizacaoPRICE)}</span>
+                                        </div>
+                                        <div className="flex justify-between gap-6">
+                                          <span className="text-rose-500 font-bold">Juros:</span>
+                                          <span className="font-semibold text-rose-500">{formatCurrency(data.jurosPRICE)}</span>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                }
+                                return null;
+                              }}
+                            />
+                            <Legend />
+                            <Area type="linear" name="Amortização" dataKey="amortizacaoPRICE" stackId="1" stroke="#10b981" fill="#10b981" fillOpacity={0.5} />
+                            <Area type="linear" name="Juros" dataKey="jurosPRICE" stackId="1" stroke="#ef4444" fill="#ef4444" fillOpacity={0.5} />
+                          </AreaChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* DETALHAMENTOS DE CONCLUSÃO FINANCEIRA DO PROJETO */}
             <div className="mt-8 border-t border-border pt-6 space-y-4">
@@ -1662,14 +1873,66 @@ export const SimulatorsTab: React.FC = () => {
               )}
 
               {activeSim === 'financing' && (
-                <div className="bg-muted/30 border border-border p-5 rounded-2xl space-y-3">
-                  <p className="text-sm font-medium text-muted-foreground leading-relaxed">
-                    No **Sistema SAC**, o saldo devedor é amortizado de forma constante. A primeira parcela inicia em <strong className="text-slate-950 dark:text-white">{formatCurrency(sim2Data.sacPrimeira)}</strong> e a última reduz para <strong className="text-slate-950 dark:text-white">{formatCurrency(sim2Data.sacUltima)}</strong>. 
-                    No **Sistema PRICE**, as parcelas são sempre fixadas em <strong className="text-slate-950 dark:text-white">{formatCurrency(sim2Data.priceParcela)}</strong>.
-                  </p>
-                  <p className="text-sm font-medium text-muted-foreground leading-relaxed">
-                    Ao comparar os juros, a tabela **SAC gera uma economia total de {formatCurrency(sim2Data.priceJuros - sim2Data.sacJuros)} em juros** em relação à PRICE, pois a amortização do saldo devedor ocorre de forma mais rápida nas parcelas iniciais.
-                  </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
+                  {/* Card SAC */}
+                  <div className="bg-amber-500/5 border border-amber-500/20 p-6 rounded-[2rem] space-y-3 relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/10 rounded-full blur-xl" />
+                    <span className="text-[10px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-400 block mb-1">
+                      Sistema SAC (Amortização Constante)
+                    </span>
+                    <h5 className="text-sm font-black text-slate-900 dark:text-white">Amortização Rápida e Custo Menor</h5>
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      No sistema <strong className="text-amber-600 dark:text-amber-400">SAC</strong>, a amortização da dívida é igual em todas as parcelas. O valor da prestação cai mês a mês porque os juros são calculados sobre um saldo devedor que diminui rapidamente.
+                    </p>
+                    <div className="text-[10px] text-amber-700 dark:text-amber-300 space-y-2.5 bg-amber-500/10 p-4 rounded-xl border border-amber-500/10 font-medium">
+                      <div>
+                        <p className="font-black uppercase text-[8px] tracking-wider mb-1">Características principais:</p>
+                        <p>• Parcelas iniciais mais altas, decrescentes mês a mês</p>
+                        <p>• Menor acúmulo de juros total ao longo do prazo contratual</p>
+                      </div>
+                      <div>
+                        <p className="font-bold text-amber-800 dark:text-amber-200 uppercase text-[8px] tracking-wider mb-1">Quando é utilizado:</p>
+                        <p>• Financiamentos habitacionais/imobiliários de longo prazo</p>
+                        <p>• Quando o cliente pode pagar parcelas maiores no início do contrato</p>
+                        <p>• Estruturas focadas em economizar significativamente no custo de juros final</p>
+                      </div>
+                      <div>
+                        <p className="font-bold text-amber-900 dark:text-amber-100 uppercase text-[8px] tracking-wider mb-1">Pontos de Atenção:</p>
+                        <p>• Prestações iniciais pesadas exigem maior fluxo de caixa de início</p>
+                        <p>• Pode requerer comprovação de renda maior para aprovação do crédito inicial</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Card PRICE */}
+                  <div className="bg-emerald-500/5 border border-emerald-500/20 p-6 rounded-[2rem] space-y-3 relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/10 rounded-full blur-xl" />
+                    <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400 block mb-1">
+                      Sistema PRICE (Tabela Francesa)
+                    </span>
+                    <h5 className="text-sm font-black text-slate-900 dark:text-white">Parcelas Previsíveis e Custo Maior</h5>
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      No sistema <strong className="text-emerald-600 dark:text-emerald-400">PRICE</strong>, as prestações são fixas até o final do financiamento. Nas primeiras parcelas, a maior parte do pagamento vai para os juros, amortizando muito pouco do saldo devedor inicial.
+                    </p>
+                    <div className="text-[10px] text-emerald-700 dark:text-emerald-300 space-y-2.5 bg-emerald-500/10 p-4 rounded-xl border border-emerald-500/10 font-medium">
+                      <div>
+                        <p className="font-black uppercase text-[8px] tracking-wider mb-1">Características principais:</p>
+                        <p>• Parcelas fixas e previsíveis da primeira à última prestação</p>
+                        <p>• Amortização muito lenta da dívida nos anos/meses iniciais</p>
+                      </div>
+                      <div>
+                        <p className="font-bold text-emerald-800 dark:text-emerald-200 uppercase text-[8px] tracking-wider mb-1">Quando é utilizado:</p>
+                        <p>• Financiamento de veículos, empréstimos pessoais e crediários gerais</p>
+                        <p>• Quando o cliente necessita de parcelas iniciais menores que caibam no orçamento</p>
+                        <p>• Quando a previsibilidade orçamentária mensal absoluta é fundamental</p>
+                      </div>
+                      <div>
+                        <p className="font-bold text-emerald-900 dark:text-emerald-100 uppercase text-[8px] tracking-wider mb-1">Pontos de Atenção:</p>
+                        <p>• Custo total de juros pagos acumulados substancialmente superior à tabela SAC</p>
+                        <p>• Quitações antecipadas precoces são menos vantajosas por amortizarem pouco saldo devedor</p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
 
