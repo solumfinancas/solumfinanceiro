@@ -525,12 +525,20 @@ export const Categories: React.FC = () => {
                               )}
                             </div>
                             {effective.total > 0 && (
-                              <span className="text-[9px] sm:text-[10px] font-bold text-muted-foreground opacity-60 uppercase tracking-tight leading-tight">
-                                Limite: {formatCurrency(effective.total)}
-                                {effective.hasSubsWithLimit && (
-                                  <span className="block sm:inline mt-0.5 sm:mt-0"> (Cat: {formatCurrency(effective.parent)} + Subs: {formatCurrency(effective.subs)})</span>
-                                )}
-                              </span>
+                              <div className="flex flex-col gap-0.5">
+                                <span className="text-[9px] sm:text-[10px] font-bold text-muted-foreground opacity-60 uppercase tracking-tight leading-tight">
+                                  Limite: {formatCurrency(effective.total)}
+                                  {effective.hasSubsWithLimit && (
+                                    <span className="block sm:inline mt-0.5 sm:mt-0"> (Cat: {formatCurrency(effective.parent)} + Subs: {formatCurrency(effective.subs)})</span>
+                                  )}
+                                </span>
+                                <span className="text-[9px] sm:text-[10px] font-bold text-muted-foreground opacity-60 uppercase tracking-tight leading-tight sm:hidden">
+                                  Disponível: <span className={cn(
+                                    "font-black",
+                                    (effective.total - spend) < 0 ? "text-rose-500" : "text-emerald-500"
+                                  )}>{formatCurrency(effective.total - spend)}</span>
+                                </span>
+                              </div>
                             )}
                             <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden shadow-inner border border-border/10">
                               <motion.div
