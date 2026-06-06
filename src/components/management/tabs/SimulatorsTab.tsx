@@ -159,6 +159,26 @@ export const SimulatorsTab: React.FC = () => {
   const [sim4RentInflation, setSim4RentInflation] = useState(4.5); // % a.a. reajuste aluguel
   const [sim4PropAppreciation, setSim4PropAppreciation] = useState(5.5); // % a.a. valorização imóvel
   const [sim4InvestmentReturn, setSim4InvestmentReturn] = useState(6.0); // % a.a. real líquido
+  const [sim4SelectedPeriod, setSim4SelectedPeriod] = useState(0);
+  const [sim4IsTaxFree, setSim4IsTaxFree] = useState(false);
+  const [sim4TimelineMonths, setSim4TimelineMonths] = useState(240);
+  const [sim4AmortSystem, setSim4AmortSystem] = useState<'SAC' | 'PRICE'>('SAC');
+
+
+  // Garantir que o tempo de projeção seja no mínimo igual ao prazo de financiamento
+  React.useEffect(() => {
+    if (sim4TimelineMonths < sim4Months) {
+      setSim4TimelineMonths(sim4Months);
+    }
+  }, [sim4Months]);
+
+  // Resetar período da tabela se o prazo for encurtado e o período atual extrapolar
+  React.useEffect(() => {
+    const totalPeriods = Math.ceil(sim4TimelineMonths / 60);
+    if (sim4SelectedPeriod >= totalPeriods) {
+      setSim4SelectedPeriod(0);
+    }
+  }, [sim4TimelineMonths, sim4SelectedPeriod]);
 
   // ==========================================
   // ESTADOS DO SIMULADOR 5: FINANCIAMENTO X CONSÓRCIO
@@ -548,62 +568,132 @@ export const SimulatorsTab: React.FC = () => {
   // ==========================================
   const sim4Data = useMemo(() => {
     const financiado = sim4PropertyVal - sim4Entry;
-    if (financiado <= 0) return { points: [], finalPropWealth: 0, finalRentWealth: 0 };
+    if (financiado <= 0) return { points: [], finalPropWealth: 0, finalRentWealth: 0, tableData: [] };
 
     const iMensalFin = Math.pow(1 + (sim4Rate / 100), 1/12) - 1;
-    const rMensalInv = Math.pow(1 + (sim4InvestmentReturn / 100), 1/12) - 1;
+    const rMensalInvBruto = Math.pow(1 + (sim4InvestmentReturn / 100), 1/12) - 1;
     const inflacaoRentMensal = Math.pow(1 + (sim4RentInflation / 100), 1/12) - 1;
     const appreciationMensal = Math.pow(1 + (sim4PropAppreciation / 100), 1/12) - 1;
 
-    // SAC Financiamento
+    // SAC Amortização
     const amortSAC = financiado / sim4Months;
+
+    // PRICE Amortização
+    const parcelaPRICE = financiado * (iMensalFin * Math.pow(1 + iMensalFin, sim4Months)) / (Math.pow(1 + iMensalFin, sim4Months) - 1);
     
-    // Aluguel Inicial
-    let aluguelM = sim4RentInitial;
+    // Aluguel Inicial (utiliza o valor arredondado para inteiros nos cálculos)
+    let aluguelM = Math.round(sim4RentInitial);
     
-    // Investimento inicial na opção de aluguel
-    let carteiraAluguel = sim4Entry;
-    let valorImovel = sim4PropertyVal;
+    // Investimento inicial na opção de aluguel (arredondado para inteiros)
+    let carteiraAluguel = Math.round(sim4Entry);
+    let valorImovel = Math.round(sim4PropertyVal);
+    let rendimentoPendente = 0; // Rendimento gerado no mês anterior que entra agora no início do próximo
+
+    // Alíquota inicial do IR nos primeiros 6 meses
+    const aliquotaInicial = sim4IsTaxFree ? 0 : 0.225;
+    const rMensalInvLiquidoInicial = rMensalInvBruto * (1 - aliquotaInicial);
+
+    // Diferença inicial no mês 1 para o ano 0 (valores arredondados para inteiros)
+    const jurosSAC_1 = financiado * iMensalFin;
+    const parcelaFin_1 = sim4AmortSystem === 'SAC' ? Math.round(amortSAC + jurosSAC_1) : Math.round(parcelaPRICE);
+    const custoExtraImovel_1 = (sim4PropertyVal * (0.5 / 100)) / 12;
+    const diferencaInicial = parcelaFin_1 + custoExtraImovel_1 - aluguelM;
 
     const chartPoints = [{
-      ano: 0,
+      mes: 0,
       ComprarImóvel: Math.round(valorImovel),
       AlugarEInvestir: Math.round(carteiraAluguel),
+      DiferencaMensal: Math.round(Math.max(0, diferencaInicial)),
     }];
 
-    for (let m = 1; m <= sim4Months; m++) {
+    const tableData: Array<{
+      mes: number;
+      aluguel: number;
+      parcelaFin: number;
+      diferenca: number;
+      rentabilidade: number;
+      totalPagoImovel: number;
+      totalPagoAluguel: number;
+      carteiraAluguel: number;
+      patrimonioImovel: number;
+    }> = [];
+
+    let acumuladoImovel = Math.round(sim4Entry);
+    let acumuladoAluguel = 0;
+
+    for (let m = 1; m <= sim4TimelineMonths; m++) {
       // 1. Cenário Financiamento (Imóvel Valorizando)
       valorImovel = valorImovel * (1 + appreciationMensal);
 
-      // Parcela do Financiamento no mês
-      const jurosSAC_m = (financiado - amortSAC * (m - 1)) * iMensalFin;
-      const parcelaFin_m = amortSAC + jurosSAC_m;
+      // Parcela do Financiamento no mês - zera após terminar o prazo do financiamento e arredonda para inteiros
+      let parcelaFin_m = 0;
+      if (m <= sim4Months) {
+        if (sim4AmortSystem === 'SAC') {
+          const jurosSAC_m = (financiado - amortSAC * (m - 1)) * iMensalFin;
+          parcelaFin_m = Math.round(amortSAC + jurosSAC_m);
+        } else {
+          parcelaFin_m = Math.round(parcelaPRICE);
+        }
+      }
+      
       // Custo extra do imóvel próprio: IPTU + Seguro + Manutenção (estimado 0.5% ao ano)
       const custoExtraImovel = (valorImovel * (0.5 / 100)) / 12;
 
       const totalMensalComprar = parcelaFin_m + custoExtraImovel;
 
       // 2. Cenário Aluguel (Aluguel Reajustado e Investimentos)
-      // O aluguel reajusta anualmente
-      if (m > 1 && m % 12 === 0) {
-        aluguelM = aluguelM * (1 + (sim4RentInflation / 100));
+      // O aluguel reajusta anualmente no início de cada novo ano de contrato (meses 13, 25, 37...) e arredonda para inteiros
+      if (m > 1 && (m - 1) % 12 === 0) {
+        aluguelM = Math.round(aluguelM * (1 + (sim4RentInflation / 100)));
       }
 
-      // Diferença de custo entre os dois mundos
-      // Se comprar for mais caro que alugar, a diferença vai para a carteira de investimento
-      // Se alugar for mais caro que comprar, retiramos da carteira de investimentos
+      // Diferença de custo entre os dois mundos (aporte mensal não pode ser negativo)
       const diferenca = totalMensalComprar - aluguelM;
+      const aporteEfetivo = Math.round(Math.max(0, diferenca));
 
-      carteiraAluguel = (carteiraAluguel + diferenca) * (1 + rMensalInv);
+      // Taxa líquida de IR regressivo para o mês m
+      const aliquota = sim4IsTaxFree ? 0 : m <= 6 ? 0.225 : m <= 12 ? 0.20 : m <= 24 ? 0.175 : 0.15;
+      const rMensalInvLiquido = rMensalInvBruto * (1 - aliquota);
 
-      // Ponto no gráfico a cada 1 ano (12 meses)
-      if (m % 12 === 0 || m === sim4Months) {
-        chartPoints.push({
-          ano: Math.round(m / 12),
-          ComprarImóvel: Math.round(valorImovel),
-          AlugarEInvestir: Math.round(Math.max(0, carteiraAluguel)),
-        });
-      }
+      // Somamos o rendimento pendente gerado no mês anterior ao saldo
+      carteiraAluguel = carteiraAluguel + rendimentoPendente;
+
+      // Base de cálculo: carteira acumulada (com rendimento anterior) + aporte do mês m
+      const baseParaRendimento = carteiraAluguel + aporteEfetivo;
+      
+      // Rentabilidade gerada neste mês m sobre a base com o aporte, que será somada só no mês m+1
+      const rentabilidadeM = baseParaRendimento * rMensalInvLiquido;
+      rendimentoPendente = rentabilidadeM;
+
+      // Saldo exibido na tabela/gráfico do mês m é apenas a base com o aporte (sem o rendimento gerado no próprio mês)
+      const saldoExibido = baseParaRendimento;
+
+      // Preparar a carteira para o próximo loop
+      carteiraAluguel = baseParaRendimento;
+
+      // Ponto no gráfico (todos os meses)
+      chartPoints.push({
+        mes: m,
+        ComprarImóvel: Math.round(valorImovel),
+        AlugarEInvestir: Math.round(Math.max(0, saldoExibido)),
+        DiferencaMensal: Math.round(aporteEfetivo),
+      });
+
+      // Acumulados para a tabela (acumula entrada + parcelas de financiamento pagas inteiras)
+      acumuladoImovel += parcelaFin_m;
+      acumuladoAluguel += aluguelM;
+
+      tableData.push({
+        mes: m,
+        aluguel: aluguelM,
+        parcelaFin: parcelaFin_m,
+        diferenca: aporteEfetivo,
+        rentabilidade: Math.round(rentabilidadeM),
+        totalPagoImovel: Math.round(acumuladoImovel),
+        totalPagoAluguel: Math.round(acumuladoAluguel),
+        carteiraAluguel: Math.round(Math.max(0, saldoExibido)),
+        patrimonioImovel: Math.round(valorImovel),
+      });
     }
 
     return {
@@ -611,8 +701,9 @@ export const SimulatorsTab: React.FC = () => {
       finalPropWealth: valorImovel,
       finalRentWealth: Math.max(0, carteiraAluguel),
       vencedor: valorImovel > carteiraAluguel ? 'comprar' : 'alugar',
+      tableData
     };
-  }, [sim4PropertyVal, sim4Entry, sim4Rate, sim4Months, sim4RentInitial, sim4RentInflation, sim4PropAppreciation, sim4InvestmentReturn]);
+  }, [sim4PropertyVal, sim4Entry, sim4Rate, sim4Months, sim4RentInitial, sim4RentInflation, sim4PropAppreciation, sim4InvestmentReturn, sim4IsTaxFree, sim4TimelineMonths, sim4AmortSystem]);
 
   // ==========================================
   // CALCULO 5: FINANCIAMENTO X CONSÓRCIO
@@ -1046,77 +1137,184 @@ export const SimulatorsTab: React.FC = () => {
 
             {/* PAINEL DE INPUTS PARA SIMULADOR 4 */}
             {activeSim === 'rent-vs-buy' && (
-              <div className="space-y-5">
-                <div className="space-y-2">
-                  <CurrencyInput 
-                    label="Valor do Imóvel (R$)"
-                    value={sim4PropertyVal}
-                    onChange={setSim4PropertyVal}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <CurrencyInput 
-                    label="Entrada Disponível (R$)"
-                    value={sim4Entry}
-                    onChange={setSim4Entry}
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-6">
+                {/* SEÇÃO 1: FINANCIAMENTO DO IMÓVEL */}
+                <div className="space-y-4">
+                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary/80 block border-b border-border/10 pb-1">
+                    1. Compra & Financiamento
+                  </span>
+                  
                   <div className="space-y-2">
-                    <PercentInput 
-                      label="Juros Fin. (% a.a.)"
-                      value={sim4Rate}
-                      onChange={setSim4Rate}
-                      suffix="% a.a."
+                    <CurrencyInput 
+                      label="Valor do Imóvel (R$)"
+                      value={sim4PropertyVal}
+                      onChange={setSim4PropertyVal}
                     />
                   </div>
+
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-2">Prazo (Meses)</label>
-                    <input 
-                      type="number" 
-                      value={sim4Months} 
-                      onChange={e => setSim4Months(Number(e.target.value))} 
-                      className="w-full bg-muted/30 border border-border rounded-xl h-12 px-4 text-sm text-foreground outline-none focus:border-primary/50 transition-all font-bold"
+                    <CurrencyInput 
+                      label="Entrada Disponível (R$)"
+                      value={sim4Entry}
+                      onChange={setSim4Entry}
                     />
                   </div>
-                </div>
 
-                <div className="space-y-2">
-                  <CurrencyInput 
-                    label="Aluguel Inicial (R$)"
-                    value={sim4RentInitial}
-                    onChange={setSim4RentInitial}
-                  />
-                </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <PercentInput 
+                        label="Juros Fin. (% a.a.)"
+                        value={sim4Rate}
+                        onChange={setSim4Rate}
+                        suffix="% a.a."
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-2">Prazo (Meses)</label>
+                      <input 
+                        type="number" 
+                        value={sim4Months} 
+                        onChange={e => setSim4Months(Number(e.target.value))} 
+                        className="w-full bg-muted/30 border border-border rounded-xl h-12 px-4 text-sm text-foreground outline-none focus:border-primary/50 transition-all font-bold"
+                      />
+                    </div>
+                  </div>
 
-                <div className="space-y-2">
-                  <PercentInput 
-                    label="Rendimento Investimentos (% a.a.)"
-                    value={sim4InvestmentReturn}
-                    onChange={setSim4InvestmentReturn}
-                    suffix="% a.a."
-                  />
-                  <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-1">Taxa real líquida acima da inflação</p>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <PercentInput 
-                      label="Val. Imóvel (% a.a.)"
+                      label="Valorização Anual Imóvel (% a.a.)"
                       value={sim4PropAppreciation}
                       onChange={setSim4PropAppreciation}
                       suffix="% a.a."
                     />
                   </div>
+
+                  {/* Sistema de Amortização */}
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-2 block">
+                      Tabela de Financiamento
+                    </label>
+                    <div className="grid grid-cols-2 gap-2 bg-muted/20 p-1 rounded-xl border border-border/50">
+                      <button
+                        type="button"
+                        onClick={() => setSim4AmortSystem('SAC')}
+                        className={cn(
+                          "py-2 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all",
+                          sim4AmortSystem === 'SAC'
+                            ? "bg-primary text-white shadow-md shadow-primary/15"
+                            : "text-muted-foreground hover:bg-muted/30"
+                        )}
+                      >
+                        SAC
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSim4AmortSystem('PRICE')}
+                        className={cn(
+                          "py-2 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all",
+                          sim4AmortSystem === 'PRICE'
+                            ? "bg-primary text-white shadow-md shadow-primary/15"
+                            : "text-muted-foreground hover:bg-muted/30"
+                        )}
+                      >
+                        PRICE
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* SEÇÃO 2: ALUGUEL */}
+                <div className="space-y-4 pt-2 border-t border-border/20">
+                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary/80 block border-b border-border/10 pb-1">
+                    2. Aluguel
+                  </span>
+
+                  <div className="space-y-2">
+                    <CurrencyInput 
+                      label="Aluguel Inicial (R$)"
+                      value={sim4RentInitial}
+                      onChange={setSim4RentInitial}
+                    />
+                  </div>
+
                   <div className="space-y-2">
                     <PercentInput 
-                      label="Inflação (% a.a.)"
+                      label="Reajuste Anual Aluguel (% a.a.)"
                       value={sim4RentInflation}
                       onChange={setSim4RentInflation}
                       suffix="% a.a."
                     />
+                  </div>
+                </div>
+
+                {/* SEÇÃO 3: INVESTIMENTO */}
+                <div className="space-y-4 pt-2 border-t border-border/20">
+                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary/80 block border-b border-border/10 pb-1">
+                    3. Investimento
+                  </span>
+
+                  <div className="space-y-2">
+                    <PercentInput 
+                      label="Rendimento Investimentos (% a.a.)"
+                      value={sim4InvestmentReturn}
+                      onChange={setSim4InvestmentReturn}
+                      suffix="% a.a."
+                    />
+                    <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-1">Taxa nominal anual bruta</p>
+                  </div>
+
+                  {/* Toggle Isento de IR */}
+                  <div className="pt-2">
+                    <div 
+                      onClick={() => setSim4IsTaxFree(!sim4IsTaxFree)}
+                      className={cn(
+                        "p-3 rounded-xl border border-border/60 transition-all flex flex-col gap-1.5 cursor-pointer select-none",
+                        sim4IsTaxFree
+                          ? "bg-primary/5 border-primary/40 text-primary"
+                          : "bg-muted/10 border-border/50 text-muted-foreground hover:bg-muted/20"
+                      )}
+                    >
+                      <div className="flex items-center justify-between w-full">
+                        <span className="text-[10px] font-black uppercase tracking-widest leading-none">
+                          Isento de Imposto de Renda
+                        </span>
+                        {/* Pílula Deslizante */}
+                        <div className="w-12 h-6 bg-muted rounded-full relative p-1 transition-colors border border-border/20">
+                          <div 
+                            className={cn(
+                              "w-4 h-4 rounded-full transition-all duration-300 absolute top-1",
+                              sim4IsTaxFree 
+                                ? "bg-primary left-7" 
+                                : "bg-muted-foreground/30 left-1"
+                            )}
+                          />
+                        </div>
+                      </div>
+                      <span className="text-[8px] font-bold uppercase tracking-wider opacity-60">
+                        {sim4IsTaxFree ? "Isento (LCI / LCA)" : "Tributável (CDB com IR regressivo)"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* SEÇÃO 4: TEMPO DE PROJEÇÃO */}
+                <div className="space-y-4 pt-2 border-t border-border/20">
+                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary/80 block border-b border-border/10 pb-1">
+                    4. Tempo de Projeção
+                  </span>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-2">Visualizar Simulação por (Meses)</label>
+                    <input 
+                      type="number" 
+                      min={sim4Months}
+                      value={sim4TimelineMonths} 
+                      onChange={e => setSim4TimelineMonths(Math.max(sim4Months, Number(e.target.value)))} 
+                      className="w-full bg-muted/30 border border-border rounded-xl h-12 px-4 text-sm text-foreground outline-none focus:border-primary/50 transition-all font-bold"
+                    />
+                    <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+                      Mínimo permitido: {sim4Months} meses (prazo do financiamento)
+                    </p>
                   </div>
                 </div>
               </div>
@@ -1539,7 +1737,7 @@ export const SimulatorsTab: React.FC = () => {
 
                 {activeSim === 'rent-vs-buy' && (
                   <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={sim4Data.points} margin={{ top: 10, right: 30, left: 10, bottom: 0 }}>
+                    <AreaChart data={sim4Data.points} margin={{ top: 10, right: 50, left: 10, bottom: 0 }}>
                       <defs>
                         <linearGradient id="colorCompra" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="5%" stopColor="#d97706" stopOpacity={0.15}/>
@@ -1551,12 +1749,21 @@ export const SimulatorsTab: React.FC = () => {
                         </linearGradient>
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" opacity={0.3} />
-                      <XAxis dataKey="ano" tickFormatter={(v) => `Ano ${v}`} tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} />
-                      <YAxis tickFormatter={(v) => `R$ ${v/1000}k`} tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} />
-                      <Tooltip formatter={(value: any) => formatCurrency(value)} />
+                      <XAxis dataKey="mes" tickFormatter={(v) => `Mês ${v}`} tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} />
+                      
+                      {/* Eixo Esquerdo: Valores de Patrimônio */}
+                      <YAxis yAxisId="left" tickFormatter={(v) => `R$ ${v/1000}k`} tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} />
+                      
+                      {/* Eixo Direito: Diferença Mensal de Aporte (Financiamento - Aluguel) */}
+                      <YAxis yAxisId="right" orientation="right" tickFormatter={(v) => `R$ ${v}`} tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} />
+                      
+                      <Tooltip formatter={(value: any, name: any) => {
+                        return [formatCurrency(value), name];
+                      }} />
                       <Legend />
-                      <Area type="monotone" name="Patrimônio Imóvel Próprio" dataKey="ComprarImóvel" stroke="#d97706" strokeWidth={3} fillOpacity={1} fill="url(#colorCompra)" />
-                      <Area type="monotone" name="Carteira Aluguel & Investimentos" dataKey="AlugarEInvestir" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorAluguel)" />
+                      <Area yAxisId="left" type="monotone" name="Patrimônio Imóvel Próprio" dataKey="ComprarImóvel" stroke="#d97706" strokeWidth={3} fillOpacity={1} fill="url(#colorCompra)" />
+                      <Area yAxisId="left" type="monotone" name="Carteira Aluguel & Investimentos" dataKey="AlugarEInvestir" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorAluguel)" />
+                      <Line yAxisId="right" type="monotone" name="Diferença Mensal (Aporte)" dataKey="DiferencaMensal" stroke="#3b82f6" strokeWidth={2} strokeDasharray="4 4" dot={false} />
                     </AreaChart>
                   </ResponsiveContainer>
                 )}
@@ -2132,14 +2339,232 @@ export const SimulatorsTab: React.FC = () => {
               )}
 
               {activeSim === 'rent-vs-buy' && (
-                <div className="bg-muted/30 border border-border p-5 rounded-2xl space-y-3">
-                  <p className="text-sm font-medium text-muted-foreground leading-relaxed">
-                    Ao final do prazo do financiamento de {sim4Months} meses, a compra do imóvel gerará um patrimônio físico valorizado de <strong className="text-slate-950 dark:text-white">{formatCurrency(sim4Data.finalPropWealth)}</strong>. 
-                    Por outro lado, morar de aluguel e investir a entrada e a diferença mensal das parcelas geraria uma carteira financeira líquida final de <strong className="text-slate-950 dark:text-white">{formatCurrency(sim4Data.finalRentWealth)}</strong>.
-                  </p>
-                  <p className="text-sm font-medium text-muted-foreground leading-relaxed">
-                    A simulação aponta que a melhor opção financeira teórica é **{sim4Data.vencedor === 'comprar' ? 'Comprar o Imóvel Próprio' : 'Alugar e investir a diferença'}**, gerando uma diferença patrimonial líquida de <strong className="text-emerald-500 font-bold">{formatCurrency(Math.abs(sim4Data.finalPropWealth - sim4Data.finalRentWealth))}</strong> ao final do prazo.
-                  </p>
+                <div className="space-y-6">
+                  {/* Relatório Conceitual Melhorado */}
+                  {(() => {
+                    // 1. Até quando vai conseguir investir a diferença
+                    let ultimoMesAporte = 0;
+                    for (let i = 0; i < sim4Data.tableData.length; i++) {
+                      if (sim4Data.tableData[i].diferenca > 0) {
+                        ultimoMesAporte = sim4Data.tableData[i].mes;
+                      }
+                    }
+
+                    // 2. Momento da virada
+                    let mesVirada: number | null = null;
+                    for (let i = 0; i < sim4Data.tableData.length; i++) {
+                      const d = sim4Data.tableData[i];
+                      if (d.carteiraAluguel > d.patrimonioImovel) {
+                        mesVirada = d.mes;
+                        break;
+                      }
+                    }
+
+                    // 3. Marcos de rentabilidade
+                    const marcosRentabilidade: Array<{ valor: number; mes: number }> = [];
+                    const maxRentabilidade = sim4Data.tableData.reduce((max, d) => Math.max(max, d.rentabilidade), 0);
+                    let proximoAlvo = 1000;
+                    for (let i = 0; i < sim4Data.tableData.length; i++) {
+                      const rent = sim4Data.tableData[i].rentabilidade;
+                      if (rent >= proximoAlvo) {
+                        marcosRentabilidade.push({ valor: proximoAlvo, mes: sim4Data.tableData[i].mes });
+                        proximoAlvo += 1000;
+                        if (proximoAlvo > maxRentabilidade) break;
+                      }
+                    }
+
+                    return (
+                      <div className="bg-card border border-border p-6 rounded-[2rem] space-y-6 shadow-sm">
+                        <div className="flex items-center gap-3 border-b border-border pb-4">
+                          <TrendingUp className="text-primary" size={20} />
+                          <div>
+                            <h4 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">
+                              Diagnóstico Comparativo de Longo Prazo
+                            </h4>
+                            <p className="text-[10px] text-muted-foreground">
+                              Análise consultiva com projeções patrimoniais e marcos de rentabilidade
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          {/* Bloco 1: Conclusão Geral */}
+                          <div className="space-y-3">
+                            <span className="text-[10px] font-black uppercase tracking-widest text-primary block">
+                              Patrimônio Final Estimado
+                            </span>
+                            <div className="text-xs text-muted-foreground space-y-2.5 font-medium">
+                              <p>
+                                • Opção Compra (Imóvel Físico): Ao final de {sim4TimelineMonths} meses, você possuirá um patrimônio imobiliário valorizado em <strong className="text-foreground">{formatCurrency(sim4Data.finalPropWealth)}</strong>.
+                              </p>
+                              <p>
+                                • Opção Aluguel (Carteira Investida): O acúmulo da entrada e dos apósitos de diferença mensal gerará uma carteira líquida de <strong className="text-foreground">{formatCurrency(sim4Data.finalRentWealth)}</strong>.
+                              </p>
+                              <div className={cn(
+                                "p-4 rounded-xl border font-medium mt-3",
+                                sim4Data.vencedor === 'comprar'
+                                  ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-800 dark:text-emerald-300"
+                                  : "bg-primary/10 border-primary/20 text-slate-800 dark:text-slate-200"
+                              )}>
+                                A opção mais vantajosa financeiramente no período é <strong className="font-black underline">{sim4Data.vencedor === 'comprar' ? 'Comprar o Imóvel Próprio' : 'Alugar e Investir a Diferença'}</strong>, resultando em uma vantagem patrimonial de <strong className="font-black">{formatCurrency(Math.abs(sim4Data.finalPropWealth - sim4Data.finalRentWealth))}</strong>.
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Bloco 2: Linha do Tempo de Aportes e Comparação */}
+                          <div className="space-y-3">
+                            <span className="text-[10px] font-black uppercase tracking-widest text-primary block">
+                              Dinâmica de Fluxo de Caixa e Virada
+                            </span>
+                            <div className="text-xs text-muted-foreground space-y-2.5 font-medium">
+                              <p>
+                                • Prazo do Financiamento: As parcelas do imóvel próprio se encerram no mês {sim4Months} (Ano {Math.ceil(sim4Months / 12)}). A partir do mês {sim4Months + 1}, o custo de moradia do comprador é reduzido apenas à taxa de manutenção e IPTU.
+                              </p>
+                              
+                              {ultimoMesAporte > 0 ? (
+                                <p>
+                                  • Período de Aportes: Você conseguirá investir a diferença mensal (financiamento maior que o aluguel) até o <strong className="text-foreground">Mês {ultimoMesAporte} (Ano {Math.ceil(ultimoMesAporte / 12)})</strong>. A partir desse mês, o aluguel inflacionado supera a parcela do financiamento próprio, zerando a capacidade de novos aportes adicionais.
+                                </p>
+                              ) : (
+                                <p>
+                                  • Período de Aportes: O valor do aluguel inicial já é superior ou igual ao custo mensal da compra própria (parcela + manutenção), de modo que o simulador assume aporte de R$ 0,00 adicionais desde o início, crescendo a carteira apenas por juros compostos.
+                                </p>
+                              )}
+
+                              {mesVirada !== null ? (
+                                <div className="p-3 bg-amber-500/10 border border-amber-500/20 text-amber-800 dark:text-amber-300 rounded-xl">
+                                  • Momento da Virada Patrimonial: A carteira de investimentos da opção aluguel supera o valor valorizado do imóvel físico a partir do <strong className="font-black text-amber-700 dark:text-amber-400">Mês {mesVirada} (Ano {Math.ceil(mesVirada / 12)})</strong>.
+                                </div>
+                              ) : (
+                                <p>
+                                  • Momento da Virada Patrimonial: A carteira de investimentos na opção aluguel <strong className="text-foreground">nunca supera</strong> o valor do imóvel próprio dentro do horizonte de visualização de {sim4TimelineMonths} meses.
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Bloco 3: Marcos de Rentabilidade Mensal */}
+                        {marcosRentabilidade.length > 0 && (
+                          <div className="border-t border-border pt-4 space-y-3">
+                            <span className="text-[10px] font-black uppercase tracking-widest text-primary block">
+                              Marcos de Renda Passiva Gerada (Cenário Aluguel + Investimentos)
+                            </span>
+                            <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                              <p className="mb-2">
+                                Confira quando a sua carteira acumulada de investimentos atingirá determinados níveis de rentabilidade líquida mensal (renda passiva):
+                              </p>
+                              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                                {marcosRentabilidade.map((marco) => (
+                                  <div key={marco.valor} className="bg-muted/40 p-3 rounded-xl border border-border/60 text-center flex flex-col justify-center">
+                                    <span className="text-[10px] font-medium text-muted-foreground uppercase">Renda Mensal de</span>
+                                    <span className="text-xs font-black text-emerald-600 dark:text-emerald-400">{formatCurrency(marco.valor)}</span>
+                                    <span className="text-[10px] font-bold text-slate-800 dark:text-slate-200 mt-1">
+                                      No Mês {marco.mes} (Ano {Math.ceil(marco.mes / 12)})
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+
+                  {/* Tabela Detalhada com Filtro */}
+                  {(() => {
+                    const totalMonths = sim4TimelineMonths;
+                    const monthsPerPeriod = 60; // 5 anos
+                    const numPeriods = Math.ceil(totalMonths / monthsPerPeriod);
+                    
+                    const periodOptions = Array.from({ length: numPeriods }, (_, i) => {
+                      const startYear = i * 5 + 1;
+                      const endYear = Math.min((i + 1) * 5, Math.ceil(totalMonths / 12));
+                      const label = startYear === endYear ? `Ano ${startYear}` : `Anos ${startYear} a ${endYear}`;
+                      return {
+                        index: i,
+                        label,
+                        startMonth: i * monthsPerPeriod + 1,
+                        endMonth: Math.min((i + 1) * monthsPerPeriod, totalMonths)
+                      };
+                    });
+
+                    const activePeriodOption = periodOptions[sim4SelectedPeriod] || periodOptions[0];
+                    const filteredTableData = activePeriodOption 
+                      ? sim4Data.tableData.filter(d => d.mes >= activePeriodOption.startMonth && d.mes <= activePeriodOption.endMonth)
+                      : [];
+
+                    return (
+                      <div className="space-y-4 pt-4 border-t border-border/20">
+                        <div>
+                          <h4 className="text-xs font-black uppercase tracking-[0.2em] text-slate-800 dark:text-slate-200">
+                            Detalhamento Mês a Mês
+                          </h4>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">
+                            Acompanhe os custos detalhados e os acumulados filtrando de 5 em 5 anos.
+                          </p>
+                        </div>
+
+                        {/* Botões do Filtro */}
+                        <div className="flex flex-wrap gap-2">
+                          {periodOptions.map((opt) => (
+                            <button
+                              key={opt.index}
+                              onClick={() => setSim4SelectedPeriod(opt.index)}
+                              className={cn(
+                                "px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border",
+                                sim4SelectedPeriod === opt.index
+                                  ? "bg-primary text-white border-primary shadow-lg shadow-primary/20 scale-105"
+                                  : "bg-muted/30 border-border text-muted-foreground hover:bg-muted"
+                              )}
+                            >
+                              {opt.label}
+                            </button>
+                          ))}
+                        </div>
+
+                        {/* Tabela Detalhada */}
+                        <div className="overflow-x-auto rounded-2xl border border-border bg-card/40 max-h-[400px] custom-scrollbar">
+                          <table className="w-full border-collapse text-left text-xs">
+                            <thead>
+                              <tr className="bg-muted/50 border-b border-border text-[9px] font-black uppercase tracking-widest text-muted-foreground sticky top-0 backdrop-blur-md">
+                                <th className="py-3 px-4 text-center w-16">Mês</th>
+                                <th className="py-3 px-4">Aluguel (mês)</th>
+                                <th className="py-3 px-4">Financiamento (mês)</th>
+                                <th className="py-3 px-4">Investido (mês)</th>
+                                <th className="py-3 px-4">Carteira Acum.</th>
+                                <th className="py-3 px-4">Rent. Gerada (mês)</th>
+                                <th className="py-3 px-4">Patrimônio Próprio</th>
+                                <th className="py-3 px-4">Acum. Imóvel</th>
+                                <th className="py-3 px-4">Acum. Aluguel</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-border/30 font-medium">
+                              {filteredTableData.map((d) => (
+                                <tr key={d.mes} className="hover:bg-muted/30 transition-colors">
+                                  <td className="py-2.5 px-4 text-center font-bold text-muted-foreground bg-muted/10">{d.mes}</td>
+                                  <td className="py-2.5 px-4 text-rose-500/80">{formatCurrency(d.aluguel)}</td>
+                                  <td className="py-2.5 px-4 text-amber-500/80">{formatCurrency(d.parcelaFin)}</td>
+                                  <td className={cn(
+                                    "py-2.5 px-4 font-bold",
+                                    d.diferenca >= 0 ? "text-emerald-500" : "text-rose-500"
+                                  )}>
+                                    {d.diferenca >= 0 ? '+' : ''}{formatCurrency(d.diferenca)}
+                                  </td>
+                                  <td className="py-2.5 px-4 text-primary font-bold">{formatCurrency(d.carteiraAluguel)}</td>
+                                  <td className="py-2.5 px-4 text-sky-500 font-bold">{formatCurrency(d.rentabilidade)}</td>
+                                  <td className="py-2.5 px-4 text-emerald-600 dark:text-emerald-400 font-bold">{formatCurrency(d.patrimonioImovel)}</td>
+                                  <td className="py-2.5 px-4 text-slate-500 dark:text-slate-400">{formatCurrency(d.totalPagoImovel)}</td>
+                                  <td className="py-2.5 px-4 text-slate-500 dark:text-slate-400">{formatCurrency(d.totalPagoAluguel)}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
 
