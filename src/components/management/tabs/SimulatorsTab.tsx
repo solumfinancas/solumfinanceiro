@@ -112,7 +112,7 @@ const PercentInput: React.FC<PercentInputProps> = ({ value, onChange, label, suf
   );
 };
 
-type SimulatorType = 'investments' | 'financing' | 'retirement' | 'rent-vs-buy' | 'financing-vs-consortium';
+type SimulatorType = 'investments' | 'financing' | 'retirement' | 'rent-vs-buy' | 'financing-vs-consortium' | 'amortization';
 
 export const SimulatorsTab: React.FC = () => {
   const [activeSim, setActiveSim] = useState<SimulatorType>('investments');
@@ -189,6 +189,82 @@ export const SimulatorsTab: React.FC = () => {
   const [sim5ConsFee, setSim5ConsFee] = useState(15.0); // % taxa adm total
   const [sim5ContemplationMonth, setSim5ContemplationMonth] = useState(24);
   const [sim5AlternativeRent, setSim5AlternativeRent] = useState(800); // custo por não ter o bem mensal
+
+  // ==========================================
+  // ESTADOS DO SIMULADOR 6: AMORTIZAÇÃO DE EMPRÉSTIMO/FINANCIAMENTO
+  // ==========================================
+  const [sim6Value, setSim6Value] = useState(200000);
+  const [sim6Rate, setSim6Rate] = useState(9.5); // % a.a.
+  const [sim6Months, setSim6Months] = useState(240);
+  const [sim6StartDate, setSim6StartDate] = useState<string>(() => {
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  });
+  const [sim6AmortSystem, setSim6AmortSystem] = useState<'SAC' | 'PRICE'>('SAC');
+  
+  const [sim6ExtraType, setSim6ExtraType] = useState<'none' | 'single' | 'recurring'>('none');
+  const [sim6ExtraValue, setSim6ExtraValue] = useState(1000);
+  const [sim6ExtraMonth, setSim6ExtraMonth] = useState(12);
+  const [sim6ExtraFreq, setSim6ExtraFreq] = useState<'monthly' | 'yearly'>('monthly');
+  const [sim6Goal, setSim6Goal] = useState<'reduce-time' | 'reduce-value'>('reduce-time');
+  const [sim6SelectedPeriod, setSim6SelectedPeriod] = useState(0);
+
+  // Histórico de parcelas dadas baixas/pagas pelo usuário diretamente na tabela
+  const [sim6PaymentsState, setSim6PaymentsState] = useState<Record<number, { isPaid: boolean; customAmountPaid?: number; customExtraPaid?: number }>>({});
+
+  const togglePaymentPaid = (mes: number) => {
+    setSim6PaymentsState(prev => {
+      const current = prev[mes] || { isPaid: false };
+      const nextPaidStatus = !current.isPaid;
+      
+      // Se estamos desmarcando como pago, podemos limpar os valores customizados para resetar para a projeção teórica
+      if (!nextPaidStatus) {
+        const updated = { ...prev };
+        delete updated[mes];
+        return updated;
+      }
+
+      return {
+        ...prev,
+        [mes]: {
+          ...current,
+          isPaid: nextPaidStatus
+        }
+      };
+    });
+  };
+
+  const updateCustomAmountPaid = (mes: number, val: number) => {
+    setSim6PaymentsState(prev => {
+      const current = prev[mes] || { isPaid: true };
+      return {
+        ...prev,
+        [mes]: {
+          ...current,
+          isPaid: true,
+          customAmountPaid: val
+        }
+      };
+    });
+  };
+
+  const updateCustomExtraPaid = (mes: number, val: number) => {
+    setSim6PaymentsState(prev => {
+      const current = prev[mes] || { isPaid: true };
+      return {
+        ...prev,
+        [mes]: {
+          ...current,
+          isPaid: true,
+          customExtraPaid: val
+        }
+      };
+    });
+  };
+
 
   // ==========================================
   // CALCULO 1: INVESTIMENTOS VS POUPANÇA
@@ -789,6 +865,313 @@ export const SimulatorsTab: React.FC = () => {
     };
   }, [sim5GoodVal, sim5FinRate, sim5Months, sim5ConsFee, sim5ContemplationMonth, sim5AlternativeRent]);
 
+  // ==========================================
+  // CALCULO 6: SIMULADOR DE AMORTIZAÇÃO DE EMPRÉSTIMO/FINANCIAMENTO
+  // ==========================================
+  const sim6Data = useMemo(() => {
+    if (sim6Value <= 0) {
+      return {
+        points: [],
+        tableData: [],
+        totalPagoSem: 0,
+        totalJurosSem: 0,
+        totalPagoCom: 0,
+        totalJurosCom: 0,
+        totalAportesExtras: 0,
+        economiaJuros: 0,
+        mesesEconomizados: 0,
+        dataQuitacaoSem: '',
+        dataQuitacaoCom: '',
+        totalPagoEfetivo: 0,
+        totalRestanteProjetado: 0,
+        valorQuitacaoAtual: 0
+      };
+    }
+
+    // Extrair startMonth e startYear do sim6StartDate
+    let startMonth = 6;
+    let startYear = 2026;
+    if (sim6StartDate) {
+      const parts = sim6StartDate.split('-');
+      if (parts.length === 3) {
+        startYear = parseInt(parts[0], 10);
+        startMonth = parseInt(parts[1], 10);
+      }
+    }
+
+    const iMensal = Math.pow(1 + (sim6Rate / 100), 1/12) - 1;
+    const principal = sim6Value;
+
+    // Helper para formatar a data real no formato mmm de aaaa (ex: jun. de 2026)
+    const monthsList = ['jan.', 'fev.', 'mar.', 'abr.', 'mai.', 'jun.', 'jul.', 'ago.', 'set.', 'out.', 'nov.', 'dez.'];
+    const formatMonthYear = (month: number, year: number) => {
+      return `${monthsList[month - 1]} de ${year}`;
+    };
+
+    // 1. Cenário Padrão (Sem Aportes Extras)
+    let saldoSem = principal;
+    let jurosAcumSem = 0;
+    let totalPagoSem = 0;
+    const saldoSemPoints: number[] = [principal];
+
+    const parcelaPRICE_Padrao = principal * (iMensal * Math.pow(1 + iMensal, sim6Months)) / (Math.pow(1 + iMensal, sim6Months) - 1);
+
+    for (let m = 1; m <= sim6Months; m++) {
+      const jurosM = Math.round(saldoSem * iMensal);
+      let amortM = 0;
+      let parcelaM = 0;
+
+      if (sim6AmortSystem === 'SAC') {
+        const amortRegular = Math.round(principal / sim6Months);
+        amortM = Math.min(saldoSem, amortRegular);
+        parcelaM = amortM + jurosM;
+      } else {
+        parcelaM = Math.round(parcelaPRICE_Padrao);
+        if (saldoSem + jurosM <= parcelaM) {
+          parcelaM = saldoSem + jurosM;
+          amortM = saldoSem;
+        } else {
+          amortM = parcelaM - jurosM;
+        }
+      }
+
+      saldoSem = Math.max(0, saldoSem - amortM);
+      jurosAcumSem += jurosM;
+      totalPagoSem += parcelaM;
+      saldoSemPoints.push(saldoSem);
+    }
+
+    // 2. Cenário Simulado (Com Aportes Extras)
+    let saldoCom = principal;
+    let jurosAcumCom = 0;
+    let totalPagoComRegular = 0;
+    let totalAportesExtras = 0;
+
+    const tableData: Array<{
+      mes: number;
+      dataStr: string;
+      parcelaRegular: number;
+      juros: number;
+      amortRegular: number;
+      aporteExtra: number;
+      saldoDevedor: number;
+      isPaid: boolean;
+    }> = [];
+
+    const saldoComPoints: number[] = [principal];
+    let m = 1;
+
+    while (saldoCom > 0 && m <= sim6Months * 2) {
+      const mActual = (startMonth + m - 2) % 12 + 1;
+      const yActual = startYear + Math.floor((startMonth + m - 2) / 12);
+      const dataStr = formatMonthYear(mActual, yActual);
+
+      // Determinar aporte extraordinário configurado
+      let extraAporteTeorico = 0;
+      if (sim6ExtraType === 'single') {
+        if (m === sim6ExtraMonth) {
+          extraAporteTeorico = sim6ExtraValue;
+        }
+      } else if (sim6ExtraType === 'recurring') {
+        if (sim6ExtraFreq === 'monthly') {
+          extraAporteTeorico = sim6ExtraValue;
+        } else if (sim6ExtraFreq === 'yearly') {
+          if (m % 12 === 0) {
+            extraAporteTeorico = sim6ExtraValue;
+          }
+        }
+      }
+
+      // Calcular juros e amortizações teóricos para este mês m
+      const jurosM = Math.round(saldoCom * iMensal);
+      let amortRegularTeorico = 0;
+      let parcelaRegularTeorica = 0;
+
+      if (sim6AmortSystem === 'SAC') {
+        if (sim6Goal === 'reduce-time') {
+          const amortRegularOriginal = Math.round(principal / sim6Months);
+          amortRegularTeorico = Math.min(saldoCom, amortRegularOriginal);
+          parcelaRegularTeorica = amortRegularTeorico + jurosM;
+        } else {
+          // reduce-value
+          const mesesRestantes = Math.max(1, sim6Months - m + 1);
+          const amortRecalculada = Math.round(saldoCom / mesesRestantes);
+          amortRegularTeorico = Math.min(saldoCom, amortRecalculada);
+          parcelaRegularTeorica = amortRegularTeorico + jurosM;
+        }
+      } else {
+        // PRICE
+        if (sim6Goal === 'reduce-time') {
+          parcelaRegularTeorica = Math.round(parcelaPRICE_Padrao);
+          if (saldoCom + jurosM <= parcelaRegularTeorica) {
+            parcelaRegularTeorica = saldoCom + jurosM;
+            amortRegularTeorico = saldoCom;
+          } else {
+            amortRegularTeorico = parcelaRegularTeorica - jurosM;
+          }
+        } else {
+          // reduce-value
+          const mesesRestantes = Math.max(1, sim6Months - m + 1);
+          let parcelaRecalculada = 0;
+          if (mesesRestantes > 1) {
+            parcelaRecalculada = Math.round(saldoCom * (iMensal * Math.pow(1 + iMensal, mesesRestantes)) / (Math.pow(1 + iMensal, mesesRestantes) - 1));
+          } else {
+            parcelaRecalculada = saldoCom + jurosM;
+          }
+
+          parcelaRegularTeorica = parcelaRecalculada;
+          if (saldoCom + jurosM <= parcelaRegularTeorica) {
+            parcelaRegularTeorica = saldoCom + jurosM;
+            amortRegularTeorico = saldoCom;
+          } else {
+            amortRegularTeorico = parcelaRegularTeorica - jurosM;
+          }
+        }
+      }
+
+      // Rastrear histórico real de baixas de parcelas
+      const paymentState = sim6PaymentsState[m];
+      const isPaid = !!paymentState?.isPaid;
+
+      let parcelaRegularFinal = 0;
+      let jurosFinal = 0;
+      let amortRegularFinal = 0;
+      let aporteExtraFinal = 0;
+
+      if (isPaid) {
+        // Usar valores reais inseridos pelo usuário ou herdados
+        const valorRegularReal = paymentState.customAmountPaid !== undefined ? paymentState.customAmountPaid : parcelaRegularTeorica;
+        const aporteExtraReal = paymentState.customExtraPaid !== undefined ? paymentState.customExtraPaid : Math.round(extraAporteTeorico);
+
+        // Abater juros do pagamento regular primeiro
+        const jurosPagosReal = Math.min(jurosM, valorRegularReal);
+        const amortRegularReal = Math.max(0, valorRegularReal - jurosPagosReal);
+
+        parcelaRegularFinal = valorRegularReal;
+        jurosFinal = jurosPagosReal;
+        amortRegularFinal = Math.min(saldoCom, amortRegularReal);
+
+        saldoCom = Math.max(0, saldoCom - amortRegularFinal);
+
+        // Aporte extra abate o saldo restante
+        aporteExtraFinal = Math.min(saldoCom, Math.round(aporteExtraReal));
+        saldoCom = Math.max(0, saldoCom - aporteExtraFinal);
+      } else {
+        // Usar projeção teórica simulada
+        parcelaRegularFinal = parcelaRegularTeorica;
+        jurosFinal = jurosM;
+        amortRegularFinal = amortRegularTeorico;
+
+        saldoCom = Math.max(0, saldoCom - amortRegularFinal);
+
+        aporteExtraFinal = Math.min(saldoCom, Math.round(extraAporteTeorico));
+        saldoCom = Math.max(0, saldoCom - aporteExtraFinal);
+      }
+
+      jurosAcumCom += jurosFinal;
+      totalPagoComRegular += parcelaRegularFinal;
+      totalAportesExtras += aporteExtraFinal;
+
+      tableData.push({
+        mes: m,
+        dataStr,
+        parcelaRegular: parcelaRegularFinal,
+        juros: jurosFinal,
+        amortRegular: amortRegularFinal,
+        aporteExtra: aporteExtraFinal,
+        saldoDevedor: saldoCom,
+        isPaid
+      });
+
+      saldoComPoints.push(saldoCom);
+
+      if (saldoCom <= 0) {
+        break;
+      }
+
+      m++;
+    }
+
+    // Gerar pontos de gráfico
+    const chartPoints = [];
+    const maxMeses = Math.max(sim6Months, tableData.length);
+
+    for (let i = 0; i <= maxMeses; i++) {
+      const shouldPush = maxMeses <= 60 
+        ? true 
+        : maxMeses <= 120 
+          ? i % 3 === 0 || i === 0 || i === maxMeses
+          : i % 12 === 0 || i === 0 || i === maxMeses;
+
+      if (shouldPush) {
+        const sSem = i < saldoSemPoints.length ? saldoSemPoints[i] : 0;
+        const sCom = i < saldoComPoints.length ? saldoComPoints[i] : 0;
+        chartPoints.push({
+          mes: i,
+          'Sem Aportes': sSem,
+          'Com Aportes': sCom,
+        });
+      }
+    }
+
+    // Datas de quitação
+    const semEndM = (startMonth + sim6Months - 2) % 12 + 1;
+    const semEndY = startYear + Math.floor((startMonth + sim6Months - 2) / 12);
+    const dataQuitacaoSem = formatMonthYear(semEndM, semEndY);
+
+    const comEndM = (startMonth + tableData.length - 2) % 12 + 1;
+    const comEndY = startYear + Math.floor((startMonth + tableData.length - 2) / 12);
+    const dataQuitacaoCom = formatMonthYear(comEndM, comEndY);
+
+    // Calcular valores de quitação e totais efetivos vs projetados
+    let totalPagoEfetivo = 0;
+    let totalRestanteProjetado = 0;
+    let lastPaidMonthIndex = -1;
+
+    for (let i = 0; i < tableData.length; i++) {
+      const d = tableData[i];
+      if (d.isPaid) {
+        totalPagoEfetivo += d.parcelaRegular + d.aporteExtra;
+        lastPaidMonthIndex = i;
+      } else {
+        totalRestanteProjetado += d.parcelaRegular + d.aporteExtra;
+      }
+    }
+
+    const valorQuitacaoAtual = lastPaidMonthIndex !== -1 
+      ? tableData[lastPaidMonthIndex].saldoDevedor 
+      : principal;
+
+    const economiaJuros = jurosAcumSem - jurosAcumCom;
+    const mesesEconomizados = Math.max(0, sim6Months - tableData.length);
+
+    return {
+      points: chartPoints,
+      tableData,
+      totalPagoSem,
+      totalJurosSem: jurosAcumSem,
+      totalPagoCom: totalPagoEfetivo + totalRestanteProjetado,
+      totalJurosCom: jurosAcumCom,
+      totalAportesExtras,
+      economiaJuros,
+      mesesEconomizados,
+      dataQuitacaoSem,
+      dataQuitacaoCom,
+      totalPagoEfetivo,
+      totalRestanteProjetado,
+      valorQuitacaoAtual
+    };
+  }, [sim6Value, sim6Rate, sim6Months, sim6StartDate, sim6AmortSystem, sim6ExtraType, sim6ExtraValue, sim6ExtraMonth, sim6ExtraFreq, sim6Goal, sim6PaymentsState]);
+
+  // Resetar período da tabela se o prazo for encurtado e o período atual extrapolar (Simulador 6)
+  React.useEffect(() => {
+    const totalMonths = sim6Data.tableData.length;
+    const totalPeriods = Math.ceil(totalMonths / 60);
+    if (sim6SelectedPeriod >= totalPeriods) {
+      setSim6SelectedPeriod(0);
+    }
+  }, [sim6Data.tableData.length, sim6SelectedPeriod]);
+
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
@@ -868,6 +1251,7 @@ export const SimulatorsTab: React.FC = () => {
           { id: 'retirement', label: 'Aposentadoria', icon: CalendarClock },
           { id: 'rent-vs-buy', label: 'Aluguel x Compra', icon: Home },
           { id: 'financing-vs-consortium', label: 'Financiamento x Consórcio', icon: Calculator },
+          { id: 'amortization', label: 'Amortização Extra', icon: ArrowLeftRight },
         ].map((item) => (
           <button
             key={item.id}
@@ -1382,6 +1766,264 @@ export const SimulatorsTab: React.FC = () => {
                 </div>
               </div>
             )}
+
+            {/* PAINEL DE INPUTS PARA SIMULADOR 6 */}
+            {activeSim === 'amortization' && (
+              <div className="space-y-6">
+                {(() => {
+                  const mesesDoAno = [
+                    { value: 1, label: 'Janeiro' },
+                    { value: 2, label: 'Fevereiro' },
+                    { value: 3, label: 'Março' },
+                    { value: 4, label: 'Abril' },
+                    { value: 5, label: 'Maio' },
+                    { value: 6, label: 'Junho' },
+                    { value: 7, label: 'Julho' },
+                    { value: 8, label: 'Agosto' },
+                    { value: 9, label: 'Setembro' },
+                    { value: 10, label: 'Outubro' },
+                    { value: 11, label: 'Novembro' },
+                    { value: 12, label: 'Dezembro' }
+                  ];
+                  const anosLista = Array.from({ length: 27 }, (_, i) => 2024 + i);
+
+                  return (
+                    <div className="space-y-6">
+                      <div className="space-y-4">
+                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary/80 block border-b border-border/10 pb-1">
+                          1. Financiamento Base
+                        </span>
+
+                        <div className="space-y-2">
+                          <CurrencyInput 
+                            label="Valor Financiado (R$)"
+                            value={sim6Value}
+                            onChange={setSim6Value}
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <PercentInput 
+                              label="Taxa de Juros (% a.a.)"
+                              value={sim6Rate}
+                              onChange={setSim6Rate}
+                              suffix="% a.a."
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-2">Prazo (Meses)</label>
+                            <input 
+                              type="number" 
+                              value={sim6Months} 
+                              onChange={e => setSim6Months(Number(e.target.value))} 
+                              className="w-full bg-muted/30 border border-border rounded-xl h-12 px-4 text-sm text-foreground outline-none focus:border-primary/50 transition-all font-bold"
+                            />
+                          </div>
+                        </div>
+                        <input type="range" min="12" max="420" step="12" value={sim6Months} onChange={e => setSim6Months(Number(e.target.value))} className="premium-slider" />
+
+                        {/* Data de início por Calendário */}
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-2 block">
+                            Data de Início
+                          </label>
+                          <input 
+                            type="date"
+                            value={sim6StartDate}
+                            onChange={e => setSim6StartDate(e.target.value)}
+                            className="w-full bg-muted/30 border border-border rounded-xl h-12 px-4 text-sm text-foreground outline-none focus:border-primary/50 transition-all font-bold"
+                          />
+                        </div>
+
+                        {/* Sistema de Amortização */}
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-2 block">
+                            Tabela de Financiamento
+                          </label>
+                          <div className="grid grid-cols-2 gap-2 bg-muted/20 p-1 rounded-xl border border-border/50">
+                            <button
+                              type="button"
+                              onClick={() => setSim6AmortSystem('SAC')}
+                              className={cn(
+                                "py-2 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all",
+                                sim6AmortSystem === 'SAC'
+                                  ? "bg-primary text-white shadow-md shadow-primary/15"
+                                  : "text-muted-foreground hover:bg-muted/30"
+                              )}
+                            >
+                              SAC
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setSim6AmortSystem('PRICE')}
+                              className={cn(
+                                "py-2 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all",
+                                sim6AmortSystem === 'PRICE'
+                                  ? "bg-primary text-white shadow-md shadow-primary/15"
+                                  : "text-muted-foreground hover:bg-muted/30"
+                              )}
+                            >
+                              PRICE
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="space-y-4 pt-4 border-t border-border/20">
+                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary/80 block border-b border-border/10 pb-1">
+                          2. Amortização Extra
+                        </span>
+
+                        {/* Objetivo da Amortização */}
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-2 block">
+                            Objetivo do Aporte Extra
+                          </label>
+                          <div className="grid grid-cols-2 gap-2 bg-muted/20 p-1 rounded-xl border border-border/50">
+                            <button
+                              type="button"
+                              onClick={() => setSim6Goal('reduce-time')}
+                              className={cn(
+                                "py-2 px-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all leading-tight",
+                                sim6Goal === 'reduce-time'
+                                  ? "bg-primary text-white shadow-md shadow-primary/15"
+                                  : "text-muted-foreground hover:bg-muted/30"
+                              )}
+                            >
+                              Reduzir Tempo
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setSim6Goal('reduce-value')}
+                              className={cn(
+                                "py-2 px-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all leading-tight",
+                                sim6Goal === 'reduce-value'
+                                  ? "bg-primary text-white shadow-md shadow-primary/15"
+                                  : "text-muted-foreground hover:bg-muted/30"
+                              )}
+                            >
+                              Reduzir Parcela
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Tipo de Aporte Extra */}
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-2 block">
+                            Tipo de Amortização Extra
+                          </label>
+                          <div className="grid grid-cols-3 gap-1.5 bg-muted/20 p-1 rounded-xl border border-border/50">
+                            <button
+                              type="button"
+                              onClick={() => setSim6ExtraType('none')}
+                              className={cn(
+                                "py-2 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all",
+                                sim6ExtraType === 'none'
+                                  ? "bg-primary text-white shadow-md shadow-primary/15"
+                                  : "text-muted-foreground hover:bg-muted/20"
+                              )}
+                            >
+                              Nenhum
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setSim6ExtraType('single')}
+                              className={cn(
+                                "py-2 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all",
+                                sim6ExtraType === 'single'
+                                  ? "bg-primary text-white shadow-md shadow-primary/15"
+                                  : "text-muted-foreground hover:bg-muted/20"
+                              )}
+                            >
+                              Único
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setSim6ExtraType('recurring')}
+                              className={cn(
+                                "py-2 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all",
+                                sim6ExtraType === 'recurring'
+                                  ? "bg-primary text-white shadow-md shadow-primary/15"
+                                  : "text-muted-foreground hover:bg-muted/20"
+                              )}
+                            >
+                              Recorrente
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Inputs específicos do tipo de aporte */}
+                        {sim6ExtraType !== 'none' && (
+                          <div className="space-y-4 bg-muted/10 p-4 rounded-2xl border border-border/60 animate-in fade-in slide-in-from-top-2 duration-300">
+                            <div className="space-y-2">
+                              <CurrencyInput 
+                                label="Valor do Aporte Extra (R$)"
+                                value={sim6ExtraValue}
+                                onChange={setSim6ExtraValue}
+                              />
+                            </div>
+
+                            {sim6ExtraType === 'single' && (
+                              <div className="space-y-2">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-2 block">
+                                  Aplicar no Mês (nº)
+                                </label>
+                                <input 
+                                  type="number" 
+                                  min="1"
+                                  max={sim6Months}
+                                  value={sim6ExtraMonth} 
+                                  onChange={e => setSim6ExtraMonth(Math.min(sim6Months, Math.max(1, Number(e.target.value))))} 
+                                  className="w-full bg-muted/30 border border-border rounded-xl h-12 px-4 text-sm text-foreground outline-none focus:border-primary/50 transition-all font-bold"
+                                />
+                                <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+                                  Mês de 1 a {sim6Months}
+                                </p>
+                              </div>
+                            )}
+
+                            {sim6ExtraType === 'recurring' && (
+                              <div className="space-y-2">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-2 block">
+                                  Frequência da Recorrência
+                                </label>
+                                <div className="grid grid-cols-2 gap-2 bg-muted/20 p-1 rounded-xl border border-border/50">
+                                  <button
+                                    type="button"
+                                    onClick={() => setSim6ExtraFreq('monthly')}
+                                    className={cn(
+                                      "py-2 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all",
+                                      sim6ExtraFreq === 'monthly'
+                                        ? "bg-primary text-white shadow-md shadow-primary/15"
+                                        : "text-muted-foreground hover:bg-muted/30"
+                                    )}
+                                  >
+                                    Mensal
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setSim6ExtraFreq('yearly')}
+                                    className={cn(
+                                      "py-2 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all",
+                                      sim6ExtraFreq === 'yearly'
+                                        ? "bg-primary text-white shadow-md shadow-primary/15"
+                                        : "text-muted-foreground hover:bg-muted/30"
+                                    )}
+                                  >
+                                    Anual
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
           </div>
         </div>
 
@@ -1389,7 +2031,7 @@ export const SimulatorsTab: React.FC = () => {
         <div className="xl:col-span-2 space-y-6">
           
           {/* CARDS DE SUMÁRIO DO SIMULADOR ATIVO */}
-          <div className={cn("grid grid-cols-1 gap-4", activeSim === 'investments' ? (sim1UseCustomRate ? "sm:grid-cols-4" : "sm:grid-cols-3") : "sm:grid-cols-3")}>
+          <div className={cn("grid grid-cols-1 gap-4", activeSim === 'investments' ? (sim1UseCustomRate ? "sm:grid-cols-4" : "sm:grid-cols-3") : (activeSim === 'amortization' ? "sm:grid-cols-4" : "sm:grid-cols-3"))}>
             {activeSim === 'investments' && (
               <>
                 <div className="bg-card border border-border p-6 rounded-3xl flex flex-col justify-between">
@@ -1518,6 +2160,40 @@ export const SimulatorsTab: React.FC = () => {
                       CONSÓRCIO
                     </span>
                   )}
+                </div>
+              </>
+            )}
+
+            {activeSim === 'amortization' && (
+              <>
+                <div className="bg-card border border-border p-6 rounded-3xl flex flex-col justify-between">
+                  <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground mb-1">Economia de Juros</p>
+                  <div>
+                    <p className="text-xl font-black text-emerald-500">{formatCurrency(sim6Data.economiaJuros)}</p>
+                    <p className="text-[8px] font-bold text-muted-foreground uppercase mt-1 leading-normal">
+                      Evitou pagar em juros no cenário com aportes
+                    </p>
+                  </div>
+                </div>
+                <div className="bg-card border border-border p-6 rounded-3xl flex flex-col justify-between">
+                  <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground mb-1">Tempo Economizado</p>
+                  <div>
+                    <p className="text-xl font-black text-primary">
+                      {sim6Data.mesesEconomizados} {sim6Data.mesesEconomizados === 1 ? 'mês' : 'meses'}
+                    </p>
+                    <p className="text-[8px] font-bold text-muted-foreground uppercase mt-1 leading-normal">
+                      Redução de {Math.floor(sim6Data.mesesEconomizados / 12)} anos e {sim6Data.mesesEconomizados % 12} meses no contrato
+                    </p>
+                  </div>
+                </div>
+                <div className="bg-card border border-border p-6 rounded-3xl flex flex-col justify-between">
+                  <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground mb-1">Nova Quitação</p>
+                  <div>
+                    <p className="text-xl font-black text-sky-500">{sim6Data.dataQuitacaoCom}</p>
+                    <p className="text-[8px] font-bold text-muted-foreground uppercase mt-1 leading-normal">
+                      Original: {sim6Data.dataQuitacaoSem} ({sim6Months} meses)
+                    </p>
+                  </div>
                 </div>
               </>
             )}
@@ -1788,6 +2464,30 @@ export const SimulatorsTab: React.FC = () => {
                       <Legend />
                       <Area type="monotone" name="Custo Acumulado Financiamento" dataKey="Financiamento" stroke="#ef4444" strokeWidth={3} fillOpacity={1} fill="url(#colorFinAcum)" />
                       <Area type="monotone" name="Custo Acumulado Consórcio" dataKey="Consórcio" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorConsAcum)" />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                )}
+
+                {activeSim === 'amortization' && (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={sim6Data.points} margin={{ top: 10, right: 30, left: 10, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="colorAmortSem" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#94a3b8" stopOpacity={0.15}/>
+                          <stop offset="95%" stopColor="#94a3b8" stopOpacity={0}/>
+                        </linearGradient>
+                        <linearGradient id="colorAmortCom" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#10b981" stopOpacity={0.15}/>
+                          <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" opacity={0.3} />
+                      <XAxis dataKey="mes" tickFormatter={(v) => `Mês ${v}`} tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} />
+                      <YAxis tickFormatter={(v) => `R$ ${v/1000}k`} tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} />
+                      <Tooltip formatter={(value: any) => formatCurrency(value)} />
+                      <Legend />
+                      <Area type="linear" name="Saldo Devedor Padrão" dataKey="Sem Aportes" stroke="#94a3b8" strokeWidth={2} strokeDasharray="5 5" fill="url(#colorAmortSem)" />
+                      <Area type="linear" name="Saldo Devedor com Aportes" dataKey="Com Aportes" stroke="#10b981" strokeWidth={3} fill="url(#colorAmortCom)" />
                     </AreaChart>
                   </ResponsiveContainer>
                 )}
@@ -2579,6 +3279,224 @@ export const SimulatorsTab: React.FC = () => {
                   <p className="text-sm font-medium text-muted-foreground leading-relaxed text-emerald-500 font-bold">
                     O consórcio resulta em uma {sim5Data.vencedor === 'consorcio' ? 'economia' : 'desvantagem'} de {formatCurrency(sim5Data.diferenca)} no custo de aquisição final, considerando os parâmetros informados.
                   </p>
+                </div>
+              )}
+
+              {activeSim === 'amortization' && (
+                <div className="space-y-6">
+                  {/* Relatório Conceitual da Amortização */}
+                  <div className="bg-card border border-border p-6 rounded-[2rem] space-y-5 shadow-sm">
+                    <div className="flex items-center gap-3 border-b border-border pb-4">
+                      <TrendingUp className="text-primary" size={20} />
+                      <div>
+                        <h4 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">
+                          Diagnóstico da Amortização Extraordinária
+                        </h4>
+                        <p className="text-[10px] text-muted-foreground">
+                          Projeção consultiva dos efeitos financeiros dos seus aportes extras
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs text-muted-foreground font-medium leading-relaxed">
+                      {/* Lado esquerdo: Resultados chave */}
+                      <div className="space-y-3 bg-muted/10 p-4 rounded-xl border border-border/50">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-primary block">
+                          Resumo Comparativo dos Cenários
+                        </span>
+                        <div className="space-y-2">
+                          <p>
+                            • Cenário Regular (Sem Aportes): O financiamento é quitado em <strong className="text-slate-900 dark:text-white">{sim6Months} parcelas</strong> ({Math.floor(sim6Months / 12)} anos e {sim6Months % 12} meses), com a quitação em <strong className="text-slate-900 dark:text-white">{sim6Data.dataQuitacaoSem}</strong>. O custo de juros totaliza <strong className="text-rose-500 font-bold">{formatCurrency(sim6Data.totalJurosSem)}</strong>, para um custo total pago de <strong className="text-foreground">{formatCurrency(sim6Data.totalPagoSem)}</strong>.
+                          </p>
+                          <p>
+                            • Cenário Acelerado (Com Aportes): Com as amortizações extras simuladas, o prazo de quitação cai para <strong className="text-emerald-500 font-black">{sim6Data.tableData.length} parcelas</strong>, antecipando o encerramento do contrato para <strong className="text-emerald-500 font-black">{sim6Data.dataQuitacaoCom}</strong>. O custo de juros cai para <strong className="text-emerald-500 font-bold">{formatCurrency(sim6Data.totalJurosCom)}</strong>, totalizando um custo final pago (regular + extra) de <strong className="text-foreground">{formatCurrency(sim6Data.totalPagoCom)}</strong>.
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Lado direito: Análise consultiva */}
+                      <div className="space-y-3 flex flex-col justify-between">
+                        <div>
+                          <span className="text-[10px] font-black uppercase tracking-widest text-primary block mb-2">
+                            Análise de Impacto Financeiro
+                          </span>
+                          <p className="mb-2">
+                            Ao antecipar pagamentos abatendo o saldo devedor diretamente, você deixa de pagar juros futuros sobre esse saldo amortizado.
+                          </p>
+                          <p className="mb-2">
+                            • Economia Financeira Líquida: Você deixa de pagar <strong className="text-emerald-500 font-bold">{formatCurrency(sim6Data.economiaJuros)}</strong> em juros ao banco.
+                          </p>
+                          <p>
+                            • Redução de Prazo: O contrato é encerrado <strong className="text-emerald-500 font-bold">{sim6Data.mesesEconomizados} meses mais cedo</strong>. Isso representa uma liberação de fluxo de caixa mensal no valor de <strong className="text-slate-900 dark:text-white">{sim6AmortSystem === 'SAC' ? 'até ' + formatCurrency(sim6Value / sim6Months + sim6Value * (Math.pow(1 + (sim6Rate / 100), 1/12) - 1)) : formatCurrency(sim6Data.totalPagoSem / sim6Months)}</strong> mensais que não precisarão mais ser gastos.
+                          </p>
+                        </div>
+                        {sim6Goal === 'reduce-value' && (
+                          <div className="p-3 bg-primary/5 border border-primary/25 rounded-xl text-[11px]">
+                            • Redução de Parcela: Seu objetivo está configurado para reduzir o valor das próximas parcelas. Conforme você faz aportes extras, as parcelas subsequentes são recalculadas e ficam sucessivamente menores, aliviando o orçamento mensal embora mantendo o prazo final do contrato.
+                          </div>
+                        )}
+                        {sim6Goal === 'reduce-time' && (
+                          <div className="p-3 bg-primary/5 border border-primary/25 rounded-xl text-[11px]">
+                            • Redução de Tempo (Recomendado): Seu objetivo está configurado para manter a parcela regular no padrão do contrato e reduzir o prazo final. Esta opção maximiza a economia de juros compostos a longo prazo.
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Tabela Detalhada com Filtro */}
+                  {(() => {
+                    const totalMonths = sim6Data.tableData.length;
+                    const monthsPerPeriod = 60; // 5 anos
+                    const numPeriods = Math.ceil(totalMonths / monthsPerPeriod);
+                    
+                    const periodOptions = Array.from({ length: numPeriods }, (_, i) => {
+                      const startYear = i * 5 + 1;
+                      const endYear = Math.min((i + 1) * 5, Math.ceil(totalMonths / 12));
+                      const label = startYear === endYear ? `Ano ${startYear}` : `Anos ${startYear} a ${endYear}`;
+                      return {
+                        index: i,
+                        label,
+                        startMonth: i * monthsPerPeriod + 1,
+                        endMonth: Math.min((i + 1) * monthsPerPeriod, totalMonths)
+                      };
+                    });
+
+                    const activePeriodOption = periodOptions[sim6SelectedPeriod] || periodOptions[0];
+                    const filteredTableData = activePeriodOption 
+                      ? sim6Data.tableData.filter(d => d.mes >= activePeriodOption.startMonth && d.mes <= activePeriodOption.endMonth)
+                      : [];
+
+                    return (
+                      <div className="space-y-4 pt-4 border-t border-border/20">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                          <div>
+                            <h4 className="text-xs font-black uppercase tracking-[0.2em] text-slate-800 dark:text-slate-200">
+                              Evolução Detalhada do Financiamento Acelerado
+                            </h4>
+                            <p className="text-[10px] text-muted-foreground mt-0.5">
+                              Consulte o saldo devedor e os pagamentos realizados mês a mês filtrando de 5 em 5 anos.
+                            </p>
+                          </div>
+                          {sim6Data.totalAportesExtras > 0 && (
+                            <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 rounded-lg">
+                              Aportes Extras Acumulados: {formatCurrency(sim6Data.totalAportesExtras)}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Botões do Filtro */}
+                        <div className="flex flex-wrap gap-2">
+                          {periodOptions.map((opt) => (
+                            <button
+                              key={opt.index}
+                              onClick={() => setSim6SelectedPeriod(opt.index)}
+                              className={cn(
+                                "px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border",
+                                sim6SelectedPeriod === opt.index
+                                  ? "bg-primary text-white border-primary shadow-lg shadow-primary/20 scale-105"
+                                  : "bg-muted/30 border-border text-muted-foreground hover:bg-muted"
+                              )}
+                            >
+                              {opt.label}
+                            </button>
+                          ))}
+                        </div>
+
+                        {/* Tabela Detalhada */}
+                        <div className="overflow-x-auto rounded-2xl border border-border bg-card/40 max-h-[400px] custom-scrollbar">
+                          <table className="w-full border-collapse text-left text-xs">
+                            <thead>
+                              <tr className="bg-muted/50 border-b border-border text-[9px] font-black uppercase tracking-widest text-muted-foreground sticky top-0 backdrop-blur-md">
+                                <th className="py-3 px-4 text-center w-16">Status</th>
+                                <th className="py-3 px-4 text-center w-16">Mês</th>
+                                <th className="py-3 px-4">Vencimento</th>
+                                <th className="py-3 px-4">Parcela Regular</th>
+                                <th className="py-3 px-4">Juros (mês)</th>
+                                <th className="py-3 px-4">Amort. Regular</th>
+                                <th className="py-3 px-4">Aporte Extra</th>
+                                <th className="py-3 px-4">Saldo Devedor</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-border/30 font-medium">
+                              {filteredTableData.map((d) => (
+                                <tr key={d.mes} className={cn("hover:bg-muted/30 transition-colors", d.isPaid && "bg-emerald-500/5 dark:bg-emerald-500/10")}>
+                                  <td className="py-2.5 px-4 text-center">
+                                    <button
+                                      type="button"
+                                      onClick={() => togglePaymentPaid(d.mes)}
+                                      className="focus:outline-none transition-transform active:scale-95 flex items-center justify-center mx-auto"
+                                      title={d.isPaid ? "Marcar como pendente" : "Marcar como pago/amortizado"}
+                                    >
+                                      {d.isPaid ? (
+                                        <CheckCircle className="text-emerald-500 hover:text-emerald-600 transition-colors" size={18} />
+                                      ) : (
+                                        <div className="w-[18px] h-[18px] rounded-full border-2 border-slate-300 dark:border-slate-600 hover:border-slate-400 dark:hover:border-slate-500 transition-colors" />
+                                      )}
+                                    </button>
+                                  </td>
+                                  <td className="py-2.5 px-4 text-center font-bold text-muted-foreground bg-muted/10">{d.mes}</td>
+                                  <td className="py-2.5 px-4 text-slate-600 dark:text-slate-350">{d.dataStr}</td>
+                                  <td className="py-2.5 px-4">
+                                    {d.isPaid ? (
+                                      <div className="relative flex items-center w-28">
+                                        <span className="absolute left-2 text-[10px] text-muted-foreground/60 select-none">R$</span>
+                                        <input
+                                          type="text"
+                                          value={(sim6PaymentsState[d.mes]?.customAmountPaid !== undefined 
+                                            ? sim6PaymentsState[d.mes].customAmountPaid 
+                                            : d.parcelaRegular
+                                          ).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                          onChange={(e) => {
+                                            const cleanVal = e.target.value.replace(/\D/g, '');
+                                            const numVal = cleanVal ? parseFloat(cleanVal) / 100 : 0;
+                                            updateCustomAmountPaid(d.mes, numVal);
+                                          }}
+                                          className="w-full bg-muted/30 border border-border/80 rounded-lg h-8 pl-7 pr-2 text-xs text-foreground outline-none focus:border-primary font-bold transition-all"
+                                        />
+                                      </div>
+                                    ) : (
+                                      <span className="text-foreground font-semibold">{formatCurrency(d.parcelaRegular)}</span>
+                                    )}
+                                  </td>
+                                  <td className="py-2.5 px-4 text-rose-500/80">{formatCurrency(d.juros)}</td>
+                                  <td className="py-2.5 px-4 text-emerald-600 dark:text-emerald-400">{formatCurrency(d.amortRegular)}</td>
+                                  <td className="py-2.5 px-4">
+                                    {d.isPaid ? (
+                                      <div className="relative flex items-center w-28">
+                                        <span className="absolute left-2 text-[10px] text-muted-foreground/60 select-none">R$</span>
+                                        <input
+                                          type="text"
+                                          value={(sim6PaymentsState[d.mes]?.customExtraPaid !== undefined 
+                                            ? sim6PaymentsState[d.mes].customExtraPaid 
+                                            : d.aporteExtra
+                                          ).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                          onChange={(e) => {
+                                            const cleanVal = e.target.value.replace(/\D/g, '');
+                                            const numVal = cleanVal ? parseFloat(cleanVal) / 100 : 0;
+                                            updateCustomExtraPaid(d.mes, numVal);
+                                          }}
+                                          className="w-full bg-muted/30 border border-border/80 rounded-lg h-8 pl-7 pr-2 text-xs text-foreground outline-none focus:border-primary font-bold transition-all"
+                                        />
+                                      </div>
+                                    ) : (
+                                      <span className={cn(
+                                        "font-bold",
+                                        d.aporteExtra > 0 ? "text-amber-500" : "text-muted-foreground/40"
+                                      )}>
+                                        {d.aporteExtra > 0 ? `+${formatCurrency(d.aporteExtra)}` : 'R$ 0,00'}
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td className="py-2.5 px-4 text-primary font-bold">{formatCurrency(d.saldoDevedor)}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
             </div>
