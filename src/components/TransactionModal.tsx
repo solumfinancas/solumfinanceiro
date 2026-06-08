@@ -345,6 +345,33 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
     return result;
   }, [categories, newTx.type, newTx.categoryId]);
 
+  const categoryLimitInfo = useMemo(() => {
+    if (newTx.type !== 'expense' || !newTx.categoryId) return null;
+    
+    const category = categories.find(c => c.id === newTx.categoryId);
+    if (!category) return null;
+
+    const d = newTx.date ? new Date(newTx.date + 'T12:00:00Z') : new Date();
+    const currentMonth = d.getUTCMonth() + 1;
+    const currentYear = d.getUTCFullYear();
+    
+    const currentSpend = getCategorySpend(category.id, transactions, categories, currentMonth, currentYear);
+    const hasLimit = typeof category.limit === 'number' && category.limit > 0;
+    const limit = category.limit || 0;
+    const availableBefore = limit - currentSpend;
+    const availableAfter = availableBefore - (newTx.amount || 0);
+
+    return {
+      categoryName: category.name,
+      hasLimit,
+      limit,
+      currentSpend,
+      availableBefore,
+      availableAfter
+    };
+  }, [newTx.type, newTx.categoryId, newTx.date, newTx.amount, categories, transactions]);
+
+
   const targetWalletOptions = useMemo(() =>
     wallets
       .filter(w => w.id !== newTx.walletId && w.type !== 'credit_card' && ((w.isActive !== false && !w.isDeleted) || w.id === newTx.toWalletId))
@@ -536,6 +563,42 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                       />
                     </div>
                   )}
+
+                  {categoryLimitInfo && (
+                    <div className="col-span-2 p-4 bg-muted/30 border border-border/60 rounded-2xl text-xs space-y-2 animate-in fade-in duration-200">
+                      <div className="flex justify-between items-center">
+                        <span className="font-bold text-muted-foreground uppercase text-[10px] tracking-widest block">
+                          Limite da Categoria
+                        </span>
+                        {!categoryLimitInfo.hasLimit ? (
+                          <span className="font-black text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 px-3 py-1 rounded-lg text-[9px] uppercase tracking-wider">
+                            Sem limite definido
+                          </span>
+                        ) : (
+                          <span className="font-black text-primary bg-primary/10 border border-primary/20 px-3 py-1 rounded-lg text-[9px] uppercase tracking-wider">
+                            Limite: {formatCurrency(categoryLimitInfo.limit)}
+                          </span>
+                        )}
+                      </div>
+                      {categoryLimitInfo.hasLimit && (
+                        <div className="grid grid-cols-2 gap-4 pt-2 border-t border-border/40">
+                          <div>
+                            <span className="text-muted-foreground block text-[9px] uppercase font-black tracking-widest mb-1">Disponível Antes:</span>
+                            <span className={cn("font-bold text-xs", categoryLimitInfo.availableBefore < 0 ? "text-rose-500" : "text-emerald-500")}>
+                              {formatCurrency(categoryLimitInfo.availableBefore)}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground block text-[9px] uppercase font-black tracking-widest mb-1">Disponível Após Lançamento:</span>
+                            <span className={cn("font-black text-xs", categoryLimitInfo.availableAfter < 0 ? "text-rose-500" : "text-emerald-500")}>
+                              {formatCurrency(categoryLimitInfo.availableAfter)}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
 
                   {wallets.find(w => w.id === newTx.walletId)?.type === 'credit_card' && (
                     <div className="col-span-2 p-4 bg-primary/5 rounded-2xl border border-primary/20 mt-2">

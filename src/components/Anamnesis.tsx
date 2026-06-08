@@ -153,7 +153,7 @@ const defaultFormData = (): AnamnesisData => ({
   recebeAjudaFinanceira: '',
   emprestaDinheiro: '',
   decisoesFinanceiras: '',
-  planejaComprasNota: 5,
+  planejaComprasNota: -1,
   planejaComprasPagamento: '',
   planejaComprasDinheiroPrevio: '',
   dinheiroFamilia: '',
@@ -162,13 +162,13 @@ const defaultFormData = (): AnamnesisData => ({
   perfilRiscoInvestimento: '',
   falaDinheiroParceiro: '',
   culpaGastarConsigo: '',
-  confiancaMudarFinanceiroNota: 5,
+  confiancaMudarFinanceiroNota: -1,
   dinheiroRepresenta: [],
   principalObjetivo: '',
-  possuiOutrosObjetivos: 'Não',
+  possuiOutrosObjetivos: '',
   outrosObjetivosTexto: '',
-  definiuValoresObjetivos: 'Não',
-  definiuPrazosObjetivos: 'Não',
+  definiuValoresObjetivos: '',
+  definiuPrazosObjetivos: '',
   impedeObjetivos: [],
   pensaAposentadoria: '',
   motivoBuscaConsultoria: '',
@@ -185,6 +185,74 @@ const stepFields: Record<number, string[]> = {
   5: ['principalObjetivo', 'possuiOutrosObjetivos', 'outrosObjetivosTexto', 'definiuValoresObjetivos', 'definiuPrazosObjetivos', 'impedeObjetivos', 'pensaAposentadoria'],
   6: ['motivoBuscaConsultoria', 'expectativaFinalProcesso', 'outrasInformacoes']
 };
+
+// Lista de chaves para cálculo do progresso da Anamnese Pessoal (apenas perguntas reais, omitindo anamnesisDate e outrasInformacoes)
+const PROGRESS_FIELDS: (keyof AnamnesisData)[] = [
+  'idade',
+  'estadoCivil',
+  'casadoFinanceiro',
+  'possuiFilhos',
+  'qtdFilhos',
+  'qtdFilhosDependentes',
+  'pessoasDependentes',
+  'situacaoMoradia',
+  'escolaridade',
+  'situacaoProfissional',
+  'situacaoProfissionalOutro',
+  'fontesRenda',
+  'fontesRendaOutro',
+  'rendaLiquidaMinima',
+  'rendaTipo',
+  'sabeGastos',
+  'gastosVsRenda',
+  'possuiReserva',
+  'reservaMesesCobre',
+  'possuiDividas',
+  'totalDividas',
+  'tiposDividas',
+  'investimentos',
+  'segurosPrevidencia',
+  'possuiVeiculos',
+  'tiposVeiculos',
+  'qtdCarros',
+  'qtdMotos',
+  'veiculosQuitacao',
+  'gastosEducacao',
+  'gastosEducacaoComQue',
+  'gastosSaude',
+  'gastosSaudeComQue',
+  'frequenciaAcompanhaGastos',
+  'ferramentaControle',
+  'comprasImpulso',
+  'gastosEmocionais',
+  'possuiCartao',
+  'qtdCartoes',
+  'usoCartao',
+  'pagaContasPrazo',
+  'recebeAjudaFinanceira',
+  'emprestaDinheiro',
+  'decisoesFinanceiras',
+  'planejaComprasNota',
+  'planejaComprasPagamento',
+  'planejaComprasDinheiroPrevio',
+  'dinheiroFamilia',
+  'fraseRelacaoDinheiro',
+  'guardarDinheiroSignificado',
+  'perfilRiscoInvestimento',
+  'falaDinheiroParceiro',
+  'culpaGastarConsigo',
+  'confiancaMudarFinanceiroNota',
+  'dinheiroRepresenta',
+  'principalObjetivo',
+  'possuiOutrosObjetivos',
+  'outrosObjetivosTexto',
+  'definiuValoresObjetivos',
+  'definiuPrazosObjetivos',
+  'impedeObjetivos',
+  'pensaAposentadoria',
+  'motivoBuscaConsultoria',
+  'expectativaFinalProcesso'
+];
 
 export const Anamnesis: React.FC = () => {
   const { user, viewingUserId, viewingProfile, profile } = useAuth();
@@ -349,9 +417,11 @@ export const Anamnesis: React.FC = () => {
       if ((formData.estadoCivil === 'Casado(a)' || formData.estadoCivil === 'União Estável') && !formData.decisoesFinanceiras) {
         errors.push('Como tomam decisões financeiras importantes');
       }
-      if (formData.planejaComprasNota > 0) {
+      if (formData.planejaComprasNota === -1) {
+        errors.push('Nota do planejamento de compras');
+      } else if (formData.planejaComprasNota > 0) {
         if (!formData.planejaComprasPagamento) errors.push('Forma de pagamento das compras planejadas');
-        if (formData.planejaComprasPagamento === 'Parcelado' && !formData.planejaComprasDinheiroPrevio) {
+        if ((formData.planejaComprasPagamento === 'Parcelado' || formData.planejaComprasPagamento === 'Parceladas') && !formData.planejaComprasDinheiroPrevio) {
           errors.push('Disponibilidade prévia de dinheiro nas parcelas');
         }
       }
@@ -366,6 +436,9 @@ export const Anamnesis: React.FC = () => {
         errors.push('Falar abertamente sobre dinheiro com parceiro(a)');
       }
       if (!formData.culpaGastarConsigo) errors.push('Sentir culpa ao gastar consigo mesmo');
+      if (formData.confiancaMudarFinanceiroNota === -1) {
+        errors.push('Nota de confiança em mudar a vida financeira');
+      }
       if (formData.dinheiroRepresenta.length === 0) errors.push('O que o dinheiro representa');
     }
 
@@ -390,11 +463,12 @@ export const Anamnesis: React.FC = () => {
     return errors;
   };
 
-  // Verifica se um campo específico está pendente/vazio
-  const isFieldPending = (fieldName: keyof AnamnesisData): boolean => {
-    const val = formData[fieldName];
+  // Verifica se um campo específico está ativo/visível conforme as respostas atuais
+  const isFieldActive = (fieldName: keyof AnamnesisData): boolean => {
+    // data e observações finais não são perguntas ativas para cálculo de progresso
+    if (fieldName === 'anamnesisDate') return false;
+    if (fieldName === 'outrasInformacoes') return false;
 
-    // Condicionais de exibição/ativação
     if (fieldName === 'casadoFinanceiro' || fieldName === 'decisoesFinanceiras' || fieldName === 'falaDinheiroParceiro') {
       if (formData.estadoCivil !== 'Casado(a)' && formData.estadoCivil !== 'União Estável') return false;
     }
@@ -435,10 +509,10 @@ export const Anamnesis: React.FC = () => {
       if (formData.possuiCartao !== 'Sim') return false;
     }
     if (fieldName === 'planejaComprasPagamento') {
-      if (formData.planejaComprasNota === 0) return false;
+      if (formData.planejaComprasNota === -1 || formData.planejaComprasNota === 0) return false;
     }
     if (fieldName === 'planejaComprasDinheiroPrevio') {
-      if (formData.planejaComprasNota === 0 || (formData.planejaComprasPagamento !== 'Parcelado' && formData.planejaComprasPagamento !== 'Parceladas')) return false;
+      if (formData.planejaComprasNota === -1 || formData.planejaComprasNota === 0 || (formData.planejaComprasPagamento !== 'Parcelado' && formData.planejaComprasPagamento !== 'Parceladas')) return false;
     }
     if (fieldName === 'outrosObjetivosTexto') {
       if (formData.possuiOutrosObjetivos !== 'Sim') return false;
@@ -446,12 +520,23 @@ export const Anamnesis: React.FC = () => {
     if (fieldName === 'definiuPrazosObjetivos') {
       if (formData.definiuValoresObjetivos !== 'Sim') return false;
     }
-    // Observações finais da Etapa 6 é opcional por definição
-    if (fieldName === 'outrasInformacoes') return false;
+
+    return true;
+  };
+
+  // Verifica se um campo específico está pendente/vazio
+  const isFieldPending = (fieldName: keyof AnamnesisData): boolean => {
+    if (!isFieldActive(fieldName)) return false;
+
+    const val = formData[fieldName];
 
     // Checagem de valor
     if (Array.isArray(val)) return val.length === 0;
-    if (typeof val === 'number') return val === 0 && fieldName === 'rendaLiquidaMinima';
+    if (typeof val === 'number') {
+      if (fieldName === 'rendaLiquidaMinima') return val <= 0;
+      if (fieldName === 'planejaComprasNota' || fieldName === 'confiancaMudarFinanceiroNota') return val === -1;
+      return false; // outros números
+    }
     return !val;
   };
 
@@ -468,6 +553,34 @@ export const Anamnesis: React.FC = () => {
   const countPendingByStep = (stepNum: number): number => {
     const fields = stepFields[stepNum];
     return fields.filter(field => isFieldPending(field as keyof AnamnesisData)).length;
+  };
+
+  // Exclui anamnese do Supabase (restrito ao educador)
+  const handleDeleteAnamnesis = async () => {
+    if (!window.confirm('Tem certeza de que deseja excluir permanentemente esta anamnese? Esta ação não pode ser desfeita e o questionário precisará ser preenchido novamente.')) return;
+    
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from('anamnesis')
+        .delete()
+        .eq('user_id', targetUserId)
+        .eq('space', 'personal');
+
+      if (error) throw error;
+
+      // Reseta todos os estados locais
+      setFormData(defaultFormData());
+      setOriginalData(defaultFormData());
+      setIsCompleted(false);
+      setStep(1);
+      alert('Anamnese excluída com sucesso.');
+    } catch (err) {
+      console.error('Erro ao excluir anamnese:', err);
+      alert('Ocorreu um erro ao tentar excluir a anamnese.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Salva anamnese completa/parcial no Supabase
@@ -601,7 +714,12 @@ export const Anamnesis: React.FC = () => {
 
   // Renderizador do progresso
   const renderProgressBar = (isCompact: boolean) => {
-    const currentPercent = isCompleted ? 100 : Math.round(((step - 1) / 6) * 100);
+    const activeFields = PROGRESS_FIELDS.filter(isFieldActive);
+    const filledFields = activeFields.filter(f => !isFieldPending(f));
+    const currentPercent = activeFields.length > 0
+      ? Math.round((filledFields.length / activeFields.length) * 100)
+      : 0;
+
     return (
       <div className={cn("bg-card/40 border border-border p-4 rounded-2xl mb-6 shadow-sm", isCompact ? "py-3 px-4 mb-4" : "p-4")}>
         <div className="flex justify-between items-center mb-2">
@@ -675,24 +793,36 @@ export const Anamnesis: React.FC = () => {
           </p>
         </div>
 
-        {/* Data de quando foi realizada */}
-        <div className="flex items-center gap-3 bg-muted/30 border border-border/80 px-4 py-2 rounded-2xl shadow-sm">
-          <Calendar size={16} className="text-primary shrink-0" />
-          <div className="flex flex-col">
-            <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Data da Anamnese</span>
-            <input
-              type="date"
-              value={formData.anamnesisDate}
-              onChange={e => {
-                const nextVal = e.target.value;
-                setFormData(prev => ({ ...prev, anamnesisDate: nextVal }));
-                if (isCompleted) {
-                  setOriginalData(prev => ({ ...prev, anamnesisDate: nextVal }));
-                  saveAnamnesis({ anamnesisDate: nextVal });
-                }
-              }}
-              className="bg-transparent border-none text-xs font-bold text-foreground outline-none p-0 h-5"
-            />
+        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto justify-end">
+          {isCompleted && profile?.role !== 'user' && (
+            <button
+              onClick={handleDeleteAnamnesis}
+              disabled={loading || saving}
+              className="flex items-center gap-2 px-4 py-2 bg-rose-500/10 border border-rose-500/20 hover:border-rose-500 text-rose-500 hover:bg-rose-500 hover:text-white rounded-2xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer shadow-sm disabled:opacity-50"
+            >
+              Excluir Anamnese
+            </button>
+          )}
+
+          {/* Data de quando foi realizada */}
+          <div className="flex items-center gap-3 bg-muted/30 border border-border/80 px-4 py-2 rounded-2xl shadow-sm">
+            <Calendar size={16} className="text-primary shrink-0" />
+            <div className="flex flex-col">
+              <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Data da Anamnese</span>
+              <input
+                type="date"
+                value={formData.anamnesisDate}
+                onChange={e => {
+                  const nextVal = e.target.value;
+                  setFormData(prev => ({ ...prev, anamnesisDate: nextVal }));
+                  if (isCompleted) {
+                    setOriginalData(prev => ({ ...prev, anamnesisDate: nextVal }));
+                    saveAnamnesis({ anamnesisDate: nextVal });
+                  }
+                }}
+                className="bg-transparent border-none text-xs font-bold text-foreground outline-none p-0 h-5"
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -1597,10 +1727,31 @@ export const Anamnesis: React.FC = () => {
                     <div className="space-y-4 bg-muted/10 p-5 rounded-2xl border border-border/50">
                       <div className="space-y-2">
                         <div className="flex justify-between items-center ml-2">
-                          <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Você planeja suas compras antes de realizá-las</label>
-                          <span className="text-xs font-black text-primary bg-primary/10 border border-primary/20 px-3 py-1 rounded-lg">
-                            {formData.planejaComprasNota === 0 ? "Nunca Planejo" : formData.planejaComprasNota === 10 ? "Sempre Planejo" : `Nota ${formData.planejaComprasNota}`}
-                          </span>
+                          <div className="flex items-center gap-1.5">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Você planeja suas compras antes de realizá-las</label>
+                            {isFieldPending('planejaComprasNota') && (
+                              <AlertTriangle size={12} className="text-amber-500 animate-pulse shrink-0" />
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {formData.planejaComprasNota !== -1 && (
+                              <button
+                                type="button"
+                                onClick={() => setFormData(prev => ({ ...prev, planejaComprasNota: -1, planejaComprasPagamento: '', planejaComprasDinheiroPrevio: '' }))}
+                                className="text-[10px] font-black text-rose-500 hover:text-rose-600 bg-rose-500/10 border border-rose-500/20 px-2 py-1 rounded-lg transition-colors cursor-pointer"
+                              >
+                                Limpar
+                              </button>
+                            )}
+                            <span className={cn(
+                              "text-xs font-black px-3 py-1 rounded-lg border",
+                              formData.planejaComprasNota === -1
+                                ? "text-amber-500 bg-amber-500/10 border-amber-500/20"
+                                : "text-primary bg-primary/10 border-primary/20"
+                            )}>
+                              {formData.planejaComprasNota === -1 ? "Não selecionada" : formData.planejaComprasNota === 0 ? "Nunca Planejo" : formData.planejaComprasNota === 10 ? "Sempre Planejo" : `Nota ${formData.planejaComprasNota}`}
+                            </span>
+                          </div>
                         </div>
                         <div className="relative pt-2 px-1">
                           <input
@@ -1608,9 +1759,9 @@ export const Anamnesis: React.FC = () => {
                             min="0"
                             max="10"
                             step="1"
-                            value={formData.planejaComprasNota}
+                            value={formData.planejaComprasNota === -1 ? 5 : formData.planejaComprasNota}
                             onChange={e => setFormData(prev => ({ ...prev, planejaComprasNota: Number(e.target.value), planejaComprasPagamento: '', planejaComprasDinheiroPrevio: '' }))}
-                            className="premium-slider"
+                            className={cn("premium-slider", formData.planejaComprasNota === -1 && "opacity-60")}
                           />
                           <div className="flex justify-between text-[9px] font-black text-muted-foreground/60 px-1 mt-1.5 select-none">
                             {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => (
@@ -1799,10 +1950,31 @@ export const Anamnesis: React.FC = () => {
                     {/* Acredita que pode mudar (Nota) */}
                     <div className="space-y-2 bg-muted/10 p-5 rounded-2xl border border-border/50">
                       <div className="flex justify-between items-center ml-2">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Você acredita que consegue mudar sua situação financeira?</label>
-                        <span className="text-xs font-black text-primary bg-primary/10 border border-primary/20 px-3 py-1 rounded-lg">
-                          {formData.confiancaMudarFinanceiroNota === 0 ? "Não Acredito" : formData.confiancaMudarFinanceiroNota === 10 ? "Plena Confiança" : `Nota ${formData.confiancaMudarFinanceiroNota}`}
-                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Você acredita que consegue mudar sua situação financeira?</label>
+                          {isFieldPending('confiancaMudarFinanceiroNota') && (
+                            <AlertTriangle size={12} className="text-amber-500 animate-pulse shrink-0" />
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {formData.confiancaMudarFinanceiroNota !== -1 && (
+                            <button
+                              type="button"
+                              onClick={() => setFormData(prev => ({ ...prev, confiancaMudarFinanceiroNota: -1 }))}
+                              className="text-[10px] font-black text-rose-500 hover:text-rose-600 bg-rose-500/10 border border-rose-500/20 px-2 py-1 rounded-lg transition-colors cursor-pointer"
+                            >
+                              Limpar
+                            </button>
+                          )}
+                          <span className={cn(
+                            "text-xs font-black px-3 py-1 rounded-lg border",
+                            formData.confiancaMudarFinanceiroNota === -1
+                              ? "text-amber-500 bg-amber-500/10 border-amber-500/20"
+                              : "text-primary bg-primary/10 border-primary/20"
+                          )}>
+                            {formData.confiancaMudarFinanceiroNota === -1 ? "Não selecionada" : formData.confiancaMudarFinanceiroNota === 0 ? "Não Acredito" : formData.confiancaMudarFinanceiroNota === 10 ? "Plena Confiança" : `Nota ${formData.confiancaMudarFinanceiroNota}`}
+                          </span>
+                        </div>
                       </div>
                       <div className="relative pt-2 px-1">
                         <input
@@ -1810,9 +1982,9 @@ export const Anamnesis: React.FC = () => {
                           min="0"
                           max="10"
                           step="1"
-                          value={formData.confiancaMudarFinanceiroNota}
+                          value={formData.confiancaMudarFinanceiroNota === -1 ? 5 : formData.confiancaMudarFinanceiroNota}
                           onChange={e => setFormData(prev => ({ ...prev, confiancaMudarFinanceiroNota: Number(e.target.value) }))}
-                          className="premium-slider"
+                          className={cn("premium-slider", formData.confiancaMudarFinanceiroNota === -1 && "opacity-60")}
                         />
                         <div className="flex justify-between text-[9px] font-black text-muted-foreground/60 px-1 mt-1.5 select-none">
                           {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => (
@@ -1879,6 +2051,7 @@ export const Anamnesis: React.FC = () => {
                             onChange={e => setFormData(prev => ({ ...prev, possuiOutrosObjetivos: e.target.value, outrosObjetivosTexto: '' }))}
                             className="w-full bg-card border border-border rounded-xl h-12 pl-4 pr-10 text-sm text-foreground outline-none focus:border-primary/50 transition-all font-bold appearance-none cursor-pointer"
                           >
+                            <option value="">Selecione...</option>
                             <option value="Não">Não</option>
                             <option value="Sim">Sim</option>
                           </select>
@@ -1910,9 +2083,10 @@ export const Anamnesis: React.FC = () => {
                         <div className="relative w-full">
                           <select
                             value={formData.definiuValoresObjetivos}
-                            onChange={e => setFormData(prev => ({ ...prev, definiuValoresObjetivos: e.target.value, definiuPrazosObjetivos: e.target.value === 'Não' ? 'Não' : prev.definiuPrazosObjetivos }))}
+                            onChange={e => setFormData(prev => ({ ...prev, definiuValoresObjetivos: e.target.value, definiuPrazosObjetivos: e.target.value === 'Sim' ? prev.definiuPrazosObjetivos : '' }))}
                             className="w-full bg-card border border-border rounded-xl h-12 pl-4 pr-10 text-sm text-foreground outline-none focus:border-primary/50 transition-all font-bold appearance-none cursor-pointer"
                           >
+                            <option value="">Selecione...</option>
                             <option value="Não">Não</option>
                             <option value="Sim">Sim</option>
                           </select>
@@ -1933,6 +2107,7 @@ export const Anamnesis: React.FC = () => {
                               onChange={e => setFormData(prev => ({ ...prev, definiuPrazosObjetivos: e.target.value }))}
                               className="w-full bg-card border border-border rounded-xl h-12 pl-4 pr-10 text-sm text-foreground outline-none focus:border-primary/50 transition-all font-bold appearance-none cursor-pointer"
                             >
+                              <option value="">Selecione...</option>
                               <option value="Não">Não</option>
                               <option value="Sim">Sim</option>
                             </select>
@@ -2148,7 +2323,7 @@ export const Anamnesis: React.FC = () => {
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                             {/* Idade */}
                             <div className={cn("space-y-2 p-3 rounded-xl border transition-colors", isFieldPending('idade') ? "border-amber-500/30 bg-amber-500/5" : "border-border/60")}>
-                              {renderFieldLabel("Idade", "idade")}
+                              {renderFieldLabel("Qual a sua Idade?", "idade")}
                               <input
                                 type="number"
                                 value={formData.idade}
@@ -2160,7 +2335,7 @@ export const Anamnesis: React.FC = () => {
 
                             {/* Estado Civil */}
                             <div className={cn("space-y-2 p-3 rounded-xl border transition-colors relative pr-8", isFieldPending('estadoCivil') ? "border-amber-500/30 bg-amber-500/5" : "border-border/60")}>
-                              {renderFieldLabel("Estado Civil", "estadoCivil")}
+                              {renderFieldLabel("Qual o seu Estado Civil?", "estadoCivil")}
                               <select
                                 value={formData.estadoCivil}
                                 onChange={e => setFormData(prev => ({ ...prev, estadoCivil: e.target.value, casadoFinanceiro: '' }))}
@@ -2179,7 +2354,7 @@ export const Anamnesis: React.FC = () => {
                             {/* Casado Financeiro */}
                             {(formData.estadoCivil === 'Casado(a)' || formData.estadoCivil === 'União Estável') && (
                               <div className={cn("space-y-2 p-3 rounded-xl border transition-colors relative pr-8", isFieldPending('casadoFinanceiro') ? "border-amber-500/30 bg-amber-500/5" : "border-border/60")}>
-                                {renderFieldLabel("Financeiro do Casal", "casadoFinanceiro")}
+                                {renderFieldLabel("Como o financeiro do casal é organizado?", "casadoFinanceiro")}
                                 <select
                                   value={formData.casadoFinanceiro}
                                   onChange={e => setFormData(prev => ({ ...prev, casadoFinanceiro: e.target.value }))}
@@ -2196,7 +2371,7 @@ export const Anamnesis: React.FC = () => {
 
                             {/* Possui Filhos */}
                             <div className="space-y-2 p-3 rounded-xl border border-border/60 relative pr-8">
-                              {renderFieldLabel("Possui Filhos?", "possuiFilhos")}
+                              {renderFieldLabel("Você Possui Filhos?", "possuiFilhos")}
                               <select
                                 value={formData.possuiFilhos}
                                 onChange={e => setFormData(prev => ({ ...prev, possuiFilhos: e.target.value }))}
@@ -2212,7 +2387,7 @@ export const Anamnesis: React.FC = () => {
                             {formData.possuiFilhos === 'Sim' && (
                               <>
                                 <div className={cn("space-y-2 p-3 rounded-xl border transition-colors", isFieldPending('qtdFilhos') ? "border-amber-500/30 bg-amber-500/5" : "border-border/60")}>
-                                  {renderFieldLabel("Qtd Filhos", "qtdFilhos")}
+                                  {renderFieldLabel("Quantos?", "qtdFilhos")}
                                   <input
                                     type="number"
                                     min="1"
@@ -2223,7 +2398,7 @@ export const Anamnesis: React.FC = () => {
                                   />
                                 </div>
                                 <div className="space-y-2 p-3 rounded-xl border border-border/60">
-                                  {renderFieldLabel("Filhos Dependentes", "qtdFilhosDependentes")}
+                                  {renderFieldLabel("Dependentes?", "qtdFilhosDependentes")}
                                   <input
                                     type="number"
                                     min="0"
@@ -2240,7 +2415,7 @@ export const Anamnesis: React.FC = () => {
                             {/* Pessoas Dependentes */}
                             <div className="space-y-2 p-3 rounded-xl border border-border/60 flex items-center justify-between gap-4">
                               <div className="flex-1">
-                                {renderFieldLabel("Outros Dependentes", "pessoasDependentes")}
+                                {renderFieldLabel("Quantas pessoas dependem financeiramente de você (excluindo filhos)?", "pessoasDependentes")}
                                 <input
                                   type="number"
                                   min="0"
@@ -2257,7 +2432,7 @@ export const Anamnesis: React.FC = () => {
 
                             {/* Situação Moradia */}
                             <div className={cn("space-y-2 p-3 rounded-xl border transition-colors relative pr-8", isFieldPending('situacaoMoradia') ? "border-amber-500/30 bg-amber-500/5" : "border-border/60")}>
-                              {renderFieldLabel("Moradia", "situacaoMoradia")}
+                              {renderFieldLabel("Qual a sua Situação de Moradia?", "situacaoMoradia")}
                               <select
                                 value={formData.situacaoMoradia}
                                 onChange={e => setFormData(prev => ({ ...prev, situacaoMoradia: e.target.value }))}
@@ -2275,7 +2450,7 @@ export const Anamnesis: React.FC = () => {
 
                             {/* Escolaridade */}
                             <div className={cn("space-y-2 p-3 rounded-xl border transition-colors relative pr-8", isFieldPending('escolaridade') ? "border-amber-500/30 bg-amber-500/5" : "border-border/60")}>
-                              {renderFieldLabel("Escolaridade", "escolaridade")}
+                              {renderFieldLabel("Qual o seu Nível de Escolaridade?", "escolaridade")}
                               <select
                                 value={formData.escolaridade}
                                 onChange={e => setFormData(prev => ({ ...prev, escolaridade: e.target.value }))}
@@ -2293,7 +2468,7 @@ export const Anamnesis: React.FC = () => {
 
                             {/* Situação Profissional */}
                             <div className={cn("space-y-2 p-3 rounded-xl border transition-colors relative pr-8", isFieldPending('situacaoProfissional') ? "border-amber-500/30 bg-amber-500/5" : "border-border/60")}>
-                              {renderFieldLabel("Profissão", "situacaoProfissional")}
+                              {renderFieldLabel("Qual a sua Situação Profissional?", "situacaoProfissional")}
                               <select
                                 value={formData.situacaoProfissional}
                                 onChange={e => setFormData(prev => ({ ...prev, situacaoProfissional: e.target.value, situacaoProfissionalOutro: '' }))}
@@ -2313,7 +2488,7 @@ export const Anamnesis: React.FC = () => {
                             {/* Profissão Outro */}
                             {formData.situacaoProfissional === 'Outro' && (
                               <div className={cn("space-y-2 p-3 rounded-xl border transition-colors col-span-1 md:col-span-3", isFieldPending('situacaoProfissionalOutro') ? "border-amber-500/30 bg-amber-500/5" : "border-border/60")}>
-                                {renderFieldLabel("Especifique a Profissão", "situacaoProfissionalOutro")}
+                                {renderFieldLabel("Especifique a sua Situação Profissional:", "situacaoProfissionalOutro")}
                                 <input
                                   type="text"
                                   value={formData.situacaoProfissionalOutro}
@@ -2331,7 +2506,7 @@ export const Anamnesis: React.FC = () => {
                           <div className="space-y-6">
                             {/* Fontes de Renda */}
                             <div className={cn("space-y-3 p-4 rounded-xl border transition-colors", isFieldPending('fontesRenda') ? "border-amber-500/30 bg-amber-500/5" : "border-border/60")}>
-                              {renderFieldLabel("Fontes de Renda", "fontesRenda")}
+                              {renderFieldLabel("Quais suas fontes de rendas? (Pode selecionar mais de uma)", "fontesRenda")}
                               <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                                 {['Salário CLT', 'Pró-Labore', 'Autônomo', 'Aluguéis', 'Rendimento de Investimentos', 'Pensão/Aposentadoria', 'Outro'].map((op) => {
                                   const isSelected = formData.fontesRenda.includes(op);
@@ -2355,7 +2530,7 @@ export const Anamnesis: React.FC = () => {
 
                               {formData.fontesRenda.includes('Outro') && (
                                 <div className={cn("space-y-1 border rounded-xl border-border/60 p-3 mt-2 relative", isFieldPending('fontesRendaOutro') && "border-amber-500/20")}>
-                                  {renderFieldLabel("Outra Fonte (Descrição)", "fontesRendaOutro")}
+                                  {renderFieldLabel("Especifique a outra fonte de renda:", "fontesRendaOutro")}
                                   <input
                                     type="text"
                                     value={formData.fontesRendaOutro}
@@ -2370,7 +2545,7 @@ export const Anamnesis: React.FC = () => {
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                               {/* Renda Líquida */}
                               <div className={cn("space-y-2 p-3 rounded-xl border transition-colors", isFieldPending('rendaLiquidaMinima') ? "border-amber-500/30 bg-amber-500/5" : "border-border/60")}>
-                                {renderFieldLabel("Renda Líquida Mínima", "rendaLiquidaMinima")}
+                                {renderFieldLabel("Qual sua renda mensal líquida mínima?", "rendaLiquidaMinima")}
                                 <div className="relative flex items-center">
                                   <span className="absolute left-0 text-xs font-black text-muted-foreground/60 select-none">R$</span>
                                   <input
@@ -2384,7 +2559,7 @@ export const Anamnesis: React.FC = () => {
 
                               {/* Tipo de Renda */}
                               <div className={cn("space-y-2 p-3 rounded-xl border transition-colors relative pr-8", isFieldPending('rendaTipo') ? "border-amber-500/30 bg-amber-500/5" : "border-border/60")}>
-                                {renderFieldLabel("Tipo Renda", "rendaTipo")}
+                                {renderFieldLabel("Sua renda é fixa ou variável?", "rendaTipo")}
                                 <select
                                   value={formData.rendaTipo}
                                   onChange={e => setFormData(prev => ({ ...prev, rendaTipo: e.target.value }))}
@@ -2400,7 +2575,7 @@ export const Anamnesis: React.FC = () => {
 
                               {/* Sabe quanto gasta */}
                               <div className={cn("space-y-2 p-3 rounded-xl border transition-colors relative pr-8", isFieldPending('sabeGastos') ? "border-amber-500/30 bg-amber-500/5" : "border-border/60")}>
-                                {renderFieldLabel("Sabe os Gastos?", "sabeGastos")}
+                                {renderFieldLabel("Você sabe exatamente quanto gasta por mês?", "sabeGastos")}
                                 <select
                                   value={formData.sabeGastos}
                                   onChange={e => setFormData(prev => ({ ...prev, sabeGastos: e.target.value }))}
@@ -2417,7 +2592,7 @@ export const Anamnesis: React.FC = () => {
 
                               {/* Gastos vs Renda */}
                               <div className={cn("space-y-2 p-3 rounded-xl border transition-colors relative pr-8", isFieldPending('gastosVsRenda') ? "border-amber-500/30 bg-amber-500/5" : "border-border/60")}>
-                                {renderFieldLabel("Gastos mensais são", "gastosVsRenda")}
+                                {renderFieldLabel("Como são seus gastos mensais em relação à renda?", "gastosVsRenda")}
                                 <select
                                   value={formData.gastosVsRenda}
                                   onChange={e => setFormData(prev => ({ ...prev, gastosVsRenda: e.target.value }))}
@@ -2433,7 +2608,7 @@ export const Anamnesis: React.FC = () => {
 
                               {/* Reserva */}
                               <div className="space-y-2 p-3 rounded-xl border border-border/60 relative pr-8">
-                                {renderFieldLabel("Possui Reserva?", "possuiReserva")}
+                                {renderFieldLabel("Possui reserva de emergência?", "possuiReserva")}
                                 <select
                                   value={formData.possuiReserva}
                                   onChange={e => setFormData(prev => ({ ...prev, possuiReserva: e.target.value, reservaMesesCobre: '' }))}
@@ -2448,7 +2623,7 @@ export const Anamnesis: React.FC = () => {
                               {/* Reserva Meses */}
                               {formData.possuiReserva === 'Sim' && (
                                 <div className={cn("space-y-2 p-3 rounded-xl border transition-colors relative pr-8", isFieldPending('reservaMesesCobre') ? "border-amber-500/30 bg-amber-500/5" : "border-border/60")}>
-                                  {renderFieldLabel("Reserva Cobre", "reservaMesesCobre")}
+                                  {renderFieldLabel("Quantos meses de despesas ela cobre?", "reservaMesesCobre")}
                                   <select
                                     value={formData.reservaMesesCobre}
                                     onChange={e => setFormData(prev => ({ ...prev, reservaMesesCobre: e.target.value }))}
@@ -2469,7 +2644,7 @@ export const Anamnesis: React.FC = () => {
                             <div className="space-y-4 p-4 rounded-xl border border-border/60">
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="space-y-2 relative pr-8">
-                                  {renderFieldLabel("Possui Dívidas?", "possuiDividas")}
+                                  {renderFieldLabel("Possui dívidas ativas?", "possuiDividas")}
                                   <select
                                     value={formData.possuiDividas}
                                     onChange={e => setFormData(prev => ({ ...prev, possuiDividas: e.target.value, totalDividas: '', tiposDividas: [] }))}
@@ -2483,7 +2658,7 @@ export const Anamnesis: React.FC = () => {
 
                                 {formData.possuiDividas === 'Sim' && (
                                   <div className={cn("space-y-2 p-3 rounded-xl border transition-colors relative pr-8", isFieldPending('totalDividas') ? "border-amber-500/30 bg-amber-500/5" : "border-border/60")}>
-                                    {renderFieldLabel("Total de Dívidas", "totalDividas")}
+                                    {renderFieldLabel("Total aproximado das dívidas:", "totalDividas")}
                                     <select
                                       value={formData.totalDividas}
                                       onChange={e => setFormData(prev => ({ ...prev, totalDividas: e.target.value }))}
@@ -2503,7 +2678,7 @@ export const Anamnesis: React.FC = () => {
 
                               {formData.possuiDividas === 'Sim' && (
                                 <div className={cn("space-y-2 border-t border-border pt-4 mt-2", isFieldPending('tiposDividas') && "border-amber-500/20")}>
-                                  {renderFieldLabel("Tipos de Dívidas", "tiposDividas")}
+                                  {renderFieldLabel("Quais os tipos de dívidas? (Selecione todas que aplicam)", "tiposDividas")}
                                   <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                                     {['Cartão de Crédito', 'Cheque Especial', 'Empréstimo', 'Financiamento Veículo', 'Financiamento Imobiliário', 'Família/Amigos', 'Outros'].map(tipo => {
                                       const isSelected = formData.tiposDividas.includes(tipo);
@@ -2531,7 +2706,7 @@ export const Anamnesis: React.FC = () => {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                               {/* Investimentos */}
                               <div className={cn("space-y-2 p-3 rounded-xl border transition-colors relative pr-8", isFieldPending('investimentos') ? "border-amber-500/30 bg-amber-500/5" : "border-border/60")}>
-                                {renderFieldLabel("Investimentos", "investimentos")}
+                                {renderFieldLabel("Possui investimentos?", "investimentos")}
                                 <select
                                   value={formData.investimentos}
                                   onChange={e => setFormData(prev => ({ ...prev, investimentos: e.target.value }))}
@@ -2549,7 +2724,7 @@ export const Anamnesis: React.FC = () => {
 
                               {/* Seguros e Previdência */}
                               <div className={cn("space-y-2 p-3 rounded-xl border transition-colors relative pr-8", isFieldPending('segurosPrevidencia') ? "border-amber-500/30 bg-amber-500/5" : "border-border/60")}>
-                                {renderFieldLabel("Seguros / Previdência", "segurosPrevidencia")}
+                                {renderFieldLabel("Possui seguro de vida ou previdência privada?", "segurosPrevidencia")}
                                 <select
                                   value={formData.segurosPrevidencia}
                                   onChange={e => setFormData(prev => ({ ...prev, segurosPrevidencia: e.target.value }))}
@@ -2569,7 +2744,7 @@ export const Anamnesis: React.FC = () => {
                             <div className="space-y-4 p-4 rounded-xl border border-border/60">
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="space-y-2 relative pr-8">
-                                  {renderFieldLabel("Possui Veículos?", "possuiVeiculos")}
+                                  {renderFieldLabel("Possui veículos?", "possuiVeiculos")}
                                   <select
                                     value={formData.possuiVeiculos}
                                     onChange={e => setFormData(prev => ({ ...prev, possuiVeiculos: e.target.value, tiposVeiculos: '', qtdCarros: 0, qtdMotos: 0, veiculosQuitacao: '' }))}
@@ -2583,7 +2758,7 @@ export const Anamnesis: React.FC = () => {
 
                                 {formData.possuiVeiculos === 'Sim' && (
                                   <div className={cn("space-y-2 p-3 rounded-xl border transition-colors relative pr-8", isFieldPending('tiposVeiculos') ? "border-amber-500/30 bg-amber-500/5" : "border-border/60")}>
-                                    {renderFieldLabel("Tipo Veículo", "tiposVeiculos")}
+                                    {renderFieldLabel("Tipo de veículo:", "tiposVeiculos")}
                                     <select
                                       value={formData.tiposVeiculos}
                                       onChange={e => setFormData(prev => ({ ...prev, tiposVeiculos: e.target.value, qtdCarros: e.target.value === 'Moto' ? 0 : 1, qtdMotos: e.target.value === 'Carro' ? 0 : 1 }))}
@@ -2603,7 +2778,7 @@ export const Anamnesis: React.FC = () => {
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 border-t border-border pt-4">
                                   {(formData.tiposVeiculos === 'Carro' || formData.tiposVeiculos === 'Ambos') && (
                                     <div className={cn("space-y-2 p-3 rounded-xl border transition-colors", isFieldPending('qtdCarros') ? "border-amber-500/30 bg-amber-500/5" : "border-border/60")}>
-                                      {renderFieldLabel("Qtd Carros", "qtdCarros")}
+                                      {renderFieldLabel("Quantidade de carros?", "qtdCarros")}
                                       <input
                                         type="number"
                                         min="1"
@@ -2616,7 +2791,7 @@ export const Anamnesis: React.FC = () => {
 
                                   {(formData.tiposVeiculos === 'Moto' || formData.tiposVeiculos === 'Ambos') && (
                                     <div className={cn("space-y-2 p-3 rounded-xl border transition-colors", isFieldPending('qtdMotos') ? "border-amber-500/30 bg-amber-500/5" : "border-border/60")}>
-                                      {renderFieldLabel("Qtd Motos", "qtdMotos")}
+                                      {renderFieldLabel("Quantidade de motos?", "qtdMotos")}
                                       <input
                                         type="number"
                                         min="1"
@@ -2628,7 +2803,7 @@ export const Anamnesis: React.FC = () => {
                                   )}
 
                                   <div className={cn("space-y-2 p-3 rounded-xl border transition-colors relative pr-8", isFieldPending('veiculosQuitacao') ? "border-amber-500/30 bg-amber-500/5" : "border-border/60")}>
-                                    {renderFieldLabel("Situação de Quitação", "veiculosQuitacao")}
+                                    {renderFieldLabel("Situação do(s) veículo(s)", "veiculosQuitacao")}
                                     <select
                                       value={formData.veiculosQuitacao}
                                       onChange={e => setFormData(prev => ({ ...prev, veiculosQuitacao: e.target.value }))}
@@ -2650,7 +2825,7 @@ export const Anamnesis: React.FC = () => {
                               {/* Educação */}
                               <div className="space-y-4 p-4 rounded-xl border border-border/60">
                                 <div className="space-y-2 relative pr-8">
-                                  {renderFieldLabel("Gastos Educação?", "gastosEducacao")}
+                                  {renderFieldLabel("Gastos fixos com educação?", "gastosEducacao")}
                                   <select
                                     value={formData.gastosEducacao}
                                     onChange={e => setFormData(prev => ({ ...prev, gastosEducacao: e.target.value, gastosEducacaoComQue: '' }))}
@@ -2663,7 +2838,7 @@ export const Anamnesis: React.FC = () => {
                                 </div>
                                 {formData.gastosEducacao === 'Sim' && (
                                   <div className={cn("space-y-2 border rounded-xl border-border/60 p-3 mt-2 relative", isFieldPending('gastosEducacaoComQue') ? "border-amber-500/30 bg-amber-500/5" : "")}>
-                                    {renderFieldLabel("Descrição Educação", "gastosEducacaoComQue")}
+                                    {renderFieldLabel("Com o que são seus gastos com educação?", "gastosEducacaoComQue")}
                                     <input
                                       type="text"
                                       value={formData.gastosEducacaoComQue}
@@ -2678,7 +2853,7 @@ export const Anamnesis: React.FC = () => {
                               {/* Saúde */}
                               <div className="space-y-4 p-4 rounded-xl border border-border/60">
                                 <div className="space-y-2 relative pr-8">
-                                  {renderFieldLabel("Gastos Saúde?", "gastosSaude")}
+                                  {renderFieldLabel("Gastos fixos com saúde?", "gastosSaude")}
                                   <select
                                     value={formData.gastosSaude}
                                     onChange={e => setFormData(prev => ({ ...prev, gastosSaude: e.target.value, gastosSaudeComQue: '' }))}
@@ -2691,7 +2866,7 @@ export const Anamnesis: React.FC = () => {
                                 </div>
                                 {formData.gastosSaude === 'Sim' && (
                                   <div className={cn("space-y-2 border rounded-xl border-border/60 p-3 mt-2 relative", isFieldPending('gastosSaudeComQue') ? "border-amber-500/30 bg-amber-500/5" : "")}>
-                                    {renderFieldLabel("Descrição Saúde", "gastosSaudeComQue")}
+                                    {renderFieldLabel("Com o que são seus gastos com saúde?", "gastosSaudeComQue")}
                                     <input
                                       type="text"
                                       value={formData.gastosSaudeComQue}
@@ -2712,7 +2887,7 @@ export const Anamnesis: React.FC = () => {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                               {/* Acompanha gastos */}
                               <div className={cn("space-y-2 p-3 rounded-xl border transition-colors relative pr-8", isFieldPending('frequenciaAcompanhaGastos') ? "border-amber-500/30 bg-amber-500/5" : "border-border/60")}>
-                                {renderFieldLabel("Acompanha Gastos", "frequenciaAcompanhaGastos")}
+                                {renderFieldLabel("Com que frequência acompanha seus gastos?", "frequenciaAcompanhaGastos")}
                                 <select
                                   value={formData.frequenciaAcompanhaGastos}
                                   onChange={e => setFormData(prev => ({ ...prev, frequenciaAcompanhaGastos: e.target.value, ferramentaControle: e.target.value === 'Nunca' ? '' : prev.ferramentaControle }))}
@@ -2731,7 +2906,7 @@ export const Anamnesis: React.FC = () => {
                               {/* Ferramenta de controle */}
                               {formData.frequenciaAcompanhaGastos && formData.frequenciaAcompanhaGastos !== 'Nunca' && (
                                 <div className={cn("space-y-2 p-3 rounded-xl border transition-colors relative pr-8", isFieldPending('ferramentaControle') ? "border-amber-500/30 bg-amber-500/5" : "border-border/60")}>
-                                  {renderFieldLabel("Ferramenta Controle", "ferramentaControle")}
+                                  {renderFieldLabel("Qual ferramenta usa para controlar as finanças?", "ferramentaControle")}
                                   <select
                                     value={formData.ferramentaControle}
                                     onChange={e => setFormData(prev => ({ ...prev, ferramentaControle: e.target.value }))}
@@ -2750,7 +2925,7 @@ export const Anamnesis: React.FC = () => {
 
                               {/* Compras por impulso */}
                               <div className={cn("space-y-2 p-3 rounded-xl border transition-colors relative pr-8", isFieldPending('comprasImpulso') ? "border-amber-500/30 bg-amber-500/5" : "border-border/60")}>
-                                {renderFieldLabel("Compras Impulso", "comprasImpulso")}
+                                {renderFieldLabel("Com que frequência você faz compras por impulso?", "comprasImpulso")}
                                 <select
                                   value={formData.comprasImpulso}
                                   onChange={e => setFormData(prev => ({ ...prev, comprasImpulso: e.target.value }))}
@@ -2767,7 +2942,7 @@ export const Anamnesis: React.FC = () => {
 
                               {/* Gastos emocionais */}
                               <div className={cn("space-y-2 p-3 rounded-xl border transition-colors relative pr-8", isFieldPending('gastosEmocionais') ? "border-amber-500/30 bg-amber-500/5" : "border-border/60")}>
-                                {renderFieldLabel("Gasto Emocional", "gastosEmocionais")}
+                                {renderFieldLabel("Quando estressado(a) ou triste, tende a gastar mais?", "gastosEmocionais")}
                                 <select
                                   value={formData.gastosEmocionais}
                                   onChange={e => setFormData(prev => ({ ...prev, gastosEmocionais: e.target.value }))}
@@ -2786,7 +2961,7 @@ export const Anamnesis: React.FC = () => {
                             <div className="space-y-4 p-4 rounded-xl border border-border/60">
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="space-y-2 relative pr-8">
-                                  {renderFieldLabel("Possui Cartão Crédito?", "possuiCartao")}
+                                  {renderFieldLabel("Possui cartão de crédito?", "possuiCartao")}
                                   <select
                                     value={formData.possuiCartao}
                                     onChange={e => setFormData(prev => ({ ...prev, possuiCartao: e.target.value, qtdCartoes: 0, usoCartao: '' }))}
@@ -2800,7 +2975,7 @@ export const Anamnesis: React.FC = () => {
 
                                 {formData.possuiCartao === 'Sim' && (
                                   <div className={cn("space-y-2 p-3 rounded-xl border transition-colors", isFieldPending('qtdCartoes') ? "border-amber-500/30 bg-amber-500/5" : "border-border/60")}>
-                                    {renderFieldLabel("Quantidade de Cartões", "qtdCartoes")}
+                                    {renderFieldLabel("Quantos cartões ativos?", "qtdCartoes")}
                                     <input
                                       type="number"
                                       min="1"
@@ -2814,7 +2989,7 @@ export const Anamnesis: React.FC = () => {
 
                               {formData.possuiCartao === 'Sim' && (
                                 <div className={cn("space-y-2 border rounded-xl border-border/60 p-3 mt-2 relative pr-8", isFieldPending('usoCartao') ? "border-amber-500/30 bg-amber-500/5" : "")}>
-                                  {renderFieldLabel("Uso do Cartão", "usoCartao")}
+                                  {renderFieldLabel("Qual o seu perfil de uso do cartão?", "usoCartao")}
                                   <select
                                     value={formData.usoCartao}
                                     onChange={e => setFormData(prev => ({ ...prev, usoCartao: e.target.value }))}
@@ -2824,6 +2999,7 @@ export const Anamnesis: React.FC = () => {
                                     <option value="Não utilizo o cartão">Não utilizo o cartão</option>
                                     <option value="Principal meio de pagamento e sempre em dia">Principal meio de pagamento e sempre em dia</option>
                                     <option value="Principal meio de pagamento e parcelo a fatura">Principal meio de pagamento e parcelo a fatura</option>
+                                    <option value="Cartão de crédito não é meu principal meio de pagamento">Cartão de crédito não é meu principal meio de pagamento</option>
                                     <option value="Apenas compras grandes/parceladas e sempre em dia">Apenas compras grandes/parceladas e sempre em dia</option>
                                     <option value="Apenas compras grandes/parceladas e parcelo a fatura">Apenas compras grandes/parceladas e parcelo a fatura</option>
                                   </select>
@@ -2835,7 +3011,7 @@ export const Anamnesis: React.FC = () => {
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                               {/* Contas no prazo */}
                               <div className={cn("space-y-2 p-3 rounded-xl border transition-colors relative pr-8", isFieldPending('pagaContasPrazo') ? "border-amber-500/30 bg-amber-500/5" : "border-border/60")}>
-                                {renderFieldLabel("Contas no Prazo?", "pagaContasPrazo")}
+                                {renderFieldLabel("Paga as contas no prazo?", "pagaContasPrazo")}
                                 <select
                                   value={formData.pagaContasPrazo}
                                   onChange={e => setFormData(prev => ({ ...prev, pagaContasPrazo: e.target.value }))}
@@ -2852,7 +3028,7 @@ export const Anamnesis: React.FC = () => {
 
                               {/* Recebe ajuda */}
                               <div className={cn("space-y-2 p-3 rounded-xl border transition-colors relative pr-8", isFieldPending('recebeAjudaFinanceira') ? "border-amber-500/30 bg-amber-500/5" : "border-border/60")}>
-                                {renderFieldLabel("Recebe de Terceiros", "recebeAjudaFinanceira")}
+                                {renderFieldLabel("Recebe dinheiro de terceiros?", "recebeAjudaFinanceira")}
                                 <select
                                   value={formData.recebeAjudaFinanceira}
                                   onChange={e => setFormData(prev => ({ ...prev, recebeAjudaFinanceira: e.target.value }))}
@@ -2868,7 +3044,7 @@ export const Anamnesis: React.FC = () => {
 
                               {/* Empresta dinheiro */}
                               <div className={cn("space-y-2 p-3 rounded-xl border transition-colors relative pr-8", isFieldPending('emprestaDinheiro') ? "border-amber-500/30 bg-amber-500/5" : "border-border/60")}>
-                                {renderFieldLabel("Empresta para Terceiros", "emprestaDinheiro")}
+                                {renderFieldLabel("Empresta dinheiro para terceiros?", "emprestaDinheiro")}
                                 <select
                                   value={formData.emprestaDinheiro}
                                   onChange={e => setFormData(prev => ({ ...prev, emprestaDinheiro: e.target.value }))}
@@ -2886,7 +3062,7 @@ export const Anamnesis: React.FC = () => {
                             {/* Decisões Casal */}
                             {(formData.estadoCivil === 'Casado(a)' || formData.estadoCivil === 'União Estável') && (
                               <div className={cn("space-y-2 p-3 rounded-xl border transition-colors relative pr-8", isFieldPending('decisoesFinanceiras') ? "border-amber-500/30 bg-amber-500/5" : "border-border/60")}>
-                                {renderFieldLabel("Decisões Casal", "decisoesFinanceiras")}
+                                {renderFieldLabel("Como são tomadas as decisões financeiras importantes do casal?", "decisoesFinanceiras")}
                                 <select
                                   value={formData.decisoesFinanceiras}
                                   onChange={e => setFormData(prev => ({ ...prev, decisoesFinanceiras: e.target.value }))}
@@ -2904,10 +3080,26 @@ export const Anamnesis: React.FC = () => {
                             {/* Planeja Compras */}
                             <div className="space-y-4 p-4 rounded-xl border border-border/60">
                               <div className="flex justify-between items-center">
-                                {renderFieldLabel("Nota Planeja Compras (0 a 10)", "planejaComprasNota")}
-                                <span className="text-xs font-black text-primary bg-primary/10 border border-primary/20 px-3 py-1 rounded-lg">
-                                  {formData.planejaComprasNota === 0 ? "Nunca" : formData.planejaComprasNota === 10 ? "Sempre" : `Nota ${formData.planejaComprasNota}`}
-                                </span>
+                                {renderFieldLabel("Você planeja suas compras antes de realizá-las", "planejaComprasNota")}
+                                <div className="flex items-center gap-2">
+                                  {formData.planejaComprasNota !== -1 && (
+                                    <button
+                                      type="button"
+                                      onClick={() => setFormData(prev => ({ ...prev, planejaComprasNota: -1, planejaComprasPagamento: '', planejaComprasDinheiroPrevio: '' }))}
+                                      className="text-[10px] font-black text-rose-500 hover:text-rose-600 bg-rose-500/10 border border-rose-500/20 px-2 py-1 rounded-lg transition-colors cursor-pointer"
+                                    >
+                                      Limpar
+                                    </button>
+                                  )}
+                                  <span className={cn(
+                                    "text-xs font-black px-3 py-1 rounded-lg border",
+                                    formData.planejaComprasNota === -1
+                                      ? "text-amber-500 bg-amber-500/10 border-amber-500/20"
+                                      : "text-primary bg-primary/10 border-primary/20"
+                                  )}>
+                                    {formData.planejaComprasNota === -1 ? "Não selecionada" : formData.planejaComprasNota === 0 ? "Nunca" : formData.planejaComprasNota === 10 ? "Sempre" : `Nota ${formData.planejaComprasNota}`}
+                                  </span>
+                                </div>
                               </div>
                               <div className="relative pt-2 px-1">
                                 <input
@@ -2915,9 +3107,9 @@ export const Anamnesis: React.FC = () => {
                                   min="0"
                                   max="10"
                                   step="1"
-                                  value={formData.planejaComprasNota}
+                                  value={formData.planejaComprasNota === -1 ? 5 : formData.planejaComprasNota}
                                   onChange={e => setFormData(prev => ({ ...prev, planejaComprasNota: Number(e.target.value), planejaComprasPagamento: '', planejaComprasDinheiroPrevio: '' }))}
-                                  className="premium-slider"
+                                  className={cn("premium-slider", formData.planejaComprasNota === -1 && "opacity-60")}
                                 />
                                 <div className="flex justify-between text-[9px] font-black text-muted-foreground/60 px-1 mt-1.5 select-none">
                                   {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => (
@@ -2932,7 +3124,7 @@ export const Anamnesis: React.FC = () => {
                               {formData.planejaComprasNota > 0 && (
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-border pt-4 mt-2">
                                   <div className={cn("space-y-2 p-3 rounded-xl border transition-colors relative pr-8", isFieldPending('planejaComprasPagamento') ? "border-amber-500/30 bg-amber-500/5" : "border-border/60")}>
-                                    {renderFieldLabel("Paga Planejadas", "planejaComprasPagamento")}
+                                    {renderFieldLabel("Qual a forma de pagamento das compras planejadas?", "planejaComprasPagamento")}
                                     <select
                                       value={formData.planejaComprasPagamento}
                                       onChange={e => setFormData(prev => ({ ...prev, planejaComprasPagamento: e.target.value, planejaComprasDinheiroPrevio: '' }))}
@@ -2947,7 +3139,7 @@ export const Anamnesis: React.FC = () => {
 
                                   {formData.planejaComprasPagamento === 'Parceladas' && (
                                     <div className={cn("space-y-2 p-3 rounded-xl border transition-colors relative pr-8", isFieldPending('planejaComprasDinheiroPrevio') ? "border-amber-500/30 bg-amber-500/5" : "border-border/60")}>
-                                      {renderFieldLabel("Realidade Parcelada", "planejaComprasDinheiroPrevio")}
+                                      {renderFieldLabel("Na modalidade parcelada, qual a sua realidade?", "planejaComprasDinheiroPrevio")}
                                       <select
                                         value={formData.planejaComprasDinheiroPrevio}
                                         onChange={e => setFormData(prev => ({ ...prev, planejaComprasDinheiroPrevio: e.target.value }))}
@@ -2972,7 +3164,7 @@ export const Anamnesis: React.FC = () => {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                               {/* Dinheiro família */}
                               <div className={cn("space-y-2 p-3 rounded-xl border transition-colors relative pr-8", isFieldPending('dinheiroFamilia') ? "border-amber-500/30 bg-amber-500/5" : "border-border/60")}>
-                                {renderFieldLabel("Dinheiro na Família", "dinheiroFamilia")}
+                                {renderFieldLabel("Como o dinheiro era tratado na sua infância/família?", "dinheiroFamilia")}
                                 <select
                                   value={formData.dinheiroFamilia}
                                   onChange={e => setFormData(prev => ({ ...prev, dinheiroFamilia: e.target.value }))}
@@ -2990,7 +3182,7 @@ export const Anamnesis: React.FC = () => {
 
                               {/* Frase Relação */}
                               <div className={cn("space-y-2 p-3 rounded-xl border transition-colors relative pr-8", isFieldPending('fraseRelacaoDinheiro') ? "border-amber-500/30 bg-amber-500/5" : "border-border/60")}>
-                                {renderFieldLabel("Relação com Dinheiro", "fraseRelacaoDinheiro")}
+                                {renderFieldLabel("Qual frase melhor descreve sua relação com dinheiro?", "fraseRelacaoDinheiro")}
                                 <select
                                   value={formData.fraseRelacaoDinheiro}
                                   onChange={e => setFormData(prev => ({ ...prev, fraseRelacaoDinheiro: e.target.value }))}
@@ -3008,7 +3200,7 @@ export const Anamnesis: React.FC = () => {
 
                               {/* Significado de guardar */}
                               <div className={cn("space-y-2 p-3 rounded-xl border transition-colors relative pr-8", isFieldPending('guardarDinheiroSignificado') ? "border-amber-500/30 bg-amber-500/5" : "border-border/60")}>
-                                {renderFieldLabel("Significado de Guardar", "guardarDinheiroSignificado")}
+                                {renderFieldLabel("Você associa o ato de guardar dinheiro a...", "guardarDinheiroSignificado")}
                                 <select
                                   value={formData.guardarDinheiroSignificado}
                                   onChange={e => setFormData(prev => ({ ...prev, guardarDinheiroSignificado: e.target.value }))}
@@ -3024,16 +3216,16 @@ export const Anamnesis: React.FC = () => {
 
                               {/* Perfil de risco */}
                               <div className={cn("space-y-2 p-3 rounded-xl border transition-colors relative pr-8", isFieldPending('perfilRiscoInvestimento') ? "border-amber-500/30 bg-amber-500/5" : "border-border/60")}>
-                                {renderFieldLabel("Perfil de Risco", "perfilRiscoInvestimento")}
+                                {renderFieldLabel("Qual o seu perfil de risco para investimentos?", "perfilRiscoInvestimento")}
                                 <select
                                   value={formData.perfilRiscoInvestimento}
                                   onChange={e => setFormData(prev => ({ ...prev, perfilRiscoInvestimento: e.target.value }))}
                                   className="w-full bg-transparent border-none p-0 text-sm font-bold text-foreground outline-none appearance-none cursor-pointer pr-4"
                                 >
                                   <option value="">Não informado</option>
-                                  <option value="Conservador (prefere segurança)">Conservador (prefere segurança)</option>
-                                  <option value="Moderado (prefere equilíbrio, aceitando um pouco de risco)">Moderado (prefere equilíbrio, aceitando um pouco de risco)</option>
-                                  <option value="Arrojado (prefere rentabilidade, aceitando maiores riscos)">Arrojado (prefere rentabilidade, aceitando maiores riscos)</option>
+                                  <option value="Conservador">Conservador (Priorizo segurança absoluta, tolerância zero a oscilações)</option>
+                                  <option value="Moderado">Moderado (Aceito pequenas variações para ganhar mais que a Poupança)</option>
+                                  <option value="Arrojado">Arrojado (Busco rentabilidade máxima e aceito volatilidade da Renda Variável)</option>
                                 </select>
                                 <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/60 pointer-events-none" />
                               </div>
@@ -3042,7 +3234,7 @@ export const Anamnesis: React.FC = () => {
                             {/* Fala com parceiro */}
                             {(formData.estadoCivil === 'Casado(a)' || formData.estadoCivil === 'União Estável') && (
                               <div className={cn("space-y-2 p-3 rounded-xl border transition-colors relative pr-8", isFieldPending('falaDinheiroParceiro') ? "border-amber-500/30 bg-amber-500/5" : "border-border/60")}>
-                                {renderFieldLabel("Conversa com Parceiro(a)", "falaDinheiroParceiro")}
+                                {renderFieldLabel("Você fala abertamente sobre dinheiro com seu cônjuge/parceiro(a)?", "falaDinheiroParceiro")}
                                 <select
                                   value={formData.falaDinheiroParceiro}
                                   onChange={e => setFormData(prev => ({ ...prev, falaDinheiroParceiro: e.target.value }))}
@@ -3059,17 +3251,17 @@ export const Anamnesis: React.FC = () => {
 
                             {/* Culpa ao gastar */}
                             <div className={cn("space-y-2 p-3 rounded-xl border transition-colors relative pr-8", isFieldPending('culpaGastarConsigo') ? "border-amber-500/30 bg-amber-500/5" : "border-border/60")}>
-                              {renderFieldLabel("Sente culpa gastando consigo?", "culpaGastarConsigo")}
+                              {renderFieldLabel("Você sente culpa quando gasta dinheiro com você mesmo(a) (ex: lazer, cuidados pessoais)?", "culpaGastarConsigo")}
                               <select
                                 value={formData.culpaGastarConsigo}
                                 onChange={e => setFormData(prev => ({ ...prev, culpaGastarConsigo: e.target.value }))}
                                 className="w-full bg-transparent border-none p-0 text-sm font-bold text-foreground outline-none appearance-none cursor-pointer pr-4"
                               >
                                 <option value="">Não informado</option>
-                                <option value="Sempre">Sempre sinto culpa</option>
+                                <option value="Sempre">Sempre sinto peso na consciência</option>
                                 <option value="Às vezes">Às vezes sinto</option>
                                 <option value="Raramente">Raramente sinto</option>
-                                <option value="Nunca">Nunca sinto culpa</option>
+                                <option value="Nunca">Nunca, gasto com tranquilidade</option>
                               </select>
                               <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/60 pointer-events-none" />
                             </div>
@@ -3077,10 +3269,26 @@ export const Anamnesis: React.FC = () => {
                             {/* Confiança de Mudar (Slider) */}
                             <div className="space-y-4 p-4 rounded-xl border border-border/60">
                               <div className="flex justify-between items-center">
-                                {renderFieldLabel("Confiança em Mudar a Vida Financeira (0 a 10)", "confiancaMudarFinanceiroNota")}
-                                <span className="text-xs font-black text-primary bg-primary/10 border border-primary/20 px-3 py-1 rounded-lg">
-                                  {formData.confiancaMudarFinanceiroNota === 0 ? "Zero" : formData.confiancaMudarFinanceiroNota === 10 ? "Plena Confiança" : `Nota ${formData.confiancaMudarFinanceiroNota}`}
-                                </span>
+                                {renderFieldLabel("Você acredita que consegue mudar sua situação financeira?", "confiancaMudarFinanceiroNota")}
+                                <div className="flex items-center gap-2">
+                                  {formData.confiancaMudarFinanceiroNota !== -1 && (
+                                    <button
+                                      type="button"
+                                      onClick={() => setFormData(prev => ({ ...prev, confiancaMudarFinanceiroNota: -1 }))}
+                                      className="text-[10px] font-black text-rose-500 hover:text-rose-600 bg-rose-500/10 border border-rose-500/20 px-2 py-1 rounded-lg transition-colors cursor-pointer"
+                                    >
+                                      Limpar
+                                    </button>
+                                  )}
+                                  <span className={cn(
+                                    "text-xs font-black px-3 py-1 rounded-lg border",
+                                    formData.confiancaMudarFinanceiroNota === -1
+                                      ? "text-amber-500 bg-amber-500/10 border-amber-500/20"
+                                      : "text-primary bg-primary/10 border-primary/20"
+                                  )}>
+                                    {formData.confiancaMudarFinanceiroNota === -1 ? "Não selecionada" : formData.confiancaMudarFinanceiroNota === 0 ? "Não Acredito" : formData.confiancaMudarFinanceiroNota === 10 ? "Plena Confiança" : `Nota ${formData.confiancaMudarFinanceiroNota}`}
+                                  </span>
+                                </div>
                               </div>
                               <div className="relative pt-2 px-1">
                                 <input
@@ -3088,9 +3296,9 @@ export const Anamnesis: React.FC = () => {
                                   min="0"
                                   max="10"
                                   step="1"
-                                  value={formData.confiancaMudarFinanceiroNota}
+                                  value={formData.confiancaMudarFinanceiroNota === -1 ? 5 : formData.confiancaMudarFinanceiroNota}
                                   onChange={e => setFormData(prev => ({ ...prev, confiancaMudarFinanceiroNota: Number(e.target.value) }))}
-                                  className="premium-slider"
+                                  className={cn("premium-slider", formData.confiancaMudarFinanceiroNota === -1 && "opacity-60")}
                                 />
                                 <div className="flex justify-between text-[9px] font-black text-muted-foreground/60 px-1 mt-1.5 select-none">
                                   {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => (
@@ -3105,7 +3313,7 @@ export const Anamnesis: React.FC = () => {
 
                             {/* O que o dinheiro representa */}
                             <div className={cn("space-y-3 p-4 rounded-xl border transition-colors", isFieldPending('dinheiroRepresenta') ? "border-amber-500/30 bg-amber-500/5" : "border-border/60")}>
-                              {renderFieldLabel("Dinheiro Representa", "dinheiroRepresenta")}
+                              {renderFieldLabel("Para você, dinheiro representa principalmente: (Selecione todas que aplicam)", "dinheiroRepresenta")}
                               <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
                                 {['Segurança', 'Status/Poder', 'Liberdade', 'Conforto', 'Preocupação'].map((rep) => {
                                   const isSelected = formData.dinheiroRepresenta.includes(rep);
@@ -3135,7 +3343,7 @@ export const Anamnesis: React.FC = () => {
                           <div className="space-y-6">
                             {/* Principal Objetivo */}
                             <div className={cn("space-y-2 p-3 rounded-xl border transition-colors", isFieldPending('principalObjetivo') ? "border-amber-500/30 bg-amber-500/5" : "border-border/60")}>
-                              {renderFieldLabel("Principal Objetivo", "principalObjetivo")}
+                              {renderFieldLabel("Qual é o seu principal objetivo financeiro hoje?", "principalObjetivo")}
                               <textarea
                                 value={formData.principalObjetivo}
                                 onChange={e => setFormData(prev => ({ ...prev, principalObjetivo: e.target.value }))}
@@ -3149,12 +3357,13 @@ export const Anamnesis: React.FC = () => {
                             <div className="space-y-4 p-4 rounded-xl border border-border/60">
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="space-y-2 relative pr-8">
-                                  {renderFieldLabel("Outros objetivos?", "possuiOutrosObjetivos")}
+                                  {renderFieldLabel("Possui outros objetivos além do principal?", "possuiOutrosObjetivos")}
                                   <select
                                     value={formData.possuiOutrosObjetivos}
                                     onChange={e => setFormData(prev => ({ ...prev, possuiOutrosObjetivos: e.target.value, outrosObjetivosTexto: '' }))}
                                     className="w-full bg-transparent border-none p-0 text-sm font-bold text-foreground outline-none appearance-none cursor-pointer pr-4"
                                   >
+                                    <option value="">Não informado</option>
                                     <option value="Não">Não</option>
                                     <option value="Sim">Sim</option>
                                   </select>
@@ -3162,7 +3371,7 @@ export const Anamnesis: React.FC = () => {
                                 </div>
                                 {formData.possuiOutrosObjetivos === 'Sim' && (
                                   <div className={cn("space-y-2 p-3 rounded-xl border transition-colors", isFieldPending('outrosObjetivosTexto') ? "border-amber-500/30 bg-amber-500/5" : "border-border/60")}>
-                                    {renderFieldLabel("Quais outros objetivos?", "outrosObjetivosTexto")}
+                                    {renderFieldLabel("Quais seriam seus outros objetivos?", "outrosObjetivosTexto")}
                                     <input
                                       type="text"
                                       value={formData.outrosObjetivosTexto}
@@ -3179,12 +3388,13 @@ export const Anamnesis: React.FC = () => {
                             <div className="space-y-4 p-4 rounded-xl border border-border/60">
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="space-y-2 relative pr-8">
-                                  {renderFieldLabel("Definiu valores?", "definiuValoresObjetivos")}
+                                  {renderFieldLabel("Já definiu valores para algum de seus objetivos?", "definiuValoresObjetivos")}
                                   <select
                                     value={formData.definiuValoresObjetivos}
-                                    onChange={e => setFormData(prev => ({ ...prev, definiuValoresObjetivos: e.target.value, definiuPrazosObjetivos: e.target.value === 'Não' ? 'Não' : prev.definiuPrazosObjetivos }))}
+                                    onChange={e => setFormData(prev => ({ ...prev, definiuValoresObjetivos: e.target.value, definiuPrazosObjetivos: e.target.value === 'Sim' ? prev.definiuPrazosObjetivos : '' }))}
                                     className="w-full bg-transparent border-none p-0 text-sm font-bold text-foreground outline-none appearance-none cursor-pointer pr-4"
                                   >
+                                    <option value="">Não informado</option>
                                     <option value="Não">Não</option>
                                     <option value="Sim">Sim</option>
                                   </select>
@@ -3192,12 +3402,13 @@ export const Anamnesis: React.FC = () => {
                                 </div>
                                 {formData.definiuValoresObjetivos === 'Sim' && (
                                   <div className={cn("space-y-2 p-3 rounded-xl border transition-colors relative pr-8", isFieldPending('definiuPrazosObjetivos') ? "border-amber-500/30 bg-amber-500/5" : "border-border/60")}>
-                                    {renderFieldLabel("Definiu prazos?", "definiuPrazosObjetivos")}
+                                    {renderFieldLabel("Também já definiu prazos para alcançá-los?", "definiuPrazosObjetivos")}
                                     <select
                                       value={formData.definiuPrazosObjetivos}
                                       onChange={e => setFormData(prev => ({ ...prev, definiuPrazosObjetivos: e.target.value }))}
                                       className="w-full bg-transparent border-none p-0 text-sm font-bold text-foreground outline-none appearance-none cursor-pointer pr-4"
                                     >
+                                      <option value="">Não informado</option>
                                       <option value="Não">Não</option>
                                       <option value="Sim">Sim</option>
                                     </select>
@@ -3209,7 +3420,7 @@ export const Anamnesis: React.FC = () => {
 
                             {/* Impedimentos */}
                             <div className={cn("space-y-3 p-4 rounded-xl border transition-colors", isFieldPending('impedeObjetivos') ? "border-amber-500/30 bg-amber-500/5" : "border-border/60")}>
-                              {renderFieldLabel("O que te impede de alcançar metas?", "impedeObjetivos")}
+                              {renderFieldLabel("O que hoje te impede de alcançar seus objetivos? (Selecione todos aplicáveis)", "impedeObjetivos")}
                               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
                                 {[
                                   'Renda mensal baixa',
@@ -3241,7 +3452,7 @@ export const Anamnesis: React.FC = () => {
 
                             {/* Aposentadoria */}
                             <div className={cn("space-y-2 p-3 rounded-xl border transition-colors relative pr-8", isFieldPending('pensaAposentadoria') ? "border-amber-500/30 bg-amber-500/5" : "border-border/60")}>
-                              {renderFieldLabel("Aposentadoria", "pensaAposentadoria")}
+                              {renderFieldLabel("Você pensa em aposentadoria?", "pensaAposentadoria")}
                               <select
                                 value={formData.pensaAposentadoria}
                                 onChange={e => setFormData(prev => ({ ...prev, pensaAposentadoria: e.target.value }))}
@@ -3262,7 +3473,7 @@ export const Anamnesis: React.FC = () => {
                           <div className="space-y-6">
                             {/* Motivo busca */}
                             <div className={cn("space-y-2 p-3 rounded-xl border transition-colors", isFieldPending('motivoBuscaConsultoria') ? "border-amber-500/30 bg-amber-500/5" : "border-border/60")}>
-                              <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 block">Motivo de busca da consultoria</label>
+                              {renderFieldLabel("O que te fez buscar a consultoria financeira?", "motivoBuscaConsultoria")}
                               <textarea
                                 value={formData.motivoBuscaConsultoria}
                                 onChange={e => setFormData(prev => ({ ...prev, motivoBuscaConsultoria: e.target.value }))}
@@ -3274,7 +3485,7 @@ export const Anamnesis: React.FC = () => {
 
                             {/* Expectativa final */}
                             <div className={cn("space-y-2 p-3 rounded-xl border transition-colors", isFieldPending('expectativaFinalProcesso') ? "border-amber-500/30 bg-amber-500/5" : "border-border/60")}>
-                              <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 block">O que espera alcançar ao final</label>
+                              {renderFieldLabel("O que você espera alcançar ao final deste processo?", "expectativaFinalProcesso")}
                               <textarea
                                 value={formData.expectativaFinalProcesso}
                                 onChange={e => setFormData(prev => ({ ...prev, expectativaFinalProcesso: e.target.value }))}
@@ -3287,7 +3498,7 @@ export const Anamnesis: React.FC = () => {
                             {/* Outras informações (Opcional) */}
                             <div className="space-y-2 p-3 rounded-xl border border-border/60">
                               <div className="flex justify-between items-center">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 block">Alguma outra informação para compartilhar?</label>
+                                {renderFieldLabel("Há algo mais que gostaria de compartilhar antes de começarmos?", "outrasInformacoes")}
                                 <span className="text-[8px] font-black uppercase text-slate-400">Opcional</span>
                               </div>
                               <textarea
