@@ -215,6 +215,9 @@ export const SimulatorsTab: React.FC = () => {
   // Histórico de parcelas dadas baixas/pagas pelo usuário diretamente na tabela
   const [sim6PaymentsState, setSim6PaymentsState] = useState<Record<number, { isPaid: boolean; customAmountPaid?: number; customExtraPaid?: number }>>({});
 
+  const [sim6CustomInstallment, setSim6CustomInstallment] = useState(0);
+
+
   const togglePaymentPaid = (mes: number) => {
     setSim6PaymentsState(prev => {
       const current = prev[mes] || { isPaid: false };
@@ -914,7 +917,10 @@ export const SimulatorsTab: React.FC = () => {
     let totalPagoSem = 0;
     const saldoSemPoints: number[] = [principal];
 
-    const parcelaPRICE_Padrao = principal * (iMensal * Math.pow(1 + iMensal, sim6Months)) / (Math.pow(1 + iMensal, sim6Months) - 1);
+    const parcelaPRICE_Padrao = (sim6AmortSystem === 'PRICE' && sim6CustomInstallment > 0)
+      ? sim6CustomInstallment
+      : principal * (iMensal * Math.pow(1 + iMensal, sim6Months)) / (Math.pow(1 + iMensal, sim6Months) - 1);
+
 
     for (let m = 1; m <= sim6Months; m++) {
       const jurosM = Math.round(saldoSem * iMensal);
@@ -1161,7 +1167,8 @@ export const SimulatorsTab: React.FC = () => {
       totalRestanteProjetado,
       valorQuitacaoAtual
     };
-  }, [sim6Value, sim6Rate, sim6Months, sim6StartDate, sim6AmortSystem, sim6ExtraType, sim6ExtraValue, sim6ExtraMonth, sim6ExtraFreq, sim6Goal, sim6PaymentsState]);
+  }, [sim6Value, sim6Rate, sim6Months, sim6StartDate, sim6AmortSystem, sim6ExtraType, sim6ExtraValue, sim6ExtraMonth, sim6ExtraFreq, sim6Goal, sim6PaymentsState, sim6CustomInstallment]);
+
 
   // Resetar período da tabela se o prazo for encurtado e o período atual extrapolar (Simulador 6)
   React.useEffect(() => {
@@ -1789,11 +1796,45 @@ export const SimulatorsTab: React.FC = () => {
 
                   return (
                     <div className="space-y-6">
-                      <div className="space-y-4">
+                       <div className="space-y-4">
                         <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary/80 block border-b border-border/10 pb-1">
                           1. Financiamento Base
                         </span>
 
+                        {/* Tabela de Financiamento */}
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-2 block">
+                            Tabela de Financiamento
+                          </label>
+                          <div className="grid grid-cols-2 gap-2 bg-muted/20 p-1 rounded-xl border border-border/50">
+                            <button
+                              type="button"
+                              onClick={() => setSim6AmortSystem('SAC')}
+                              className={cn(
+                                "py-2 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all",
+                                sim6AmortSystem === 'SAC'
+                                  ? "bg-primary text-white shadow-md shadow-primary/15"
+                                  : "text-muted-foreground hover:bg-muted/30"
+                              )}
+                            >
+                              SAC
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setSim6AmortSystem('PRICE')}
+                              className={cn(
+                                "py-2 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all",
+                                sim6AmortSystem === 'PRICE'
+                                  ? "bg-primary text-white shadow-md shadow-primary/15"
+                                  : "text-muted-foreground hover:bg-muted/30"
+                              )}
+                            >
+                              PRICE
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Valor Financiado */}
                         <div className="space-y-2">
                           <CurrencyInput 
                             label="Valor Financiado (R$)"
@@ -1802,6 +1843,21 @@ export const SimulatorsTab: React.FC = () => {
                           />
                         </div>
 
+                        {/* Parcela PRICE manual opcional */}
+                        {sim6AmortSystem === 'PRICE' && (
+                          <div className="space-y-2">
+                            <CurrencyInput 
+                              label="Valor da Parcela Fixa (Banco - Opcional)"
+                              value={sim6CustomInstallment}
+                              onChange={setSim6CustomInstallment}
+                            />
+                            <p className="text-[10px] text-muted-foreground ml-2">
+                              Deixe em R$ 0,00 para calcular automaticamente. Preencha para corresponder exatamente ao extrato do banco.
+                            </p>
+                          </div>
+                        )}
+
+                        {/* Taxa de Juros e Prazo */}
                         <div className="grid grid-cols-2 gap-4">
                           <div className="space-y-2">
                             <PercentInput 
@@ -1834,39 +1890,6 @@ export const SimulatorsTab: React.FC = () => {
                             onChange={e => setSim6StartDate(e.target.value)}
                             className="w-full bg-muted/30 border border-border rounded-xl h-12 px-4 text-sm text-foreground outline-none focus:border-primary/50 transition-all font-bold"
                           />
-                        </div>
-
-                        {/* Sistema de Amortização */}
-                        <div className="space-y-2">
-                          <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-2 block">
-                            Tabela de Financiamento
-                          </label>
-                          <div className="grid grid-cols-2 gap-2 bg-muted/20 p-1 rounded-xl border border-border/50">
-                            <button
-                              type="button"
-                              onClick={() => setSim6AmortSystem('SAC')}
-                              className={cn(
-                                "py-2 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all",
-                                sim6AmortSystem === 'SAC'
-                                  ? "bg-primary text-white shadow-md shadow-primary/15"
-                                  : "text-muted-foreground hover:bg-muted/30"
-                              )}
-                            >
-                              SAC
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setSim6AmortSystem('PRICE')}
-                              className={cn(
-                                "py-2 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all",
-                                sim6AmortSystem === 'PRICE'
-                                  ? "bg-primary text-white shadow-md shadow-primary/15"
-                                  : "text-muted-foreground hover:bg-muted/30"
-                              )}
-                            >
-                              PRICE
-                            </button>
-                          </div>
                         </div>
                       </div>
 
