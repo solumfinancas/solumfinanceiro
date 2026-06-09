@@ -28,6 +28,8 @@ import {
   ResponsiveContainer,
   BarChart,
   Bar,
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -289,6 +291,87 @@ export const BusinessAnalysis: React.FC = () => {
     });
   }, [yearTransactions, allIncomeCatIds, allExpenseCatIds]);
 
+  const salesTrendData = useMemo(() => {
+    let lastActiveMonthIdx = -1;
+    for (let i = 11; i >= 0; i--) {
+      if (monthlyChartData[i].Faturamento > 0) {
+        lastActiveMonthIdx = i;
+        break;
+      }
+    }
+
+    if (lastActiveMonthIdx === -1) {
+      return {
+        ultimoMesAtivo: null,
+        ultimoMesAtivoNome: '',
+        faturamentoUltimo: 0,
+        faturamentoAnterior: 0,
+        variacaoValor: 0,
+        variacaoPercentual: 0,
+        tendenciaGeral: 'estabilidade',
+        tendenciaPercentual: 0,
+        acumuladoAnual: 0,
+        mediaMensal: 0,
+      };
+    }
+
+    const ultimoMesAtivo = lastActiveMonthIdx + 1;
+    const ultimoMesAtivoNome = new Date(0, lastActiveMonthIdx).toLocaleString('pt-BR', { month: 'long' });
+    const faturamentoUltimo = monthlyChartData[lastActiveMonthIdx].Faturamento;
+
+    const faturamentoAnterior = lastActiveMonthIdx > 0 ? monthlyChartData[lastActiveMonthIdx - 1].Faturamento : 0;
+    const variacaoValor = faturamentoUltimo - faturamentoAnterior;
+    let variacaoPercentual = 0;
+    if (faturamentoAnterior > 0) {
+      variacaoPercentual = (variacaoValor / faturamentoAnterior) * 100;
+    } else if (faturamentoUltimo > 0) {
+      variacaoPercentual = 100;
+    }
+
+    const acumuladoAnual = monthlyChartData.reduce((sum, m) => sum + m.Faturamento, 0);
+    const mesesAtivosCount = lastActiveMonthIdx + 1;
+    const mediaMensal = acumuladoAnual / mesesAtivosCount;
+
+    let tendenciaGeral: 'crescimento' | 'declinio' | 'estabilidade' = 'estabilidade';
+    let tendenciaPercentual = 0;
+
+    if (mesesAtivosCount > 1) {
+      const halfSize = Math.floor(mesesAtivosCount / 2);
+      const firstHalfSum = monthlyChartData.slice(0, halfSize).reduce((sum, m) => sum + m.Faturamento, 0);
+      const secondHalfSum = monthlyChartData.slice(mesesAtivosCount - halfSize, mesesAtivosCount).reduce((sum, m) => sum + m.Faturamento, 0);
+      
+      const firstHalfAvg = firstHalfSum / halfSize;
+      const secondHalfAvg = secondHalfSum / halfSize;
+
+      if (firstHalfAvg > 0) {
+        tendenciaPercentual = ((secondHalfAvg - firstHalfAvg) / firstHalfAvg) * 100;
+      } else if (secondHalfAvg > 0) {
+        tendenciaPercentual = 100;
+      }
+
+      if (tendenciaPercentual > 5) {
+        tendenciaGeral = 'crescimento';
+      } else if (tendenciaPercentual < -5) {
+        tendenciaGeral = 'declinio';
+      } else {
+        tendenciaGeral = 'estabilidade';
+      }
+    }
+
+    return {
+      ultimoMesAtivo,
+      ultimoMesAtivoNome: ultimoMesAtivoNome.charAt(0).toUpperCase() + ultimoMesAtivoNome.slice(1),
+      faturamentoUltimo,
+      faturamentoAnterior,
+      variacaoValor,
+      variacaoPercentual,
+      tendenciaGeral,
+      tendenciaPercentual,
+      acumuladoAnual,
+      mediaMensal
+    };
+  }, [monthlyChartData]);
+
   // Transações filtradas pelo período selecionado no topo
   const currentPeriodTxs = useMemo(() => {
     if (selectedMonth === 'consolidated') {
@@ -479,6 +562,65 @@ export const BusinessAnalysis: React.FC = () => {
     return new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(val) + '%';
   };
 
+  const SalesTooltip = ({ active, payload }: any) => {
+    if (active && payload && payload.length) {
+      const data = payload[0].payload;
+      const currentFaturamento = data.Faturamento;
+      const monthIdx = data.month - 1;
+
+      let isPositive = true;
+      let hasPrevious = false;
+      let diffPct = 0;
+
+      if (monthIdx > 0) {
+        hasPrevious = true;
+        const prevFaturamento = monthlyChartData[monthIdx - 1].Faturamento;
+        const diffVal = currentFaturamento - prevFaturamento;
+        isPositive = diffVal >= 0;
+        if (prevFaturamento > 0) {
+          diffPct = (diffVal / prevFaturamento) * 100;
+        } else if (currentFaturamento > 0) {
+          diffPct = 100;
+        } else {
+          diffPct = 0;
+        }
+      }
+
+      const monthName = new Date(0, monthIdx).toLocaleString('pt-BR', { month: 'long' });
+
+      return (
+        <div className="bg-zinc-950/95 border border-white/10 rounded-2xl p-4 shadow-xl text-left backdrop-blur-md">
+          <p className="text-white font-black text-xs uppercase tracking-wider mb-2">
+            {monthName.charAt(0).toUpperCase() + monthName.slice(1)}
+          </p>
+          <div className="space-y-1.5 min-w-[150px]">
+            <div className="flex items-center justify-between gap-6">
+              <span className="text-zinc-400 text-[10px] font-bold uppercase tracking-wider">Vendas:</span>
+              <span className="text-emerald-400 font-black text-xs">{formatCurrency(currentFaturamento)}</span>
+            </div>
+            {hasPrevious ? (
+              <div className="flex items-center justify-between gap-6 border-t border-white/5 pt-1.5 mt-1.5">
+                <span className="text-zinc-400 text-[10px] font-bold uppercase tracking-wider">vs Mês Anterior:</span>
+                <span className={cn(
+                  "font-black text-[10px] flex items-center gap-0.5 px-1.5 py-0.5 rounded",
+                  isPositive ? "bg-emerald-500/20 text-emerald-400" : "bg-rose-500/20 text-rose-400"
+                )}>
+                  {isPositive ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
+                  {isPositive ? '+' : ''}{formatPercent(diffPct)}
+                </span>
+              </div>
+            ) : (
+              <div className="border-t border-white/5 pt-1.5 mt-1.5 text-[8px] font-black uppercase text-zinc-500 tracking-widest text-center">
+                Início do Exercício
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+    return null;
+  };
+
   const getMonthName = (m: number) => {
     return new Date(0, m - 1).toLocaleString('pt-BR', { month: 'long' });
   };
@@ -643,6 +785,153 @@ export const BusinessAnalysis: React.FC = () => {
             transition={{ duration: 0.3 }}
             className="space-y-6"
           >
+            {/* Painel de Evolução de Faturamento e Relatório Consolidado */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Gráfico de Evolução de Faturamento */}
+              <div className="bg-card p-6 rounded-[2.5rem] border border-border shadow-sm lg:col-span-2 flex flex-col justify-between">
+                <div>
+                  <div className="flex flex-wrap items-center justify-between gap-4 mb-2">
+                    <div>
+                      <h3 className="text-lg font-black uppercase tracking-tighter">
+                        Evolução de Vendas ({selectedYear})
+                      </h3>
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase opacity-60">
+                        Evolução mensal do faturamento das receitas selecionadas.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="h-[200px] w-full mt-4">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart
+                      data={monthlyChartData}
+                      margin={{ top: 10, right: 10, left: 10, bottom: 0 }}
+                    >
+                      <defs>
+                        <linearGradient id="colorFaturamento" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#10b981" stopOpacity={0.2}/>
+                          <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.1} />
+                      <XAxis
+                        dataKey="name"
+                        tickLine={false}
+                        axisLine={false}
+                        tick={{ fill: '#888888', fontSize: 10, fontWeight: 'bold' }}
+                      />
+                      <YAxis
+                        tickLine={false}
+                        axisLine={false}
+                        tick={{ fill: '#888888', fontSize: 10, fontWeight: 'bold' }}
+                        tickFormatter={(value) => `R$ ${value >= 1000 ? (value / 1000) + 'k' : value}`}
+                      />
+                      <Tooltip
+                        content={<SalesTooltip />}
+                        cursor={{ stroke: 'rgba(16, 185, 129, 0.2)', strokeWidth: 1 }}
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="Faturamento"
+                        stroke="#10b981"
+                        strokeWidth={2}
+                        fillOpacity={1}
+                        fill="url(#colorFaturamento)"
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              {/* Relatório Consolidado do Exercício */}
+              <div className="bg-card p-6 rounded-[2.5rem] border border-border shadow-sm lg:col-span-1 flex flex-col justify-between">
+                <div className="space-y-4">
+                  <div>
+                    <span className="text-[9px] font-black uppercase tracking-widest text-primary block mb-0.5">
+                      Estudo Empresarial
+                    </span>
+                    <h3 className="text-lg font-black uppercase tracking-tighter">
+                      Consolidado do Ano
+                    </h3>
+                  </div>
+
+                  <div className="space-y-3 pt-1">
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-muted-foreground font-semibold">Total de Vendas:</span>
+                      <span className="text-foreground font-black">
+                        {formatCurrency(salesTrendData.acumuladoAnual)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-muted-foreground font-semibold">Média Mensal:</span>
+                      <span className="text-foreground font-black">
+                        {formatCurrency(salesTrendData.mediaMensal)}
+                      </span>
+                    </div>
+
+                    <div className="pt-3 border-t border-border/40">
+                      <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground block mb-2">
+                        Tendência de Crescimento
+                      </span>
+                      {salesTrendData.ultimoMesAtivo ? (
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <div className={cn(
+                              "w-8 h-8 rounded-full flex items-center justify-center shadow-inner",
+                              salesTrendData.tendenciaGeral === 'crescimento' ? "bg-emerald-500/10 text-emerald-500" :
+                              salesTrendData.tendenciaGeral === 'declinio' ? "bg-rose-500/10 text-rose-500" : "bg-blue-500/10 text-blue-500"
+                            )}>
+                              {salesTrendData.tendenciaGeral === 'crescimento' ? <TrendingUp size={16} /> :
+                               salesTrendData.tendenciaGeral === 'declinio' ? <TrendingDown size={16} /> : <Calculator size={16} />}
+                            </div>
+                            <div>
+                              <span className={cn(
+                                "text-[11px] font-black uppercase tracking-tight block",
+                                salesTrendData.tendenciaGeral === 'crescimento' ? "text-emerald-500" :
+                                salesTrendData.tendenciaGeral === 'declinio' ? "text-rose-500" : "text-blue-500"
+                              )}>
+                                {salesTrendData.tendenciaGeral === 'crescimento' ? 'Vendas em Alta' :
+                                 salesTrendData.tendenciaGeral === 'declinio' ? 'Vendas em Declínio' : 'Vendas Estáveis'}
+                              </span>
+                              <span className="text-[9px] font-bold text-muted-foreground/60 uppercase">
+                                {salesTrendData.tendenciaPercentual !== 0 
+                                  ? `${salesTrendData.tendenciaPercentual >= 0 ? '+' : ''}${formatPercent(salesTrendData.tendenciaPercentual)} (2ª vs 1ª metade)`
+                                  : 'Dados insuficientes'
+                                }
+                              </span>
+                            </div>
+                          </div>
+                          <p className="text-[10px] text-muted-foreground leading-normal font-medium pt-1">
+                            {salesTrendData.tendenciaGeral === 'crescimento' && (
+                              `As vendas mostram ritmo de expansão de ${formatPercent(salesTrendData.tendenciaPercentual)} ao longo do ano de exercício, indicando crescimento da base de receita.`
+                            )}
+                            {salesTrendData.tendenciaGeral === 'declinio' && (
+                              `Atenção: A receita consolidada apresentou retração de ${formatPercent(salesTrendData.tendenciaPercentual)} na segunda metade do período ativo. Recomenda-se revisar precificação ou canais de vendas.`
+                            )}
+                            {salesTrendData.tendenciaGeral === 'estabilidade' && (
+                              'O faturamento mantém-se estável com oscilações dentro da margem de normalidade (estabilidade média entre os semestres ativos do ano).'
+                            )}
+                          </p>
+                        </div>
+                      ) : (
+                        <p className="text-[10px] text-muted-foreground italic">
+                          Sem dados de vendas suficientes para analisar a tendência neste ano.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-border/40 mt-4 flex items-center gap-1.5">
+                  <Info size={12} className="text-primary" />
+                  <span className="text-[8px] font-bold text-muted-foreground uppercase leading-none">
+                    Dados baseados nas categorias de receitas selecionadas para estudo.
+                  </span>
+                </div>
+              </div>
+            </div>
+
             {/* Cards de Métricas Rápidas */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {/* Faturamento */}
