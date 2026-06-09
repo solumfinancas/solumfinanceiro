@@ -16,7 +16,13 @@ import {
   AlertTriangle,
   Sparkles,
   Info,
-  ShieldAlert
+  ShieldAlert,
+  Plus,
+  Trash2,
+  Edit2,
+  DollarSign,
+  Tag,
+  FolderPlus
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -26,10 +32,21 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
-  ReferenceLine
+  Legend
 } from 'recharts';
 import { motion, AnimatePresence } from 'framer-motion';
+
+interface MenuCategory {
+  id: string;
+  name: string;
+}
+
+interface MenuProduct {
+  id: string;
+  name: string;
+  price: number;
+  categoryId: string;
+}
 
 export const BusinessAnalysis: React.FC = () => {
   const { transactions, categories, loading: financeLoading } = useFinance();
@@ -37,47 +54,90 @@ export const BusinessAnalysis: React.FC = () => {
   
   const effectiveUserId = viewingUserId || user?.id;
 
-  // Estados dos filtros
+  const incomeCategoriesList = useMemo(() => 
+    categories.filter(c => c.type === 'income' && !c.parentId && !c.isDeleted && c.isActive !== false),
+    [categories]
+  );
+
+  const expenseCategoriesList = useMemo(() => 
+    categories.filter(c => c.type === 'expense' && !c.parentId && !c.isDeleted && c.isActive !== false),
+    [categories]
+  );
+
+  // Estados dos filtros principais
   const [selectedYear, setSelectedYear] = useState<number>(() => new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState<number | 'consolidated'>('consolidated');
-  const [activeSubTab, setActiveSubTab] = useState<'study' | 'operational'>('study');
+  const [activeSubTab, setActiveSubTab] = useState<'study' | 'operational' | 'pricing'>('study');
+  
+  // Modais e Configurações Gerais DRE
   const [isConfigOpen, setIsConfigOpen] = useState(false);
-
-  // Anos disponíveis para filtro
-  const availableYears = useMemo(() => {
-    return getAvailableYears(transactions);
-  }, [transactions]);
-
-  // Carrega / Salva as categorias selecionadas para análise
   const [selectedIncomeCats, setSelectedIncomeCats] = useState<string[]>([]);
   const [selectedExpenseCats, setSelectedExpenseCats] = useState<string[]>([]);
 
-  // Inicializa as seleções de categorias do localStorage
+  // Configurações exclusivas da Precificação
+  const [pricingIncomeCats, setPricingIncomeCats] = useState<string[]>([]);
+  const [pricingExpenseCats, setPricingExpenseCats] = useState<string[]>([]);
+  const [pricingTargetMargin, setPricingTargetMargin] = useState<number>(20); // padrão 20%
+  const [isPricingConfigOpen, setIsPricingConfigOpen] = useState(false);
+
+  // Estados do Cardápio / Cadastro de Produtos
+  const [menuCategories, setMenuCategories] = useState<MenuCategory[]>([]);
+  const [menuProducts, setMenuProducts] = useState<MenuProduct[]>([]);
+  const [isProductModalOpen, setIsProductModalOpen] = useState(false);
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [isCategoryListModalOpen, setIsCategoryListModalOpen] = useState(false);
+
+  // Formulários de Edição / Criação
+  const [productForm, setProductForm] = useState<{ id?: string; name: string; price: string; categoryId: string }>({
+    name: '',
+    price: '',
+    categoryId: ''
+  });
+  const [categoryForm, setCategoryForm] = useState<{ id?: string; name: string }>({
+    name: ''
+  });
+  const [targetMarginInput, setTargetMarginInput] = useState<string>('20,00');
+
+  // Carrega configurações do localStorage
   useEffect(() => {
     if (!effectiveUserId || categories.length === 0) return;
 
-    const savedIncome = localStorage.getItem(`solum_bus_inc_cats_${effectiveUserId}`);
-    const savedExpense = localStorage.getItem(`solum_bus_exp_cats_${effectiveUserId}`);
+    const keyInc = `solum_bus_inc_cats_${effectiveUserId}`;
+    const keyExp = `solum_bus_exp_cats_${effectiveUserId}`;
+    const keyPInc = `solum_pricing_inc_cats_${effectiveUserId}`;
+    const keyPExp = `solum_pricing_exp_cats_${effectiveUserId}`;
+    const keyPMargin = `solum_pricing_target_margin_${effectiveUserId}`;
+    const keyMCats = `solum_pricing_prod_cats_${effectiveUserId}`;
+    const keyMProds = `solum_pricing_products_${effectiveUserId}`;
 
-    const incomeCategoriesList = categories.filter(c => c.type === 'income' && !c.parentId && !c.isDeleted && c.isActive !== false);
-    const expenseCategoriesList = categories.filter(c => c.type === 'expense' && !c.parentId && !c.isDeleted && c.isActive !== false);
+    const savedIncome = localStorage.getItem(keyInc);
+    const savedExpense = localStorage.getItem(keyExp);
+    const savedPricingInc = localStorage.getItem(keyPInc);
+    const savedPricingExp = localStorage.getItem(keyPExp);
+    const savedPricingMargin = localStorage.getItem(keyPMargin);
+    const savedMenuCats = localStorage.getItem(keyMCats);
+    const savedMenuProds = localStorage.getItem(keyMProds);
 
     // 1. Receitas: padrão = manual (vazio)
-    if (savedIncome) {
-      setSelectedIncomeCats(JSON.parse(savedIncome));
-    } else {
-      setSelectedIncomeCats([]); // Manual por padrão (vazio)
-    }
-
+    setSelectedIncomeCats(savedIncome ? JSON.parse(savedIncome) : []);
+    
     // 2. Despesas: padrão = todas selecionadas
-    if (savedExpense) {
-      setSelectedExpenseCats(JSON.parse(savedExpense));
-    } else {
-      setSelectedExpenseCats(expenseCategoriesList.map(c => c.id)); // Todas selecionadas por padrão
-    }
+    setSelectedExpenseCats(savedExpense ? JSON.parse(savedExpense) : expenseCategoriesList.map(c => c.id));
+
+    // 3. Configurações de Precificação
+    setPricingIncomeCats(savedPricingInc ? JSON.parse(savedPricingInc) : []);
+    setPricingExpenseCats(savedPricingExp ? JSON.parse(savedPricingExp) : expenseCategoriesList.map(c => c.id));
+    const marginVal = savedPricingMargin ? Number(savedPricingMargin) : 20;
+    setPricingTargetMargin(marginVal);
+    setTargetMarginInput(marginVal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+
+    // 4. Cardápio / Produtos
+    setMenuCategories(savedMenuCats ? JSON.parse(savedMenuCats) : []);
+    setMenuProducts(savedMenuProds ? JSON.parse(savedMenuProds) : []);
+
   }, [effectiveUserId, categories]);
 
-  // Salva a configuração de categorias
+  // Salva configurações DRE
   const handleSaveConfig = () => {
     if (!effectiveUserId) return;
     localStorage.setItem(`solum_bus_inc_cats_${effectiveUserId}`, JSON.stringify(selectedIncomeCats));
@@ -85,41 +145,110 @@ export const BusinessAnalysis: React.FC = () => {
     setIsConfigOpen(false);
   };
 
-  // Selecionar / Deselecionar tudo em Configurações
-  const handleToggleAllIncome = (checked: boolean) => {
-    const list = categories.filter(c => c.type === 'income' && !c.parentId && !c.isDeleted && c.isActive !== false).map(c => c.id);
-    setSelectedIncomeCats(checked ? list : []);
+  // Salva configurações Precificação DRE
+  const handleSavePricingConfig = () => {
+    if (!effectiveUserId) return;
+    localStorage.setItem(`solum_pricing_inc_cats_${effectiveUserId}`, JSON.stringify(pricingIncomeCats));
+    localStorage.setItem(`solum_pricing_exp_cats_${effectiveUserId}`, JSON.stringify(pricingExpenseCats));
+    localStorage.setItem(`solum_pricing_target_margin_${effectiveUserId}`, pricingTargetMargin.toString());
+    setIsPricingConfigOpen(false);
   };
 
-  const handleToggleAllExpense = (checked: boolean) => {
-    const list = categories.filter(c => c.type === 'expense' && !c.parentId && !c.isDeleted && c.isActive !== false).map(c => c.id);
-    setSelectedExpenseCats(checked ? list : []);
+  // Salva Cardápio
+  const saveMenuToStorage = (cats: MenuCategory[], prods: MenuProduct[]) => {
+    if (!effectiveUserId) return;
+    localStorage.setItem(`solum_pricing_prod_cats_${effectiveUserId}`, JSON.stringify(cats));
+    localStorage.setItem(`solum_pricing_products_${effectiveUserId}`, JSON.stringify(prods));
   };
 
-  // IDs expandidos para incluir subcategorias vinculadas
-  const allIncomeCatIds = useMemo(() => {
+  // CRUD Categorias do Cardápio
+  const handleAddCategory = () => {
+    if (!categoryForm.name.trim()) return;
+
+    let updatedCats: MenuCategory[];
+    if (categoryForm.id) {
+      updatedCats = menuCategories.map(c => c.id === categoryForm.id ? { ...c, name: categoryForm.name.trim() } : c);
+    } else {
+      const newCat = {
+        id: 'cat-' + Date.now(),
+        name: categoryForm.name.trim()
+      };
+      updatedCats = [...menuCategories, newCat];
+    }
+
+    setMenuCategories(updatedCats);
+    saveMenuToStorage(updatedCats, menuProducts);
+    setCategoryForm({ name: '' });
+    setIsCategoryModalOpen(false);
+  };
+
+  const handleDeleteCategory = (catId: string) => {
+    const updatedCats = menuCategories.filter(c => c.id !== catId);
+    const updatedProds = menuProducts.filter(p => p.categoryId !== catId); // deleta produtos da categoria
+    setMenuCategories(updatedCats);
+    setMenuProducts(updatedProds);
+    saveMenuToStorage(updatedCats, updatedProds);
+  };
+
+  // CRUD Produtos
+  const handleAddProduct = () => {
+    if (!productForm.name.trim() || !productForm.price || !productForm.categoryId) return;
+
+    let updatedProds: MenuProduct[];
+    const parsedPrice = parseFloat(productForm.price.replace(/\./g, '').replace(',', '.'));
+    if (isNaN(parsedPrice)) return;
+
+    if (productForm.id) {
+      updatedProds = menuProducts.map(p => p.id === productForm.id ? { ...p, name: productForm.name.trim(), price: parsedPrice, categoryId: productForm.categoryId } : p);
+    } else {
+      const newProd = {
+        id: 'prod-' + Date.now(),
+        name: productForm.name.trim(),
+        price: parsedPrice,
+        categoryId: productForm.categoryId
+      };
+      updatedProds = [...menuProducts, newProd];
+    }
+
+    setMenuProducts(updatedProds);
+    saveMenuToStorage(menuCategories, updatedProds);
+    setProductForm({ name: '', price: '', categoryId: '' });
+    setIsProductModalOpen(false);
+  };
+
+  const handleDeleteProduct = (prodId: string) => {
+    const updatedProds = menuProducts.filter(p => p.id !== prodId);
+    setMenuProducts(updatedProds);
+    saveMenuToStorage(menuCategories, updatedProds);
+  };
+
+  const handlePriceInputChange = (value: string) => {
+    const numericValue = value.replace(/\D/g, '');
+    if (!numericValue) {
+      setProductForm(prev => ({ ...prev, price: '' }));
+      return;
+    }
+    const amount = Number(numericValue) / 100;
+    const formatted = amount.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    setProductForm(prev => ({ ...prev, price: formatted }));
+  };
+
+  // Apuração de categorias principais e subcategorias
+  const getExpandedCatIds = (selectedMainIds: string[]) => {
     const ids = new Set<string>();
-    selectedIncomeCats.forEach(id => {
+    selectedMainIds.forEach(id => {
       ids.add(id);
       categories.forEach(c => {
         if (c.parentId === id) ids.add(c.id);
       });
     });
     return ids;
-  }, [selectedIncomeCats, categories]);
+  };
 
-  const allExpenseCatIds = useMemo(() => {
-    const ids = new Set<string>();
-    selectedExpenseCats.forEach(id => {
-      ids.add(id);
-      categories.forEach(c => {
-        if (c.parentId === id) ids.add(c.id);
-      });
-    });
-    return ids;
-  }, [selectedExpenseCats, categories]);
+  const allIncomeCatIds = useMemo(() => getExpandedCatIds(selectedIncomeCats), [selectedIncomeCats, categories]);
+  const allExpenseCatIds = useMemo(() => getExpandedCatIds(selectedExpenseCats), [selectedExpenseCats, categories]);
 
-  // Transações filtradas do espaço empresarial no ano selecionado
+  // Transações do espaço empresarial no ano selecionado
   const businessTransactions = useMemo(() => {
     return transactions.filter(t => t.space === 'business' && !t.isDeleted);
   }, [transactions]);
@@ -131,7 +260,7 @@ export const BusinessAnalysis: React.FC = () => {
     });
   }, [businessTransactions, selectedYear]);
 
-  // Dados mensais para o gráfico de evolução
+  // Dados do gráfico de barras mensais
   const monthlyChartData = useMemo(() => {
     return Array.from({ length: 12 }, (_, i) => {
       const monthNum = i + 1;
@@ -160,7 +289,7 @@ export const BusinessAnalysis: React.FC = () => {
     });
   }, [yearTransactions, allIncomeCatIds, allExpenseCatIds]);
 
-  // Transações do período atual (mês selecionado ou consolidado)
+  // Transações filtradas pelo período selecionado no topo
   const currentPeriodTxs = useMemo(() => {
     if (selectedMonth === 'consolidated') {
       return yearTransactions;
@@ -172,7 +301,7 @@ export const BusinessAnalysis: React.FC = () => {
     }
   }, [yearTransactions, selectedMonth]);
 
-  // Estatísticas consolidadas do período
+  // Estatísticas de Estudo do Empreendimento
   const periodStats = useMemo(() => {
     const faturamento = currentPeriodTxs
       .filter(t => t.type === 'income' && allIncomeCatIds.has(t.categoryId))
@@ -192,7 +321,7 @@ export const BusinessAnalysis: React.FC = () => {
     };
   }, [currentPeriodTxs, allIncomeCatIds, allExpenseCatIds]);
 
-  // Divisão de despesas por categoria em relação às vendas/faturamento
+  // Despesas por Categoria para Estudo do Empreendimento
   const expensesByCategory = useMemo(() => {
     const faturamentoTotal = periodStats.faturamento;
     
@@ -221,11 +350,10 @@ export const BusinessAnalysis: React.FC = () => {
     })
     .filter(Boolean) as { id: string; name: string; color: string; total: number; percentage: number }[];
 
-    // Retorna ordenado por total gasto
     return list.sort((a, b) => b.total - a.total);
   }, [periodStats.faturamento, selectedExpenseCats, categories, currentPeriodTxs]);
 
-  // Lógica de Lucro Operacional a cada R$ 100,00 vendidos
+  // Distribuição Operacional a cada R$ 100,00 vendidos
   const operationalDistribution = useMemo(() => {
     const faturamento = periodStats.faturamento;
     if (faturamento <= 0) return { items: [], profit: 100 };
@@ -234,22 +362,16 @@ export const BusinessAnalysis: React.FC = () => {
       .filter(item => item.total > 0)
       .map(item => {
         const valueIn100 = (item.total / faturamento) * 100;
-        return {
-          ...item,
-          valueIn100
-        };
+        return { ...item, valueIn100 };
       });
 
     const totalExpensePercent = items.reduce((sum, item) => sum + item.valueIn100, 0);
     const profit = Math.max(-100, 100 - totalExpensePercent);
 
-    return {
-      items,
-      profit
-    };
+    return { items, profit };
   }, [periodStats.faturamento, expensesByCategory]);
 
-  // Dados da Análise Operacional (Margem e Ponto de Equilíbrio)
+  // Análise Operacional (Margem de Contribuição e Ponto de Equilíbrio)
   const operationalAnalysis = useMemo(() => {
     const periodTxs = currentPeriodTxs;
     
@@ -257,17 +379,15 @@ export const BusinessAnalysis: React.FC = () => {
       .filter(t => t.type === 'income' && allIncomeCatIds.has(t.categoryId))
       .reduce((sum, t) => sum + t.amount, 0);
 
-    // Custos Variáveis: despesas selecionadas que não possuem isContinuous === true (ciclo)
-    const custosVariaveis = periodTxs
+    const custosVariveis = periodTxs
       .filter(t => (t.type === 'expense' || t.type === 'provision' || t.type === 'planned') && allExpenseCatIds.has(t.categoryId) && t.isContinuous !== true)
       .reduce((sum, t) => sum + t.amount, 0);
 
-    // Custos Fixos: despesas selecionadas que possuem isContinuous === true (ciclo)
     const custosFixos = periodTxs
       .filter(t => (t.type === 'expense' || t.type === 'provision' || t.type === 'planned') && allExpenseCatIds.has(t.categoryId) && t.isContinuous === true)
       .reduce((sum, t) => sum + t.amount, 0);
 
-    const margemValor = receitas - custosVariaveis;
+    const margemValor = receitas - custosVariveis;
     const margemPercentual = receitas > 0 ? (margemValor / receitas) * 100 : 0;
 
     const margemDecimal = margemPercentual / 100;
@@ -278,7 +398,7 @@ export const BusinessAnalysis: React.FC = () => {
 
     return {
       receitas,
-      custosVariáveis: custosVariaveis,
+      custosVariáveis: custosVariveis,
       custosFixos,
       margemValor,
       margemPercentual,
@@ -288,15 +408,89 @@ export const BusinessAnalysis: React.FC = () => {
     };
   }, [currentPeriodTxs, allIncomeCatIds, allExpenseCatIds]);
 
-  const incomeCategoriesList = categories.filter(c => c.type === 'income' && !c.parentId && !c.isDeleted && c.isActive !== false);
-  const expenseCategoriesList = categories.filter(c => c.type === 'expense' && !c.parentId && !c.isDeleted && c.isActive !== false);
+  // DRE Base para a Precificação
+  const pricingDRE = useMemo(() => {
+    const periodTxs = currentPeriodTxs;
+
+    const incIds = getExpandedCatIds(pricingIncomeCats);
+    const expIds = getExpandedCatIds(pricingExpenseCats);
+
+    const faturamento = periodTxs
+      .filter(t => t.type === 'income' && incIds.has(t.categoryId))
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    const despesas = periodTxs
+      .filter(t => (t.type === 'expense' || t.type === 'provision' || t.type === 'planned') && expIds.has(t.categoryId))
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    const lucro = faturamento - despesas;
+    const margemAtual = faturamento > 0 ? (lucro / faturamento) * 100 : 0;
+
+    const marginDecimal = pricingTargetMargin / 100;
+    
+    let faturamentoNovo = 0;
+    let aumentoPercentual = 0;
+    let erroMatematico = '';
+
+    if (marginDecimal >= 1) {
+      erroMatematico = 'A margem desejada deve ser menor que 100%.';
+    } else if (faturamento <= 0) {
+      erroMatematico = 'Nenhum faturamento registrado no período para base de markup.';
+    } else {
+      faturamentoNovo = despesas / (1 - marginDecimal);
+      if (faturamentoNovo < 0) {
+        erroMatematico = 'Meta de margem inviável para cobrir a estrutura de despesas atual.';
+      } else {
+        aumentoPercentual = ((faturamentoNovo - faturamento) / faturamento) * 100;
+        if (aumentoPercentual < 0) {
+          aumentoPercentual = 0; // Se a margem atual já é superior à meta, mantém os preços
+        }
+      }
+    }
+
+    return {
+      faturamento,
+      despesas,
+      lucro,
+      margemAtual,
+      faturamentoNovo,
+      aumentoPercentual,
+      erroMatematico
+    };
+  }, [currentPeriodTxs, pricingIncomeCats, pricingExpenseCats, pricingTargetMargin, categories]);
+
+  // Lista de produtos com preços sugeridos calculados
+  const pricedProducts = useMemo(() => {
+    const aumento = pricingDRE.aumentoPercentual;
+    const erro = pricingDRE.erroMatematico;
+
+    return menuProducts.map(p => {
+      const sugerido = erro ? p.price : p.price * (1 + aumento / 100);
+      const acrescimo = sugerido - p.price;
+      return {
+        ...p,
+        sugerido,
+        acrescimo
+      };
+    });
+  }, [menuProducts, pricingDRE.aumentoPercentual, pricingDRE.erroMatematico]);
 
   const formatPercent = (val: number) => {
-    return new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 1 }).format(val) + '%';
+    return new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(val) + '%';
   };
 
   const getMonthName = (m: number) => {
     return new Date(0, m - 1).toLocaleString('pt-BR', { month: 'long' });
+  };
+
+  const handleToggleAllIncome = (checked: boolean) => {
+    const list = categories.filter(c => c.type === 'income' && !c.parentId && !c.isDeleted && c.isActive !== false).map(c => c.id);
+    setSelectedIncomeCats(checked ? list : []);
+  };
+
+  const handleToggleAllExpense = (checked: boolean) => {
+    const list = categories.filter(c => c.type === 'expense' && !c.parentId && !c.isDeleted && c.isActive !== false).map(c => c.id);
+    setSelectedExpenseCats(checked ? list : []);
   };
 
   return (
@@ -332,19 +526,32 @@ export const BusinessAnalysis: React.FC = () => {
             </button>
           </div>
 
-          {/* Botão de Configuração de Categorias */}
-          <button
-            onClick={() => setIsConfigOpen(true)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border/60 bg-muted/20 text-[10px] font-black uppercase tracking-widest hover:bg-primary/10 hover:text-primary hover:border-primary/30 transition-all shadow-sm"
-          >
-            <Settings size={14} />
-            Configurar Categorias
-          </button>
+          {/* Botão de Configuração Geral */}
+          {activeSubTab !== 'pricing' && (
+            <button
+              onClick={() => setIsConfigOpen(true)}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border/60 bg-muted/20 text-[10px] font-black uppercase tracking-widest hover:bg-primary/10 hover:text-primary hover:border-primary/30 transition-all shadow-sm"
+            >
+              <Settings size={14} />
+              Configurar Categorias
+            </button>
+          )}
+
+          {/* Botão de Configuração de Precificação */}
+          {activeSubTab === 'pricing' && (
+            <button
+              onClick={() => setIsPricingConfigOpen(true)}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border/60 bg-muted/20 text-[10px] font-black uppercase tracking-widest hover:bg-primary/10 hover:text-primary hover:border-primary/30 transition-all shadow-sm animate-in slide-in-from-right-4 duration-300"
+            >
+              <Settings size={14} />
+              Configurar Precificação
+            </button>
+          )}
         </div>
       </div>
 
       {/* Alerta de Categoria de Receita não configurada */}
-      {selectedIncomeCats.length === 0 && !financeLoading && (
+      {selectedIncomeCats.length === 0 && !financeLoading && activeSubTab !== 'pricing' && (
         <div className="bg-amber-500/10 border border-amber-500/30 rounded-3xl p-6 flex flex-col md:flex-row items-center gap-4 text-center md:text-left justify-between">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-full bg-amber-500/20 flex items-center justify-center text-amber-500 shrink-0">
@@ -369,12 +576,12 @@ export const BusinessAnalysis: React.FC = () => {
       )}
 
       {/* Abas e Filtro de Meses */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        {/* Abas Principais (Estudo vs Operacional) */}
-        <div className="flex p-1 bg-muted/40 rounded-2xl border border-border/30 w-fit">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        {/* Abas Principais */}
+        <div className="flex p-1 bg-muted/40 rounded-2xl border border-border/30 w-fit overflow-x-auto max-w-full">
           <button
             onClick={() => setActiveSubTab('study')}
-            className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+            className={`px-4 sm:px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
               activeSubTab === 'study' ? 'bg-background text-primary shadow-sm' : 'text-muted-foreground hover:bg-muted/50'
             }`}
           >
@@ -382,16 +589,24 @@ export const BusinessAnalysis: React.FC = () => {
           </button>
           <button
             onClick={() => setActiveSubTab('operational')}
-            className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+            className={`px-4 sm:px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
               activeSubTab === 'operational' ? 'bg-background text-primary shadow-sm' : 'text-muted-foreground hover:bg-muted/50'
             }`}
           >
             Análise Operacional
           </button>
+          <button
+            onClick={() => setActiveSubTab('pricing')}
+            className={`px-4 sm:px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
+              activeSubTab === 'pricing' ? 'bg-background text-primary shadow-sm' : 'text-muted-foreground hover:bg-muted/50'
+            }`}
+          >
+            Precificação
+          </button>
         </div>
 
         {/* Seletor do Mês do Exercício */}
-        <div className="flex items-center gap-1 overflow-x-auto pb-1 md:pb-0 scrollbar-hide max-w-full bg-muted/20 border border-border/20 p-1 rounded-2xl">
+        <div className="flex items-center gap-1 overflow-x-auto pb-1 lg:pb-0 scrollbar-hide max-w-full bg-muted/20 border border-border/20 p-1 rounded-2xl">
           <button
             onClick={() => setSelectedMonth('consolidated')}
             className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all shrink-0 ${
@@ -428,10 +643,8 @@ export const BusinessAnalysis: React.FC = () => {
             transition={{ duration: 0.3 }}
             className="space-y-6"
           >
-            
             {/* Cards de Métricas Rápidas */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              
               {/* Faturamento */}
               <div className="bg-card p-6 rounded-3xl border border-border shadow-sm relative overflow-hidden group">
                 <div className="absolute top-0 right-0 p-4 opacity-10 text-emerald-500 group-hover:scale-110 transition-transform">
@@ -492,7 +705,6 @@ export const BusinessAnalysis: React.FC = () => {
                   Diferença entre Faturamento e Saídas
                 </p>
               </div>
-
             </div>
 
             {/* Gráfico de Evolução de Janeiro a Dezembro */}
@@ -554,7 +766,7 @@ export const BusinessAnalysis: React.FC = () => {
               </div>
             </div>
 
-            {/* Painel do Lucro Operacional (Moedas & Distribuição) */}
+            {/* Painel do Lucro Operacional (R$ 100) */}
             <div className="bg-card p-8 rounded-[2.5rem] border border-border shadow-sm relative overflow-hidden">
               <div className="absolute -top-24 -right-24 w-64 h-64 bg-primary/5 rounded-full blur-3xl opacity-50 pointer-events-none" />
 
@@ -658,7 +870,7 @@ export const BusinessAnalysis: React.FC = () => {
                       )}
                     </div>
 
-                    {/* Legenda Dinâmica da Distribuição */}
+                    {/* Legenda Dinâmica */}
                     <div className="flex flex-wrap gap-4 pt-2">
                       {operationalDistribution.items.map((item) => (
                         <div key={item.id} className="flex items-center gap-2 bg-muted/20 px-3 py-1.5 rounded-2xl border border-border/40 text-[9px] font-black uppercase">
@@ -683,7 +895,7 @@ export const BusinessAnalysis: React.FC = () => {
               )}
             </div>
 
-            {/* Tabela de Notação de Porcentagem por Categoria */}
+            {/* Tabela de Porcentagem por Categoria */}
             <div className="bg-card p-6 rounded-[2.5rem] border border-border shadow-sm">
               <div>
                 <h3 className="text-lg font-black uppercase tracking-tighter mb-1">
@@ -748,9 +960,8 @@ export const BusinessAnalysis: React.FC = () => {
                 </table>
               </div>
             </div>
-
           </motion.div>
-        ) : (
+        ) : activeSubTab === 'operational' ? (
           <motion.div
             key="operational-tab"
             initial={{ opacity: 0, y: 15 }}
@@ -759,7 +970,7 @@ export const BusinessAnalysis: React.FC = () => {
             transition={{ duration: 0.3 }}
             className="space-y-6"
           >
-            {/* Aviso sobre Mês Selecionado vs Consolidado */}
+            {/* Aviso sobre consolidado */}
             {selectedMonth === 'consolidated' && (
               <div className="bg-primary/10 border border-primary/20 rounded-3xl p-4 flex items-center gap-3">
                 <Info className="text-primary shrink-0" size={18} />
@@ -769,10 +980,10 @@ export const BusinessAnalysis: React.FC = () => {
               </div>
             )}
 
-            {/* Grade de Margem e Ponto de Equilíbrio */}
+            {/* Grade de Margem e PE */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               
-              {/* Card de Margem de Contribuição */}
+              {/* Margem de Contribuição */}
               <div className="bg-card p-8 rounded-[2.5rem] border border-border shadow-sm flex flex-col justify-between">
                 <div>
                   <div className="flex items-center justify-between mb-4">
@@ -824,7 +1035,7 @@ export const BusinessAnalysis: React.FC = () => {
                 </div>
               </div>
 
-              {/* Card do Ponto de Equilíbrio */}
+              {/* Ponto de Equilíbrio */}
               <div className="bg-card p-8 rounded-[2.5rem] border border-border shadow-sm flex flex-col justify-between">
                 <div>
                   <div className="flex items-center justify-between mb-4">
@@ -903,7 +1114,6 @@ export const BusinessAnalysis: React.FC = () => {
                   </div>
                 </div>
               </div>
-
             </div>
 
             {/* Diagnóstico da Saúde Operacional */}
@@ -925,7 +1135,6 @@ export const BusinessAnalysis: React.FC = () => {
                 </div>
               ) : operationalAnalysis.margemPercentual < 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center animate-in fade-in duration-300">
-                  
                   {/* Status Visual com Margem Negativa */}
                   <div className="space-y-4">
                     <div className="flex items-center gap-3">
@@ -947,7 +1156,7 @@ export const BusinessAnalysis: React.FC = () => {
                     </p>
                   </div>
 
-                  {/* Detalhes de Ação corretiva em Tópicos */}
+                  {/* Detalhes de Ação corretiva */}
                   <div className="space-y-4 bg-rose-500/5 p-6 rounded-3xl border border-rose-500/10">
                     <span className="text-[10px] font-black uppercase tracking-wider text-rose-500 block">
                       Ações Recomendadas (Metas Mínimas):
@@ -966,11 +1175,9 @@ export const BusinessAnalysis: React.FC = () => {
                       </li>
                     </ul>
                   </div>
-
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
-                  
                   {/* Status Visual */}
                   <div className="space-y-4">
                     <div className="flex items-center gap-3">
@@ -1048,16 +1255,339 @@ export const BusinessAnalysis: React.FC = () => {
                       </div>
                     </div>
                   </div>
-
                 </div>
               )}
             </div>
+          </motion.div>
+        ) : (
+          <motion.div
+            key="pricing-tab"
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -15 }}
+            transition={{ duration: 0.3 }}
+            className="space-y-6"
+          >
+            {/* Alerta de DRE de precificação não configurado */}
+            {pricingIncomeCats.length === 0 && (
+              <div className="bg-amber-500/10 border border-amber-500/30 rounded-3xl p-6 flex flex-col md:flex-row items-center gap-4 text-center md:text-left justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-full bg-amber-500/20 flex items-center justify-center text-amber-500 shrink-0">
+                    <ShieldAlert size={26} />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-black uppercase tracking-tight text-amber-700 dark:text-amber-400">
+                      Configure a Base da Precificação
+                    </h4>
+                    <p className="text-xs font-bold text-amber-600/80 dark:text-amber-500/60 uppercase mt-0.5">
+                      Para calcular o markup ideal do seu negócio, selecione manualmente quais categorias representam suas receitas e despesas.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setIsPricingConfigOpen(true)}
+                  className="px-5 py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-amber-500/20 active:scale-95 whitespace-nowrap"
+                >
+                  Configurar Precificação
+                </button>
+              </div>
+            )}
 
+            {/* Painel do Markup / Metas */}
+            {pricingIncomeCats.length > 0 && (
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                
+                {/* Meta de Lucro Desejada */}
+                <div className="bg-card p-6 rounded-3xl border border-border shadow-sm flex flex-col justify-between lg:col-span-1">
+                  <div className="space-y-4">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-primary block">
+                      Meta de Lucro Desejada
+                    </span>
+                    <h3 className="text-xl font-black uppercase tracking-tighter">
+                      Defina sua Margem (%)
+                    </h3>
+                    <p className="text-xs text-muted-foreground">
+                      Insira a porcentagem de margem de lucro líquida que deseja atingir no final do período para as categorias de produtos e serviços cadastrados.
+                    </p>
+
+                    <div className="relative mt-4">
+                      <input
+                        type="text"
+                        placeholder="0,00"
+                        value={targetMarginInput}
+                        onChange={(e) => {
+                          let val = e.target.value.replace(/[^0-9.,]/g, '');
+                          setTargetMarginInput(val);
+                        }}
+                        onBlur={() => {
+                          const normalized = targetMarginInput.replace(',', '.');
+                          const num = Math.min(99.99, Math.max(0, parseFloat(normalized) || 0));
+                          setPricingTargetMargin(num);
+                          setTargetMarginInput(num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+                          localStorage.setItem(`solum_pricing_target_margin_${effectiveUserId}`, num.toString());
+                        }}
+                        className="w-full pl-4 pr-12 py-3 bg-muted/30 border border-border rounded-xl font-black text-lg text-foreground focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-all"
+                      />
+                      <span className="absolute right-4 top-1/2 -translate-y-1/2 font-black text-muted-foreground text-sm">%</span>
+                    </div>
+                  </div>
+
+                  <div className="pt-6 border-t border-border/40 mt-6 flex items-center justify-between text-[10px] font-bold text-muted-foreground uppercase">
+                    <span>Margem Atual de Base</span>
+                    <span className={cn(
+                      "font-black text-xs px-2 py-0.5 rounded-full",
+                      pricingDRE.margemAtual >= 0 ? "bg-emerald-500/10 text-emerald-500" : "bg-rose-500/10 text-rose-500"
+                    )}>
+                      {formatPercent(pricingDRE.margemAtual)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Resumo Financeiro Base */}
+                <div className="bg-card p-6 rounded-3xl border border-border shadow-sm flex flex-col justify-between lg:col-span-1">
+                  <div className="space-y-4">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground block">
+                      Apuração do Período Base
+                    </span>
+                    <h3 className="text-xl font-black uppercase tracking-tighter">
+                      DRE Simplificado
+                    </h3>
+                    
+                    <div className="space-y-2.5 pt-2">
+                      <div className="flex justify-between text-xs font-semibold">
+                        <span className="text-muted-foreground">Faturamento Apurado:</span>
+                        <span className="text-foreground font-black">{formatCurrency(pricingDRE.faturamento)}</span>
+                      </div>
+                      <div className="flex justify-between text-xs font-semibold border-b border-border/10 pb-2.5">
+                        <span className="text-muted-foreground">Despesas Apuradas:</span>
+                        <span className="text-foreground font-black text-rose-500">{formatCurrency(pricingDRE.despesas)}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-xs font-semibold pt-1">
+                        <span className="text-muted-foreground">Sobra/Lucro Atual:</span>
+                        <div className="flex items-center gap-2">
+                          <span className={`font-black ${pricingDRE.lucro >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+                            {formatCurrency(pricingDRE.lucro)}
+                          </span>
+                          {pricingDRE.faturamento > 0 && (
+                            <span className={cn(
+                              "text-[10px] font-black px-1.5 py-0.5 rounded",
+                              pricingDRE.lucro >= 0 ? "bg-emerald-500/10 text-emerald-500" : "bg-rose-500/10 text-rose-500"
+                            )}>
+                              {formatPercent(pricingDRE.margemAtual)}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-6 border-t border-border/40 mt-6 flex items-center justify-between text-[10px] font-bold text-muted-foreground uppercase">
+                    <span>Mês de Exercício Base</span>
+                    <span className="text-primary font-black">
+                      {selectedMonth === 'consolidated' ? 'Consolidado' : getMonthName(selectedMonth)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Resultado: Reajuste Necessário */}
+                <div className="bg-card p-6 rounded-3xl border border-border shadow-sm flex flex-col justify-between lg:col-span-1 relative overflow-hidden">
+                  <div className="absolute top-0 right-0 p-4 opacity-5 text-primary">
+                    <Sparkles size={120} />
+                  </div>
+                  
+                  <div className="space-y-4 relative z-10">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-emerald-500 block">
+                      Resultado do Simulador
+                    </span>
+                    <h3 className="text-xl font-black uppercase tracking-tighter">
+                      Reajuste Sugerido
+                    </h3>
+                    
+                    {pricingDRE.erroMatematico ? (
+                      <div className="bg-rose-500/10 p-3 rounded-xl border border-rose-500/20 text-rose-600 dark:text-rose-400 text-[10px] font-black uppercase leading-normal">
+                        {pricingDRE.erroMatematico}
+                      </div>
+                    ) : (
+                      <div className="space-y-1">
+                        <p className="text-xs text-muted-foreground">
+                          Cada produto/item deve sofrer um acréscimo nos preços de venda de:
+                        </p>
+                        <h2 className="text-4xl font-black text-emerald-500 tracking-tighter pt-2">
+                          +{formatPercent(pricingDRE.aumentoPercentual)}
+                        </h2>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="pt-6 border-t border-border/40 mt-6 flex items-center justify-between text-[10px] font-bold text-muted-foreground uppercase relative z-10">
+                    <span>Faturamento Desejado Mínimo</span>
+                    <span className="text-foreground font-black text-xs">
+                      {pricingDRE.erroMatematico ? 'N/A' : formatCurrency(pricingDRE.faturamentoNovo)}
+                    </span>
+                  </div>
+                </div>
+
+              </div>
+            )}
+
+            {/* Cadastro de Cardápio / Tabela de Produtos */}
+            {pricingIncomeCats.length > 0 && (
+              <div className="bg-card p-8 rounded-[2.5rem] border border-border shadow-sm space-y-6">
+                
+                {/* Header Seção */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/40 pb-6">
+                  <div>
+                    <h3 className="text-xl font-black uppercase tracking-tighter">
+                      Cardápio / Produtos Cadastrados
+                    </h3>
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase opacity-60 mt-0.5">
+                      Monitore e gerencie os itens vendidos para calcular dinamicamente o preço ideal por item.
+                    </p>
+                  </div>
+                  
+                  <div className="flex flex-wrap items-center gap-3">
+                    <button
+                      onClick={() => setIsCategoryListModalOpen(true)}
+                      className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border/60 bg-muted/20 text-[10px] font-black uppercase tracking-widest hover:bg-muted transition-all shadow-sm"
+                    >
+                      <FolderPlus size={14} />
+                      Gerenciar Categorias
+                    </button>
+                    <button
+                      disabled={menuCategories.length === 0}
+                      onClick={() => {
+                        setProductForm({ name: '', price: '', categoryId: menuCategories[0]?.id || '' });
+                        setIsProductModalOpen(true);
+                      }}
+                      className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-white text-[10px] font-black uppercase tracking-widest shadow-lg shadow-primary/25 hover:scale-[1.02] active:scale-95 disabled:opacity-50 disabled:scale-100 disabled:cursor-not-allowed transition-all"
+                    >
+                      <Plus size={14} />
+                      Novo Produto
+                    </button>
+                  </div>
+                </div>
+
+                {/* Estado Vazio de Categorias */}
+                {menuCategories.length === 0 ? (
+                  <div className="py-12 text-center text-muted-foreground border border-dashed rounded-3xl space-y-4">
+                    <p className="text-xs font-black uppercase tracking-widest">
+                      Nenhuma categoria de produto cadastrada
+                    </p>
+                    <p className="text-[10px] font-bold uppercase text-muted-foreground/60 max-w-md mx-auto leading-relaxed">
+                      Crie primeiro as categorias do seu cardápio (ex: Bebidas, Pratos Principais) para conseguir cadastrar seus produtos.
+                    </p>
+                    <button
+                      onClick={() => {
+                        setCategoryForm({ name: '' });
+                        setIsCategoryModalOpen(true);
+                      }}
+                      className="px-5 py-2.5 bg-primary text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:scale-105 active:scale-95 transition-all shadow-lg shadow-primary/20"
+                    >
+                      Criar Categoria
+                    </button>
+                  </div>
+                ) : menuProducts.length === 0 ? (
+                  /* Estado Vazio de Produtos */
+                  <div className="py-12 text-center text-muted-foreground border border-dashed rounded-3xl space-y-4">
+                    <p className="text-xs font-black uppercase tracking-widest">
+                      Nenhum produto cadastrado no seu cardápio
+                    </p>
+                    <p className="text-[10px] font-bold uppercase text-muted-foreground/60 max-w-sm mx-auto leading-relaxed">
+                      Cadastre os itens que sua empresa vende para simular o preço de menu sugerido em tempo real.
+                    </p>
+                    <button
+                      onClick={() => {
+                        setProductForm({ name: '', price: '', categoryId: menuCategories[0].id });
+                        setIsProductModalOpen(true);
+                      }}
+                      className="px-5 py-2.5 bg-primary text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:scale-105 active:scale-95 transition-all shadow-lg shadow-primary/20"
+                    >
+                      Cadastrar Primeiro Produto
+                    </button>
+                  </div>
+                ) : (
+                  /* Listagem de Cardápio por Categoria */
+                  <div className="space-y-8">
+                    {menuCategories.map((cat) => {
+                      const categoryProds = pricedProducts.filter(p => p.categoryId === cat.id);
+                      if (categoryProds.length === 0) return null;
+
+                      return (
+                        <div key={cat.id} className="space-y-4">
+                          <h4 className="text-xs font-black uppercase tracking-widest text-primary border-b border-border/20 pb-2">
+                            {cat.name} ({categoryProds.length})
+                          </h4>
+                          
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-left border-collapse">
+                              <thead>
+                                <tr className="bg-muted/10 text-muted-foreground text-[9px] font-black uppercase tracking-widest border-b border-border/20">
+                                  <th className="px-4 py-3">Produto</th>
+                                  <th className="px-4 py-3 text-right">Preço Venda Atual</th>
+                                  <th className="px-4 py-3 text-right text-emerald-500">Preço Sugerido (Ideal)</th>
+                                  <th className="px-4 py-3 text-right text-muted-foreground">Acréscimo Mínimo</th>
+                                  <th className="px-4 py-3 text-center w-28">Ações</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-border/10">
+                                {categoryProds.map((prod) => (
+                                  <tr key={prod.id} className="hover:bg-muted/10 transition-colors">
+                                    <td className="px-4 py-3">
+                                      <div className="flex items-center gap-2">
+                                        <Tag size={12} className="text-muted-foreground opacity-60" />
+                                        <span className="text-xs font-bold uppercase tracking-tight">{prod.name}</span>
+                                      </div>
+                                    </td>
+                                    <td className="px-4 py-3 text-xs font-black text-right">
+                                      {formatCurrency(prod.price)}
+                                    </td>
+                                    <td className="px-4 py-3 text-xs font-black text-right text-emerald-500 bg-emerald-500/5 font-semibold">
+                                      {formatCurrency(prod.sugerido)}
+                                    </td>
+                                    <td className="px-4 py-3 text-xs font-bold text-right text-muted-foreground">
+                                      +{formatCurrency(prod.acrescimo)}
+                                    </td>
+                                    <td className="px-4 py-3">
+                                      <div className="flex justify-center gap-2">
+                                        <button
+                                          onClick={() => {
+                                            setProductForm({
+                                              id: prod.id,
+                                              name: prod.name,
+                                              price: prod.price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+                                              categoryId: prod.categoryId
+                                            });
+                                            setIsProductModalOpen(true);
+                                          }}
+                                          className="p-1.5 hover:bg-muted rounded-lg text-muted-foreground hover:text-primary transition-all"
+                                        >
+                                          <Edit2 size={12} />
+                                        </button>
+                                        <button
+                                          onClick={() => handleDeleteProduct(prod.id)}
+                                          className="p-1.5 hover:bg-rose-500/10 rounded-lg text-muted-foreground hover:text-rose-500 transition-all"
+                                        >
+                                          <Trash2 size={12} />
+                                        </button>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Modal de Configurações de Categoria */}
+      {/* Modal de Configurações Geral DRE */}
       <AnimatePresence>
         {isConfigOpen && (
           <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
@@ -1075,7 +1605,6 @@ export const BusinessAnalysis: React.FC = () => {
               exit={{ scale: 0.95, opacity: 0 }}
               className="bg-card border-2 border-border rounded-[2.5rem] w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col shadow-2xl relative z-10"
             >
-              {/* Header Modal */}
               <div className="p-6 border-b border-border/40 flex items-center justify-between">
                 <div>
                   <h3 className="text-xl font-black uppercase tracking-tighter">
@@ -1093,7 +1622,6 @@ export const BusinessAnalysis: React.FC = () => {
                 </button>
               </div>
 
-              {/* Conteúdo Modal */}
               <div className="p-6 overflow-y-auto space-y-8 flex-1 custom-scrollbar">
                 
                 {/* Seção Receitas */}
@@ -1212,7 +1740,6 @@ export const BusinessAnalysis: React.FC = () => {
 
               </div>
 
-              {/* Footer Modal */}
               <div className="p-6 border-t border-border/40 flex items-center justify-end gap-3 bg-muted/20">
                 <button
                   onClick={() => setIsConfigOpen(false)}
@@ -1227,7 +1754,425 @@ export const BusinessAnalysis: React.FC = () => {
                   Salvar Alterações
                 </button>
               </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
+      {/* Modal de Configuração de Precificação (DRE Base) */}
+      <AnimatePresence>
+        {isPricingConfigOpen && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsPricingConfigOpen(false)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            />
+            
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-card border-2 border-border rounded-[2.5rem] w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col shadow-2xl relative z-10"
+            >
+              <div className="p-6 border-b border-border/40 flex items-center justify-between">
+                <div>
+                  <h3 className="text-xl font-black uppercase tracking-tighter">
+                    Parametrizar Precificação
+                  </h3>
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase opacity-60 mt-0.5">
+                    Escolha as categorias financeiras de base e meta para o cálculo de reajuste do cardápio.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setIsPricingConfigOpen(false)}
+                  className="p-2 hover:bg-muted rounded-xl transition-all"
+                >
+                  Fechar
+                </button>
+              </div>
+
+              <div className="p-6 overflow-y-auto space-y-8 flex-1 custom-scrollbar">
+                
+                {/* Categorias de Faturamento para Precificação */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between border-b border-border/10 pb-2">
+                    <span className="text-xs font-black uppercase text-emerald-500 tracking-wider">
+                      Vendas / Receitas de Produtos
+                    </span>
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => setPricingIncomeCats(incomeCategoriesList.map(c => c.id))}
+                        className="text-[9px] font-black uppercase tracking-widest text-primary hover:underline"
+                      >
+                        Marcar todas
+                      </button>
+                      <span className="text-muted-foreground/30">|</span>
+                      <button
+                        onClick={() => setPricingIncomeCats([])}
+                        className="text-[9px] font-black uppercase tracking-widest text-muted-foreground hover:underline"
+                      >
+                        Desmarcar todas
+                      </button>
+                    </div>
+                  </div>
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase leading-tight">
+                    *Selecione quais categorias de receita correspondem às vendas de produtos.
+                  </p>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {incomeCategoriesList.map((cat) => {
+                      const isSelected = pricingIncomeCats.includes(cat.id);
+                      return (
+                        <button
+                          key={cat.id}
+                          onClick={() => {
+                            setPricingIncomeCats(prev =>
+                              isSelected ? prev.filter(id => id !== cat.id) : [...prev, cat.id]
+                            );
+                          }}
+                          className={`flex items-center gap-3 p-3 rounded-2xl border text-left transition-all ${
+                            isSelected 
+                              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400' 
+                              : 'bg-muted/10 border-border/40 hover:bg-muted/30 text-foreground'
+                          }`}
+                        >
+                          <div
+                            className={`w-4 h-4 rounded-md border flex items-center justify-center transition-all ${
+                              isSelected ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-muted-foreground/30'
+                            }`}
+                          >
+                            {isSelected && <Check size={10} strokeWidth={3} />}
+                          </div>
+                          <span className="text-xs font-bold uppercase tracking-tight truncate">{cat.name}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Categorias de Custos / Despesas para Precificação */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between border-b border-border/10 pb-2">
+                    <span className="text-xs font-black uppercase text-rose-500 tracking-wider">
+                      Custos & Despesas Consideradas
+                    </span>
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => setPricingExpenseCats(expenseCategoriesList.map(c => c.id))}
+                        className="text-[9px] font-black uppercase tracking-widest text-primary hover:underline"
+                      >
+                        Marcar todas
+                      </button>
+                      <span className="text-muted-foreground/30">|</span>
+                      <button
+                        onClick={() => setPricingExpenseCats([])}
+                        className="text-[9px] font-black uppercase tracking-widest text-muted-foreground hover:underline"
+                      >
+                        Desmarcar todas
+                      </button>
+                    </div>
+                  </div>
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase leading-tight">
+                    *Selecione quais categorias de despesas representam a estrutura de custos do empreendimento.
+                  </p>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {expenseCategoriesList.map((cat) => {
+                      const isSelected = pricingExpenseCats.includes(cat.id);
+                      return (
+                        <button
+                          key={cat.id}
+                          onClick={() => {
+                            setPricingExpenseCats(prev =>
+                              isSelected ? prev.filter(id => id !== cat.id) : [...prev, cat.id]
+                            );
+                          }}
+                          className={`flex items-center gap-3 p-3 rounded-2xl border text-left transition-all ${
+                            isSelected 
+                              ? 'bg-rose-500/10 border-rose-500/30 text-rose-600 dark:text-rose-400' 
+                              : 'bg-muted/10 border-border/40 hover:bg-muted/30 text-foreground'
+                          }`}
+                        >
+                          <div
+                            className={`w-4 h-4 rounded-md border flex items-center justify-center transition-all ${
+                              isSelected ? 'bg-rose-500 border-rose-500 text-white' : 'border-muted-foreground/30'
+                            }`}
+                          >
+                            {isSelected && <Check size={10} strokeWidth={3} />}
+                          </div>
+                          <span className="text-xs font-bold uppercase tracking-tight truncate">{cat.name}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+              </div>
+
+              <div className="p-6 border-t border-border/40 flex items-center justify-end gap-3 bg-muted/20">
+                <button
+                  onClick={() => setIsPricingConfigOpen(false)}
+                  className="px-6 py-3 border border-border/80 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-muted transition-all"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleSavePricingConfig}
+                  className="px-6 py-3 bg-primary text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-primary/25 hover:scale-[1.02] active:scale-95 transition-all"
+                >
+                  Confirmar Ajustes
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Modal CRUD Produto */}
+      <AnimatePresence>
+        {isProductModalOpen && (
+          <div className="fixed inset-0 z-[210] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsProductModalOpen(false)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            />
+            
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-card border-2 border-border rounded-[2.5rem] w-full max-w-md overflow-hidden flex flex-col shadow-2xl relative z-10"
+            >
+              <div className="p-6 border-b border-border/40 flex items-center justify-between">
+                <h3 className="text-lg font-black uppercase tracking-tighter">
+                  {productForm.id ? 'Editar Produto' : 'Cadastrar Produto'}
+                </h3>
+                <button
+                  onClick={() => setIsProductModalOpen(false)}
+                  className="p-1.5 hover:bg-muted rounded-xl transition-all"
+                >
+                  Fechar
+                </button>
+              </div>
+
+              <div className="p-6 space-y-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground block">
+                    Nome do Produto / Item
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Ex: Coca-cola Lata 350ml"
+                    value={productForm.name}
+                    onChange={(e) => setProductForm(prev => ({ ...prev, name: e.target.value }))}
+                    className="w-full px-4 py-2.5 bg-muted/30 border border-border rounded-xl text-xs font-bold text-foreground focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-all"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground block">
+                    Preço de Venda Atual (R$)
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-black text-muted-foreground">R$</span>
+                    <input
+                      type="text"
+                      placeholder="0,00"
+                      value={productForm.price}
+                      onChange={(e) => handlePriceInputChange(e.target.value)}
+                      className="w-full pl-8 pr-4 py-2.5 bg-muted/30 border border-border rounded-xl text-xs font-black text-foreground focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-all"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground block">
+                    Categoria do Cardápio
+                  </label>
+                  <select
+                    value={productForm.categoryId}
+                    onChange={(e) => setProductForm(prev => ({ ...prev, categoryId: e.target.value }))}
+                    className="w-full px-3 py-2.5 bg-muted/30 border border-border rounded-xl text-xs font-bold text-foreground focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-all"
+                  >
+                    {menuCategories.map((cat) => (
+                      <option key={cat.id} value={cat.id}>
+                        {cat.name.toUpperCase()}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="p-6 border-t border-border/40 flex justify-end gap-3 bg-muted/20">
+                <button
+                  onClick={() => setIsProductModalOpen(false)}
+                  className="px-5 py-2.5 border border-border/80 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-muted transition-all"
+                >
+                  Cancelar
+                </button>
+                <button
+                  disabled={!productForm.name.trim() || !productForm.price || !productForm.categoryId}
+                  onClick={handleAddProduct}
+                  className="px-5 py-2.5 bg-primary text-white rounded-xl text-[9px] font-black uppercase tracking-widest shadow-lg shadow-primary/25 hover:scale-[1.02] active:scale-95 disabled:opacity-50 disabled:scale-100 disabled:cursor-not-allowed transition-all"
+                >
+                  {productForm.id ? 'Salvar' : 'Cadastrar'}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Modal CRUD Categoria do Cardápio */}
+      <AnimatePresence>
+        {isCategoryModalOpen && (
+          <div className="fixed inset-0 z-[220] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsCategoryModalOpen(false)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            />
+            
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-card border-2 border-border rounded-[2.5rem] w-full max-w-md overflow-hidden flex flex-col shadow-2xl relative z-10"
+            >
+              <div className="p-6 border-b border-border/40 flex items-center justify-between">
+                <h3 className="text-lg font-black uppercase tracking-tighter">
+                  {categoryForm.id ? 'Editar Categoria' : 'Nova Categoria'}
+                </h3>
+                <button
+                  onClick={() => setIsCategoryModalOpen(false)}
+                  className="p-1.5 hover:bg-muted rounded-xl transition-all"
+                >
+                  Fechar
+                </button>
+              </div>
+
+              <div className="p-6 space-y-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground block">
+                    Nome da Categoria
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Ex: Pratos Principais"
+                    value={categoryForm.name}
+                    onChange={(e) => setCategoryForm(prev => ({ ...prev, name: e.target.value }))}
+                    className="w-full px-4 py-2.5 bg-muted/30 border border-border rounded-xl text-xs font-bold text-foreground focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-all"
+                  />
+                </div>
+              </div>
+
+              <div className="p-6 border-t border-border/40 flex justify-end gap-3 bg-muted/20">
+                <button
+                  onClick={() => setIsCategoryModalOpen(false)}
+                  className="px-5 py-2.5 border border-border/80 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-muted transition-all"
+                >
+                  Cancelar
+                </button>
+                <button
+                  disabled={!categoryForm.name.trim()}
+                  onClick={handleAddCategory}
+                  className="px-5 py-2.5 bg-primary text-white rounded-xl text-[9px] font-black uppercase tracking-widest shadow-lg shadow-primary/25 hover:scale-[1.02] active:scale-95 disabled:opacity-50 disabled:scale-100 disabled:cursor-not-allowed transition-all"
+                >
+                  {categoryForm.id ? 'Salvar' : 'Criar'}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Modal Lista de Categorias do Cardápio (Gerenciamento) */}
+      <AnimatePresence>
+        {isCategoryListModalOpen && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsCategoryListModalOpen(false)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            />
+            
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-card border-2 border-border rounded-[2.5rem] w-full max-w-md max-h-[80vh] overflow-hidden flex flex-col shadow-2xl relative z-10"
+            >
+              <div className="p-6 border-b border-border/40 flex items-center justify-between">
+                <div>
+                  <h3 className="text-xl font-black uppercase tracking-tighter">
+                    Categorias do Cardápio
+                  </h3>
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase opacity-60 mt-0.5">
+                    Adicione ou remova categorias do seu cardápio de produtos.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setIsCategoryListModalOpen(false)}
+                  className="p-1.5 hover:bg-muted rounded-xl transition-all"
+                >
+                  Fechar
+                </button>
+              </div>
+
+              <div className="p-6 overflow-y-auto space-y-4 flex-1 custom-scrollbar">
+                {/* Botão de Criação Integrada */}
+                <button
+                  onClick={() => {
+                    setCategoryForm({ name: '' });
+                    setIsCategoryModalOpen(true);
+                  }}
+                  className="w-full p-3 bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 rounded-2xl flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest transition-all"
+                >
+                  <Plus size={14} />
+                  Criar Nova Categoria
+                </button>
+
+                <div className="divide-y divide-border/10">
+                  {menuCategories.map((cat) => (
+                    <div key={cat.id} className="flex items-center justify-between py-3 hover:bg-muted/10 px-2 rounded-xl transition-colors">
+                      <span className="text-xs font-bold uppercase tracking-tight text-foreground">{cat.name}</span>
+                      
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => {
+                            setCategoryForm({ id: cat.id, name: cat.name });
+                            setIsCategoryModalOpen(true);
+                          }}
+                          className="p-1.5 hover:bg-muted rounded-lg text-muted-foreground hover:text-primary transition-all"
+                        >
+                          <Edit2 size={12} />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteCategory(cat.id)}
+                          className="p-1.5 hover:bg-rose-500/10 rounded-lg text-muted-foreground hover:text-rose-500 transition-all"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  {menuCategories.length === 0 && (
+                    <p className="text-center text-muted-foreground/60 py-12 text-[10px] font-black uppercase tracking-widest">
+                      Nenhuma categoria cadastrada.
+                    </p>
+                  )}
+                </div>
+              </div>
             </motion.div>
           </div>
         )}
