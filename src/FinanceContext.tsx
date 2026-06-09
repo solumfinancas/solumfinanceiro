@@ -162,7 +162,6 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setDebts([]);
       setDebtHistory([]);
       setNonRecurringExpenses([]);
-      setOverdueServices([]);
       setOrderedCards([]);
       setOrderedAccounts([]);
       
@@ -281,27 +280,6 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
       if (!taskErr) {
         setGlobalTasks(fetchedTasks || []);
-      }
-
-      // 6. Verificar pagamentos em atraso (Somente para o usuário real, não em visualização)
-      if (profile?.role === 'user' && !viewingUserId) {
-        const today = new Date().toISOString().split('T')[0];
-        const { data: svcs, error: svcsErr } = await supabase
-          .from('contracted_services')
-          .select('*')
-          .eq('client_id', targetUserId)
-          .eq('status', 'pending')
-          .lt('due_date', today);
-        
-        if (currentFetchIdentity.current?.userId !== targetUserId || currentFetchIdentity.current?.space !== targetSpace) {
-          return;
-        }
-
-        if (!svcsErr) {
-          setOverdueServices(svcs || []);
-        }
-      } else {
-        setOverdueServices([]);
       }
 
       // 7. Patrimônio
@@ -429,6 +407,39 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       fetchData();
     }
   }, [fetchData, isSpaceInitialized]);
+
+  // Carrega pagamentos em atraso assim que o usuário faz login, sem esperar o fetchData do espaço
+  useEffect(() => {
+    if (!user || !effectiveUserId) {
+      setOverdueServices([]);
+      return;
+    }
+
+    // Só roda se o perfil for do usuário real (cliente comum) e não estiver sob impersonificação (viewingUserId)
+    if (profile?.role === 'user' && !viewingUserId) {
+      const fetchOverdue = async () => {
+        try {
+          const today = new Date().toISOString().split('T')[0];
+          const { data: svcs, error: svcsErr } = await supabase
+            .from('contracted_services')
+            .select('*')
+            .eq('client_id', effectiveUserId)
+            .eq('status', 'pending')
+            .lt('due_date', today);
+
+          if (!svcsErr) {
+            setOverdueServices(svcs || []);
+          }
+        } catch (err) {
+          console.error('Erro ao verificar pagamentos em atraso:', err);
+        }
+      };
+
+      fetchOverdue();
+    } else {
+      setOverdueServices([]);
+    }
+  }, [user, effectiveUserId, profile, viewingUserId]);
 
   // Realtime Sync for Wallets, Categories and Transactions
   useEffect(() => {

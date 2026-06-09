@@ -2,6 +2,7 @@ import React from 'react';
 import { useFinance } from '../FinanceContext';
 import { AlertTriangle, Clock, ArrowRight, ShieldAlert } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { cn } from '../lib/utils';
 
 export const OverdueAlertModal: React.FC = () => {
   const { overdueServices, hasAcknowledgedOverdue, acknowledgeOverdue } = useFinance();
@@ -60,9 +61,19 @@ export const OverdueAlertModal: React.FC = () => {
                         <Clock size={18} />
                       </div>
                       <div className="text-left">
-                        <p className="text-xs font-black uppercase tracking-wider leading-none mb-1">
-                          {svc.type || svc.name || 'Serviço Financeiro'}
-                        </p>
+                        <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                          <p className="text-xs font-black uppercase tracking-wider leading-none">
+                            {svc.type || svc.name || 'Serviço Financeiro'}
+                          </p>
+                          <span className={cn(
+                            "px-1.5 py-0.5 rounded text-[7px] font-black uppercase tracking-widest border shrink-0",
+                            svc.space_type === 'business'
+                              ? "bg-indigo-500/10 text-indigo-500 border-indigo-500/20"
+                              : "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
+                          )}>
+                            {svc.space_type === 'business' ? 'Empresarial' : 'Pessoal'}
+                          </span>
+                        </div>
                         <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
                           Vencido em: {new Date(svc.due_date).toLocaleDateString('pt-BR')}
                         </p>

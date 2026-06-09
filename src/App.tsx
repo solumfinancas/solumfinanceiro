@@ -240,6 +240,7 @@ const AppContent = () => {
 
     if (!user) {
        sessionStorage.removeItem('solum_session_view');
+       sessionStorage.removeItem('overdue_acknowledged');
        setActiveSessionView(null);
     }
   }, [user, profile, viewingUserId, activeSessionView]);
@@ -251,6 +252,7 @@ const AppContent = () => {
       const lastUser = localStorage.getItem('solum_last_user');
       if (user.id !== lastUser) {
         sessionStorage.removeItem('solum_session_view');
+        sessionStorage.removeItem('overdue_acknowledged');
         localStorage.removeItem('solum_management_tab');
         setActiveSessionView(null);
         setViewingManagement(false);

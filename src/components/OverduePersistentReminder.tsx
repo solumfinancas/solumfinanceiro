@@ -54,10 +54,24 @@ export const OverduePersistentReminder: React.FC = () => {
                   </p>
                </div>
                <div className="h-10 w-[1px] bg-border/50 hidden md:block mx-2" />
-               <div className="px-6 py-3 bg-destructive/10 border border-destructive/20 rounded-xl">
-                  <span className="text-[9px] font-black uppercase tracking-widest text-destructive">
-                    {overdueServices.length} {overdueServices.length === 1 ? 'Fatura Vencida' : 'Faturas Vencidas'}
-                  </span>
+               <div className="flex flex-col items-end gap-2 shrink-0">
+                 <div className="px-6 py-3 bg-destructive/10 border border-destructive/20 rounded-xl">
+                    <span className="text-[9px] font-black uppercase tracking-widest text-destructive font-bold">
+                      {overdueServices.length} {overdueServices.length === 1 ? 'Fatura Vencida' : 'Faturas Vencidas'}
+                    </span>
+                 </div>
+                 <div className="flex gap-1.5 flex-wrap justify-end">
+                   {overdueServices.some(s => s.space_type === 'personal') && (
+                     <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-[7px] font-black uppercase tracking-widest rounded-md">
+                       Pessoal
+                     </span>
+                   )}
+                   {overdueServices.some(s => s.space_type === 'business') && (
+                     <span className="px-2 py-0.5 bg-indigo-500/10 text-indigo-500 border border-indigo-500/20 text-[7px] font-black uppercase tracking-widest rounded-md">
+                       Empresarial
+                     </span>
+                   )}
+                 </div>
                </div>
             </div>
           </div>
