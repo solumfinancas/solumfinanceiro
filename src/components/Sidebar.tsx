@@ -101,6 +101,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     ? getManagementMenuItems()
     : [
       { id: 'dashboard', label: 'Visão Geral', icon: LayoutDashboard },
+      ...(activeSpace === 'business' ? [{ id: 'business-analysis', label: 'Análise Empresarial', icon: Building2 }] : []),
       { id: 'wallets', label: 'Carteiras e Cartões', icon: WalletIcon },
       { id: 'categories', label: 'Categorias', icon: Tags },
       { id: 'transactions', label: 'Lançamentos', icon: ArrowLeftRight },

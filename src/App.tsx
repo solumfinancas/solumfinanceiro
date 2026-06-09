@@ -6,6 +6,7 @@ import { Sidebar } from './components/Sidebar';
 import { Dashboard } from './components/Dashboard';
 import { Wallets } from './components/Wallets';
 import { Categories } from './components/Categories';
+import { BusinessAnalysis } from './components/BusinessAnalysis';
 import { Transactions } from './components/Transactions';
 import { Import } from './components/Import';
 import { Auth } from './components/Auth';
@@ -319,6 +320,8 @@ const AppContent = () => {
     switch (activeTab) {
       case 'dashboard':
         return <Dashboard setActiveTab={setActiveTab} setTxFilter={setTxInitialFilter} setTxTypeFilter={setTxTypeFilter} />;
+      case 'business-analysis':
+        return <BusinessAnalysis />;
       case 'wallets':
         return <Wallets />;
       case 'categories':
