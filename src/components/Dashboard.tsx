@@ -46,7 +46,7 @@ import {
    LineChart,
    Line
 } from 'recharts';
-import { formatCurrency, cn, getInvoicePeriod, getInvoiceAmount } from '../lib/utils';
+import { formatCurrency, cn, getInvoicePeriod, getInvoiceAmount, formatDate } from '../lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { TransactionModal } from './TransactionModal';
 import { PendingTransactionsModal } from './PendingTransactionsModal';
@@ -923,7 +923,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, setTxFilter,
                      <div key={t.id} className="flex items-center justify-between p-2 hover:bg-muted/30 rounded-xl transition-all">
                         <div className="flex flex-col">
                            <p className="text-[10px] font-black leading-tight line-clamp-2 mb-0.5">{t.description}</p>
-                           <p className="text-[8px] font-bold text-muted-foreground">{new Date(t.date).toLocaleDateString()}</p>
+                           <p className="text-[8px] font-bold text-muted-foreground">{formatDate(t.date)}</p>
                         </div>
                         <span className="text-[10px] font-black text-rose-500">{formatCurrency(t.amount)}</span>
                      </div>
@@ -956,7 +956,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, setTxFilter,
                      <div key={t.id} className="flex items-center justify-between p-2 hover:bg-muted/30 rounded-xl transition-all">
                         <div className="flex flex-col">
                            <p className="text-[10px] font-black leading-tight line-clamp-2 mb-0.5">{t.description}</p>
-                           <p className="text-[8px] font-bold text-muted-foreground">{new Date(t.date).toLocaleDateString()}</p>
+                           <p className="text-[8px] font-bold text-muted-foreground">{formatDate(t.date)}</p>
                         </div>
                         <span className="text-[10px] font-black text-emerald-500">{formatCurrency(t.amount)}</span>
                      </div>

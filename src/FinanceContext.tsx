@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import { Transaction, Category, Wallet, ProfileType, EquityAsset, EquityHistory, NonRecurringExpense } from './types';
 import { supabase } from './lib/supabase';
 import { useAuth } from './contexts/AuthContext';
-import { getInvoicePeriod } from './lib/utils';
+import { getInvoicePeriod, getTodayDateString } from './lib/utils';
 
 interface FinanceContextType {
   transactions: Transaction[];
@@ -419,7 +419,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     if (profile?.role === 'user' && !viewingUserId) {
       const fetchOverdue = async () => {
         try {
-          const today = new Date().toISOString().split('T')[0];
+          const today = getTodayDateString();
           const { data: svcs, error: svcsErr } = await supabase
             .from('contracted_services')
             .select('*')
@@ -687,7 +687,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       }
     }
     if (txToInsert.isPaid && !txToInsert.paidDate) {
-      txToInsert.paidDate = new Date().toISOString().split('T')[0];
+      txToInsert.paidDate = getTodayDateString();
     }
 
     // Prevent duplicates only for recurrent transactions (Ciclo/Recurrence)
@@ -773,7 +773,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         }
       }
       if (tx.isPaid && !tx.paidDate) {
-        tx.paidDate = new Date().toISOString().split('T')[0];
+        tx.paidDate = getTodayDateString();
       }
       delete tx.id;
       delete tx.category;
@@ -859,7 +859,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
     if ('isPaid' in txToUpdate) {
       if (txToUpdate.isPaid && !currentTx?.isPaid && !txToUpdate.paidDate) {
-        txToUpdate.paidDate = new Date().toISOString().split('T')[0];
+        txToUpdate.paidDate = getTodayDateString();
       } else if (txToUpdate.isPaid === false) {
         (txToUpdate as any).paidDate = null;
       }

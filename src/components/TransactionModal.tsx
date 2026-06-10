@@ -13,7 +13,7 @@ import {
   TrendingUp,
   TrendingDown
 } from 'lucide-react';
-import { formatCurrency, cn, checkBudgetThreshold, getCategorySpend, getInvoicePeriod } from '../lib/utils';
+import { formatCurrency, cn, checkBudgetThreshold, getCategorySpend, getInvoicePeriod, getTodayDateString } from '../lib/utils';
 import { CustomSelect, SelectOption } from './ui/CustomSelect';
 import { Transaction, TransactionType } from '../types';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -55,7 +55,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
 
   const [newTx, setNewTx] = useState<Partial<Transaction>>({
     type: initialType,
-    date: new Date().toISOString().split('T')[0],
+    date: getTodayDateString(),
     amount: 0,
     description: '',
     isPaid: true,
@@ -72,7 +72,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
     } else {
       setNewTx({
         type: initialType,
-        date: new Date().toISOString().split('T')[0],
+        date: getTodayDateString(),
         amount: 0,
         description: '',
         isPaid: true,
@@ -106,7 +106,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   const resetForm = () => {
     setNewTx({
       type: initialType,
-      date: new Date().toISOString().split('T')[0],
+      date: getTodayDateString(),
       amount: 0,
       description: '',
       isPaid: true,
@@ -614,7 +614,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                           className="w-full px-4 py-2.5 bg-background border border-primary/20 rounded-xl focus:ring-2 focus:ring-primary/20 outline-none font-bold text-xs appearance-none"
                         >
                           {(() => {
-                            const dateStr = newTx.date || new Date().toISOString().split('T')[0];
+                            const dateStr = newTx.date || getTodayDateString();
                             const [yearStr, monthStr] = dateStr.split('-');
                             const baseDate = new Date(Date.UTC(Number(yearStr), Number(monthStr) - 1, 1, 12, 0, 0));
                             const options = [];
@@ -656,7 +656,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                         return {
                           ...prev,
                           isPaid: nextPaid,
-                          paidDate: nextPaid && !prev.paidDate ? new Date().toISOString().split('T')[0] :
+                          paidDate: nextPaid && !prev.paidDate ? getTodayDateString() :
                             !nextPaid ? undefined : prev.paidDate
                         };
                       })}
@@ -682,7 +682,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                           <input
                             type="date"
                             required
-                            value={newTx.paidDate || new Date().toISOString().split('T')[0]}
+                            value={newTx.paidDate || getTodayDateString()}
                             onChange={(e) => setNewTx(prev => ({ ...prev, paidDate: e.target.value }))}
                             className="w-full max-w-full px-3 sm:px-4 py-3 bg-emerald-500/5 border border-emerald-500/20 rounded-xl focus:ring-2 focus:ring-emerald-500/20 outline-none shadow-sm font-black text-emerald-600 overflow-hidden"
                           />

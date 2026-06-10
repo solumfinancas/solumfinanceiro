@@ -14,7 +14,7 @@ import {
   TrendingUp,
   AlertCircle
 } from 'lucide-react';
-import { formatCurrency, cn } from '../lib/utils';
+import { formatCurrency, cn, getTodayDateString } from '../lib/utils';
 import { Transaction } from '../types';
 import { motion, AnimatePresence } from 'framer-motion';
 import { TransactionModal } from './TransactionModal';
@@ -135,13 +135,14 @@ export const PendingTransactionsModal: React.FC<PendingTransactionsModalProps> =
                          const category = categories.find(c => c.id === t.categoryId);
                          const wallet = wallets.find(w => w.id === t.walletId);
                          const isInvoicePayment = t.description.toLowerCase().includes('pagamento de fatura');
+                         const [year, month, day] = t.date.substring(0, 10).split('-');
 
                          return (
                             <tr key={t.id} className="hover:bg-muted/20 transition-all group">
                               <td className="px-3 md:px-6 py-3 whitespace-nowrap">
                                 <div className="flex flex-col">
-                                  <span className="text-[10px] md:text-xs font-black">{new Date(t.date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</span>
-                                  <span className="text-[8px] font-bold text-muted-foreground uppercase">{new Date(t.date).getUTCFullYear()}</span>
+                                  <span className="text-[10px] md:text-xs font-black">{day}/{month}</span>
+                                  <span className="text-[8px] font-bold text-muted-foreground uppercase">{year}</span>
                                 </div>
                               </td>
                               <td className="px-3 md:px-6 py-3 min-w-[140px] md:min-w-[200px]">
@@ -204,7 +205,7 @@ export const PendingTransactionsModal: React.FC<PendingTransactionsModalProps> =
                               <td className="px-3 md:px-6 py-3">
                                 <div className="flex justify-center whitespace-nowrap">
                                   <button 
-                                    onClick={() => updateTransaction(t.id, { isPaid: true, date: new Date().toISOString().split('T')[0] })}
+                                    onClick={() => updateTransaction(t.id, { isPaid: true, date: getTodayDateString() })}
                                     className="flex items-center gap-1 px-2 md:px-3 py-1 bg-amber-500/10 text-amber-600 rounded-lg md:rounded-xl hover:bg-amber-500 text-[8px] md:text-[9px] hover:text-white font-black uppercase tracking-widest transition-all active:scale-95 whitespace-nowrap border border-amber-500/20"
                                   >
                                     <ThumbsDown size={12} className="md:size-3.5" /> 

@@ -233,3 +233,50 @@ export function validateCNPJ(cnpj: string): boolean {
 
   return stripped.endsWith(digit1.toString() + digit2.toString());
 }
+
+export function getTodayDateString(date: Date = new Date()): string {
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Sao_Paulo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  });
+  return formatter.format(date);
+}
+
+export function isTodayBrasilia(dateStr: string): boolean {
+  if (!dateStr) return false;
+  const cleanDate = dateStr.split('T')[0];
+  return cleanDate === getTodayDateString();
+}
+
+export function isTomorrowBrasilia(dateStr: string): boolean {
+  if (!dateStr) return false;
+  const cleanDate = dateStr.split('T')[0];
+  const [y, m, d] = cleanDate.split('-').map(Number);
+  if (isNaN(y) || isNaN(m) || isNaN(d)) return false;
+  const date = new Date(Date.UTC(y, m - 1, d));
+  
+  // Criar amanhã em Brasília
+  const todayB = getTodayDateString();
+  const [ty, tm, td] = todayB.split('-').map(Number);
+  const tomorrowB = new Date(Date.UTC(ty, tm - 1, td + 1));
+  
+  return date.getUTCFullYear() === tomorrowB.getUTCFullYear() &&
+         date.getUTCMonth() === tomorrowB.getUTCMonth() &&
+         date.getUTCDate() === tomorrowB.getUTCDate();
+}
+
+export function isPastBrasilia(dateStr: string): boolean {
+  if (!dateStr) return false;
+  const cleanDate = dateStr.split('T')[0];
+  return cleanDate < getTodayDateString();
+}
+
+export function parseDateWithoutTimezone(dateStr: string): Date {
+  if (!dateStr) return new Date();
+  const cleanDate = dateStr.split('T')[0];
+  const [year, month, day] = cleanDate.split('-').map(Number);
+  if (isNaN(year) || isNaN(month) || isNaN(day)) return new Date();
+  return new Date(year, month - 1, day);
+}
