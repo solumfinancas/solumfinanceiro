@@ -213,6 +213,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     let mounted = true;
     if (user?.id) {
+       // Atualizar último acesso no Supabase Auth uma vez por sessão de navegador
+       const lastAccessKey = `last_access_updated_${user.id}`;
+       if (!sessionStorage.getItem(lastAccessKey)) {
+         sessionStorage.setItem(lastAccessKey, 'true');
+         supabase.auth.updateUser({
+           data: { last_access: new Date().toISOString() }
+         }).then(({ data, error }) => {
+           if (error) {
+             console.error('Erro ao atualizar último acesso:', error);
+           } else if (mounted && data?.user) {
+             setUser(data.user);
+           }
+         });
+       }
+
        fetchProfile(user.id).then(p => {
          if (mounted) {
            setProfile(p);

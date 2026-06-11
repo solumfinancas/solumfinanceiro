@@ -25,7 +25,7 @@ import {
   Archive
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { cn, getTodayDateString, isTodayBrasilia, isTomorrowBrasilia, isPastBrasilia, parseDateWithoutTimezone } from '../lib/utils';
+import { cn, getTodayDateString, isTodayCampoGrande, isTomorrowCampoGrande, isPastCampoGrande, parseDateWithoutTimezone } from '../lib/utils';
 import { useModal } from '../contexts/ModalContext';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -389,7 +389,7 @@ export const Tasks: React.FC = () => {
     });
 
     if (showOverdueOnly) {
-      result = result.filter(t => !t.completed && isPastBrasilia(t.deadline));
+      result = result.filter(t => !t.completed && isPastCampoGrande(t.deadline));
     }
 
     // Sort by deadline (asc), then created_at (asc)
@@ -403,8 +403,8 @@ export const Tasks: React.FC = () => {
 
   const formatDateLabel = (dateStr: string) => {
     const cleanDate = dateStr.split('T')[0];
-    if (isTodayBrasilia(cleanDate)) return 'Hoje';
-    if (isTomorrowBrasilia(cleanDate)) return 'Amanhã';
+    if (isTodayCampoGrande(cleanDate)) return 'Hoje';
+    if (isTomorrowCampoGrande(cleanDate)) return 'Amanhã';
     const d = parseDateWithoutTimezone(cleanDate);
     return format(d, "dd 'de' MMMM", { locale: ptBR });
   };
@@ -487,7 +487,7 @@ export const Tasks: React.FC = () => {
             "ml-2 px-1.5 py-0.5 rounded-lg text-[9px] font-bold",
             showOverdueOnly ? "bg-white/20" : "bg-rose-500/10 text-rose-500"
           )}>
-            {tasks.filter(t => !t.completed && isPastBrasilia(t.deadline)).length}
+            {tasks.filter(t => !t.completed && isPastCampoGrande(t.deadline)).length}
           </span>
         </button>
       </div>
@@ -516,7 +516,7 @@ export const Tasks: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
           <AnimatePresence mode="popLayout">
             {filteredAndSortedTasks.map((task) => {
-              const isOverdue = !task.completed && isPastBrasilia(task.deadline);
+              const isOverdue = !task.completed && isPastCampoGrande(task.deadline);
 
               return (
                 <motion.div
@@ -786,10 +786,10 @@ export const Tasks: React.FC = () => {
                     <div className={cn(
                       "w-14 h-14 rounded-2xl flex items-center justify-center shadow-inner",
                       selectedTask.completed ? "bg-emerald-500/10 text-emerald-500" :
-                        isPastBrasilia(selectedTask.deadline) ? "bg-rose-500/10 text-rose-500" : "bg-primary/10 text-primary"
+                        isPastCampoGrande(selectedTask.deadline) ? "bg-rose-500/10 text-rose-500" : "bg-primary/10 text-primary"
                     )}>
                       {selectedTask.completed ? <CheckCircle2 size={28} /> :
-                        isPastBrasilia(selectedTask.deadline) ? <AlertCircle size={28} /> : <Clock size={28} />}
+                        isPastCampoGrande(selectedTask.deadline) ? <AlertCircle size={28} /> : <Clock size={28} />}
                     </div>
                     <div>
                       <h2 className={cn(
@@ -1190,7 +1190,7 @@ export const Tasks: React.FC = () => {
 const formatDateLabelOuter = (dateStr: string) => {
   try {
     const cleanDate = dateStr.split('T')[0];
-    if (isTodayBrasilia(cleanDate)) return 'Hoje';
+    if (isTodayCampoGrande(cleanDate)) return 'Hoje';
     const d = parseDateWithoutTimezone(cleanDate);
     return format(d, "dd 'de' MMMM", { locale: ptBR });
   } catch (e) {

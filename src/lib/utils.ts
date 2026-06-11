@@ -236,7 +236,7 @@ export function validateCNPJ(cnpj: string): boolean {
 
 export function getTodayDateString(date: Date = new Date()): string {
   const formatter = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'America/Sao_Paulo',
+    timeZone: 'America/Campo_Grande',
     year: 'numeric',
     month: '2-digit',
     day: '2-digit'
@@ -244,20 +244,20 @@ export function getTodayDateString(date: Date = new Date()): string {
   return formatter.format(date);
 }
 
-export function isTodayBrasilia(dateStr: string): boolean {
+export function isTodayCampoGrande(dateStr: string): boolean {
   if (!dateStr) return false;
   const cleanDate = dateStr.split('T')[0];
   return cleanDate === getTodayDateString();
 }
 
-export function isTomorrowBrasilia(dateStr: string): boolean {
+export function isTomorrowCampoGrande(dateStr: string): boolean {
   if (!dateStr) return false;
   const cleanDate = dateStr.split('T')[0];
   const [y, m, d] = cleanDate.split('-').map(Number);
   if (isNaN(y) || isNaN(m) || isNaN(d)) return false;
   const date = new Date(Date.UTC(y, m - 1, d));
   
-  // Criar amanhã em Brasília
+  // Criar amanhã em Campo Grande
   const todayB = getTodayDateString();
   const [ty, tm, td] = todayB.split('-').map(Number);
   const tomorrowB = new Date(Date.UTC(ty, tm - 1, td + 1));
@@ -267,7 +267,7 @@ export function isTomorrowBrasilia(dateStr: string): boolean {
          date.getUTCDate() === tomorrowB.getUTCDate();
 }
 
-export function isPastBrasilia(dateStr: string): boolean {
+export function isPastCampoGrande(dateStr: string): boolean {
   if (!dateStr) return false;
   const cleanDate = dateStr.split('T')[0];
   return cleanDate < getTodayDateString();
