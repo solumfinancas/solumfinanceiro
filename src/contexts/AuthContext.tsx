@@ -16,6 +16,10 @@ export interface Profile {
   can_activate_second_space?: boolean;
   monthly_imports_count?: number;
   last_import_reset?: string;
+  personal_imports_count?: number;
+  business_imports_count?: number;
+  personal_imports_limit?: number;
+  business_imports_limit?: number;
 }
 
 interface AuthContextType {
@@ -66,11 +70,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       if (now.getMonth() !== lastReset.getMonth() || now.getFullYear() !== lastReset.getFullYear()) {
          const { error: resetError } = await supabase.from('profiles')
-           .update({ monthly_imports_count: 0, last_import_reset: now.toISOString() })
+           .update({ 
+             monthly_imports_count: 0, 
+             personal_imports_count: 0,
+             business_imports_count: 0,
+             last_import_reset: now.toISOString() 
+           })
            .eq('id', uid);
            
          if (!resetError) {
            profileResult.monthly_imports_count = 0;
+           profileResult.personal_imports_count = 0;
+           profileResult.business_imports_count = 0;
            profileResult.last_import_reset = now.toISOString();
          }
       }

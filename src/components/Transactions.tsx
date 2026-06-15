@@ -65,7 +65,7 @@ export const Transactions: React.FC<TransactionsProps> = ({
   const [viewModeContas, setViewModeContas] = useState<'contas' | 'cartoes'>('contas');
   const [selectedWalletId, setSelectedWalletId] = useState<string>('all');
   const [isFilteringPastPending, setIsFilteringPastPending] = useState(false);
-  const [necessityFilter, setNecessityFilter] = useState<'all' | 'necessary' | 'unnecessary' | 'other' | 'planned' | 'invoice'>('all');
+  const [necessityFilter, setNecessityFilter] = useState<'all' | 'necessary' | 'unnecessary' | 'other' | 'planned' | 'invoice' | 'cycle'>('all');
   const [showSearchFAB, setShowSearchFAB] = useState(false);
   const [isCardOptionsModalOpen, setIsCardOptionsModalOpen] = useState(false);
 
@@ -205,7 +205,8 @@ export const Transactions: React.FC<TransactionsProps> = ({
                                (necessityFilter === 'unnecessary' && !isInvoicePayment && !isRefund && t.type !== 'planned' && t.necessity === 'unnecessary' && !!t.groupId) ||
                                (necessityFilter === 'other' && !isInvoicePayment && !isRefund && t.type !== 'planned' && !t.groupId) ||
                                (necessityFilter === 'planned' && t.type === 'planned') ||
-                               (necessityFilter === 'invoice' && (isInvoicePayment || isRefund));
+                               (necessityFilter === 'invoice' && (isInvoicePayment || isRefund)) ||
+                               (necessityFilter === 'cycle' && (!!t.groupId || t.isContinuous === true));
 
       if (viewModeContas === 'contas') {
         return matchesFilter && matchesSearch && matchesYear && matchesMonth && isBankTx && matchesWallet && matchesNecessity;
@@ -992,6 +993,7 @@ export const Transactions: React.FC<TransactionsProps> = ({
             <CustomSelect 
               options={[
                 { id: 'all', name: 'Todas Classificações', icon: 'Layers' },
+                { id: 'cycle', name: 'Somente Ciclos', color: '#6366f1', icon: 'RefreshCw' },
                 { id: 'necessary', name: 'Nec. Recorrente', color: '#10b981', icon: 'CheckCircle2' },
                 { id: 'unnecessary', name: 'Desnec. Recorrente', color: '#f59e0b', icon: 'AlertCircle' },
                 { id: 'other', name: 'Variáveis / Outros', color: '#666', icon: 'Tag' },

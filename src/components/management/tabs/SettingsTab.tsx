@@ -33,7 +33,8 @@ export const SettingsTab: React.FC = () => {
       annualPrice: 77,
       description: 'Ideal para quem está começando na educação financeira.',
       features: [
-        'Até 10 clientes ativos',
+        'Até 5 clientes ativos',
+        '28 importações com IA por mês',
         'Gestão financeira básica',
         'Relatórios mensais',
         'Suporte via e-mail'
@@ -49,7 +50,8 @@ export const SettingsTab: React.FC = () => {
       annualPrice: 157,
       description: 'Perfeito para educadores em crescimento e expansão.',
       features: [
-        'Até 25 clientes ativos',
+        'Até 10 clientes ativos',
+        '60 importações com IA por mês',
         'Gestão financeira avançada',
         'Simuladores ilimitados',
         'Dashboard personalizado',
@@ -66,7 +68,8 @@ export const SettingsTab: React.FC = () => {
       annualPrice: 297,
       description: 'Para escritórios e equipes que precisam de escala.',
       features: [
-        'Clientes ilimitados',
+        'Até 20 clientes ativos',
+        '176 importações com IA por mês',
         'Múltiplos usuários admin',
         'API de integração',
         'Treinamento exclusivo',

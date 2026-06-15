@@ -12,7 +12,7 @@ import {
   Dice5, Users, Flag, Gamepad2, HeartHandshake, ShoppingCart, BarChart3, Image as LucideImage,
   DollarSign, Lock, Bike, MoreHorizontal, FileText, User, PawPrint, Ship, Star, Truck,
   SmilePlus, Snowflake, Sprout, Store, Syringe, Tablet, Percent, Train, Bus, PlaneTakeoff,
-  Map, Compass, LifeBuoy, List
+  Map, Compass, LifeBuoy, List, RefreshCw
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
@@ -91,7 +91,7 @@ export const IconRenderer: React.FC<IconRendererProps> = ({
     Dice5, Users, Flag, Gamepad2, HeartHandshake, ShoppingCart, BarChart3, LucideImage,
     DollarSign, Lock, Bike, MoreHorizontal, FileText, User, PawPrint, Ship, Star, Truck,
     SmilePlus, Snowflake, Sprout, Store, Syringe, Tablet, Percent, Train, Bus, PlaneTakeoff,
-    Map, Compass, LifeBuoy, List,
+    Map, Compass, LifeBuoy, List, RefreshCw,
     wallet: Wallet,
     bank: Landmark,
     piggy: PiggyBank

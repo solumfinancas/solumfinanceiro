@@ -21,7 +21,8 @@ import {
   Eye,
   EyeOff,
   UserCheck,
-  UserX
+  UserX,
+  Sparkles
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../../lib/utils';
@@ -105,6 +106,48 @@ export const ManagementPortal: React.FC<ManagementPortalProps> = ({ activeTab = 
   const [allProfiles, setAllProfiles] = useState<Profile[]>([]);
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
   const [clientSearch, setClientSearch] = useState('');
+  
+  // Limites de importações do usuário (gerenciado por Admins)
+  const [userToEditLimits, setUserToEditLimits] = useState<Profile | null>(null);
+  const [personalLimitInput, setPersonalLimitInput] = useState<number>(4);
+  const [businessLimitInput, setBusinessLimitInput] = useState<number>(4);
+  const [isSavingLimits, setIsSavingLimits] = useState(false);
+
+  useEffect(() => {
+    if (userToEditLimits) {
+      setPersonalLimitInput(userToEditLimits.personal_imports_limit !== undefined ? userToEditLimits.personal_imports_limit : 4);
+      setBusinessLimitInput(userToEditLimits.business_imports_limit !== undefined ? userToEditLimits.business_imports_limit : 4);
+    }
+  }, [userToEditLimits]);
+
+  const handleSaveLimits = async () => {
+    if (!userToEditLimits) return;
+    setIsSavingLimits(true);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          personal_imports_limit: personalLimitInput,
+          business_imports_limit: businessLimitInput
+        })
+        .eq('id', userToEditLimits.id);
+
+      if (error) throw error;
+
+      showAlert('Sucesso', 'Limites de importação atualizados com sucesso.', 'success');
+      setProfiles(prev => prev.map(p => p.id === userToEditLimits.id ? {
+        ...p,
+        personal_imports_limit: personalLimitInput,
+        business_imports_limit: businessLimitInput
+      } : p));
+      setUserToEditLimits(null);
+    } catch (err: any) {
+      console.error('Erro ao salvar limites:', err);
+      showAlert('Erro', 'Não foi possível atualizar os limites: ' + err.message, 'danger');
+    } finally {
+      setIsSavingLimits(false);
+    }
+  };
   
   const [creatingUser, setCreatingUser] = useState(false);
   const [linkingUsers, setLinkingUsers] = useState(false);
@@ -771,6 +814,18 @@ export const ManagementPortal: React.FC<ManagementPortalProps> = ({ activeTab = 
                                         </button>
                                       )}
 
+                                      {['admin', 'master_admin'].includes(profile?.role || '') && p.role === 'user' && (
+                                        <button 
+                                          onClick={() => {
+                                            setUserToEditLimits(p);
+                                            setActiveMenuId(null);
+                                          }}
+                                          className="w-full flex items-center gap-3 px-4 py-3 text-[10px] font-black uppercase tracking-widest text-primary hover:bg-primary/10 rounded-xl transition-all"
+                                        >
+                                          <Sparkles size={16} /> Ajustar Limites de IA
+                                        </button>
+                                      )}
+
                                       {p.id !== profile?.id && p.role !== 'master_admin' && roleRank(profile?.role as UserRole) > roleRank(p.role) && profile?.role !== 'educator' && (
                                         <button 
                                           onClick={() => {
@@ -1234,6 +1289,134 @@ export const ManagementPortal: React.FC<ManagementPortalProps> = ({ activeTab = 
         clientId={createdClientId!}
         spaceType="personal"
       />
+      {/* Modal Ajustar Limites de IA */}
+      <AnimatePresence>
+        {userToEditLimits && (
+          <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }} 
+              animate={{ opacity: 1 }} 
+              exit={{ opacity: 0 }} 
+              onClick={() => setUserToEditLimits(null)} 
+              className="absolute inset-0 bg-slate-950/80 backdrop-blur-md" 
+            />
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0, y: 20 }} 
+              animate={{ scale: 1, opacity: 1, y: 0 }} 
+              exit={{ scale: 0.9, opacity: 0, y: 20 }} 
+              className="relative w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-[2.5rem] p-8 md:p-10 shadow-2xl z-10"
+            >
+              <button 
+                onClick={() => setUserToEditLimits(null)}
+                className="absolute top-6 right-6 w-10 h-10 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-white/10 transition-all"
+              >
+                <X size={20} />
+              </button>
+
+              <div className="space-y-1 mb-8">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="text-primary" size={20} />
+                  <span className="text-[10px] font-black uppercase tracking-[0.3em] text-primary">Ajuste de Recursos</span>
+                </div>
+                <h2 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">Limites de IA</h2>
+                <p className="text-slate-500 dark:text-slate-400 text-[10px] font-bold uppercase tracking-widest leading-relaxed">
+                  Gerencie o limite de importações por IA de <span className="text-slate-900 dark:text-white font-bold">{userToEditLimits.full_name}</span>.
+                </p>
+              </div>
+
+              <div className="space-y-6 mb-8">
+                {/* Espaço Pessoal */}
+                <div className="bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-white/5 rounded-3xl p-6 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-blue-500">
+                      <User size={16} />
+                      <span className="text-[10px] font-black uppercase tracking-widest">Espaço Pessoal</span>
+                    </div>
+                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">
+                      Uso atual: {userToEditLimits.personal_imports_count || 0}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="text-xs font-bold text-slate-500">Limite Mensal:</span>
+                    <div className="flex items-center gap-3">
+                      <button 
+                        type="button"
+                        onClick={() => setPersonalLimitInput(p => Math.max(0, p - 1))}
+                        className="w-10 h-10 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 flex items-center justify-center font-bold text-lg hover:border-primary/50 transition-all select-none active:scale-95"
+                      >
+                        -
+                      </button>
+                      <span className="w-12 text-center font-black text-lg text-slate-900 dark:text-white select-none">
+                        {personalLimitInput}
+                      </span>
+                      <button 
+                        type="button"
+                        onClick={() => setPersonalLimitInput(p => p + 1)}
+                        className="w-10 h-10 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 flex items-center justify-center font-bold text-lg hover:border-primary/50 transition-all select-none active:scale-95"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Espaço Empresarial */}
+                <div className="bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-white/5 rounded-3xl p-6 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-slate-900 dark:text-white">
+                      <Building2 size={16} />
+                      <span className="text-[10px] font-black uppercase tracking-widest">Espaço Empresarial</span>
+                    </div>
+                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">
+                      Uso atual: {userToEditLimits.business_imports_count || 0}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="text-xs font-bold text-slate-500">Limite Mensal:</span>
+                    <div className="flex items-center gap-3">
+                      <button 
+                        type="button"
+                        onClick={() => setBusinessLimitInput(p => Math.max(0, p - 1))}
+                        className="w-10 h-10 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 flex items-center justify-center font-bold text-lg hover:border-primary/50 transition-all select-none active:scale-95"
+                      >
+                        -
+                      </button>
+                      <span className="w-12 text-center font-black text-lg text-slate-900 dark:text-white select-none">
+                        {businessLimitInput}
+                      </span>
+                      <button 
+                        type="button"
+                        onClick={() => setBusinessLimitInput(p => p + 1)}
+                        className="w-10 h-10 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 flex items-center justify-center font-bold text-lg hover:border-primary/50 transition-all select-none active:scale-95"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <button 
+                  type="button"
+                  onClick={() => setUserToEditLimits(null)} 
+                  className="h-14 bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  type="button"
+                  disabled={isSavingLimits}
+                  onClick={handleSaveLimits} 
+                  className="h-14 bg-primary text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50"
+                >
+                  {isSavingLimits ? 'Gravando...' : 'Salvar'}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </>
   );
 };

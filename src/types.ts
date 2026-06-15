@@ -70,6 +70,10 @@ export interface ProfileType {
   can_activate_second_space?: boolean;
   monthly_imports_count?: number;
   last_import_reset?: string;
+  personal_imports_count?: number;
+  business_imports_count?: number;
+  personal_imports_limit?: number;
+  business_imports_limit?: number;
 }
 
 export interface EquityAsset {

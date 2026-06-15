@@ -84,7 +84,7 @@ const INITIAL_CATEGORIES_TEMPLATE: Omit<Category, 'id' | 'userId' | 'space'>[] =
   { name: 'Mercado', type: 'expense', icon: '/categorias/mercado.png', color: '#10b981', isActive: true },
   { name: 'Outros', type: 'expense', icon: '/categorias/outros.png', color: '#94a3b8', isActive: true },
   { name: 'Pets', type: 'expense', icon: '/categorias/pet.png', color: '#a855f7', isActive: true },
-  { name: 'Presentes e doações', type: 'expense', icon: '/categorias/doacao.png', color: '#f43f5e', isActive: true },
+  { name: 'Presentes, aniversários e doações', type: 'expense', icon: '/categorias/doacao.png', color: '#f43f5e', isActive: true },
   { name: 'Roupas', type: 'expense', icon: '/categorias/roupas.png', color: '#ec4899', isActive: true },
   { name: 'Saúde', type: 'expense', icon: '/categorias/saude.png', color: '#ef4444', isActive: true },
   { name: 'Trabalho', type: 'expense', icon: '/categorias/trabalho.png', color: '#06b6d4', isActive: true },
@@ -128,7 +128,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const lastFetchedId = React.useRef<string>('');
   const lastFetchedSpace = React.useRef<string>('');
   const currentFetchIdentity = React.useRef<{ userId: string; space: string } | null>(null);
- 
+
   const effectiveUserId = viewingUserId || user?.id;
   const storageId = user?.id;
 
@@ -137,13 +137,13 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       if (!isFetchingData.current) setLoading(false);
       return;
     }
-    
+
     const targetUserId = effectiveUserId;
     const targetSpace = activeSpace;
 
     // Detectar mudança de identidade (usuário ou espaço)
     const identityChanged = lastFetchedId.current !== targetUserId || lastFetchedSpace.current !== targetSpace;
-    
+
     if (isFetchingData.current && !identityChanged) {
       return;
     }
@@ -164,7 +164,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setNonRecurringExpenses([]);
       setOrderedCards([]);
       setOrderedAccounts([]);
-      
+
       lastFetchedId.current = targetUserId;
       lastFetchedSpace.current = targetSpace;
     }
@@ -178,7 +178,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         .eq('userId', targetUserId)
         .eq('space', targetSpace)
         .order('name');
-      
+
       if (catErr) throw catErr;
 
       if (currentFetchIdentity.current?.userId !== targetUserId || currentFetchIdentity.current?.space !== targetSpace) {
@@ -219,7 +219,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         const metadata = user.user_metadata;
         const cardOrderKey = `wallet_order_${targetSpace}_cards`;
         const accountOrderKey = `wallet_order_${targetSpace}_accounts`;
-        
+
         // Sincronizar Cartões
         const cards = fetchedWallets.filter(w => w.type === 'credit_card' && w.isActive !== false).map(w => w.id);
         let finalCardOrder: string[] = [];
@@ -273,7 +273,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         .select('*')
         .eq('user_id', targetUserId)
         .eq('archived', false);
-      
+
       if (currentFetchIdentity.current?.userId !== targetUserId || currentFetchIdentity.current?.space !== targetSpace) {
         return;
       }
@@ -397,7 +397,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     if (user && !isSpaceInitialized) {
       if (initializedSpaces.length === 1) {
         setActiveSpace(initializedSpaces[0]);
-      } 
+      }
       setIsSpaceInitialized(true);
     }
   }, [user, isSpaceInitialized, initializedSpaces]);
@@ -495,12 +495,12 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
           setTransactions(prev => {
             if (payload.new.space !== activeSpace) return prev;
             if (prev.some(t => t.id === payload.new.id)) return prev;
-            
+
             // Tentar encontrar uma transação otimista correspondente para evitar duplicidade momentânea
-            const isOptimisticMatch = (t: Transaction) => 
-              typeof t.id === 'string' && 
-              t.id.startsWith('temp-') && 
-              t.description === payload.new.description && 
+            const isOptimisticMatch = (t: Transaction) =>
+              typeof t.id === 'string' &&
+              t.id.startsWith('temp-') &&
+              t.description === payload.new.description &&
               t.amount === payload.new.amount &&
               t.date === payload.new.date;
 
@@ -640,7 +640,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       const txSum = transactions.reduce((sum, t) => {
         let balanceChange = 0;
         const isCreditCard = w.type === 'credit_card';
-        
+
         const isExpenseType = t.type === 'expense' || t.type === 'planned' || t.type === 'provision';
         const isIncomeType = t.type === 'income';
 
@@ -662,7 +662,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
         return sum + balanceChange;
       }, 0);
-      
+
       return { ...w, balance: (w.initialBalance || 0) + txSum };
     });
   }, [transactions, rawWallets]);
@@ -671,15 +671,15 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const addTransaction = async (tx: any) => {
     if (!user) return;
-    
+
     // Clean joined fields that shouldn't be inserted
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { id, category, wallet, created_at: _ca, ...txToInsert } = tx;
 
     const walletData = wallets.find(w => w.id === txToInsert.walletId);
     if (walletData?.type === 'credit_card') {
-      txToInsert.isPaid = true; 
-      
+      txToInsert.isPaid = true;
+
       if (!txToInsert.invoiceMonth || !txToInsert.invoiceYear) {
         const period = getInvoicePeriod(walletData.closingDay || 5, walletData.dueDay || 15, new Date(txToInsert.date + 'T12:00:00'));
         txToInsert.invoiceMonth = period.due.getUTCMonth() + 1;
@@ -693,10 +693,10 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     // Prevent duplicates only for recurrent transactions (Ciclo/Recurrence)
     const isRecurrent = !!(txToInsert.groupId || txToInsert.isContinuous);
     if (isRecurrent) {
-      const alreadyExists = transactions.some(t => 
-        t.description === txToInsert.description && 
-        t.date === txToInsert.date && 
-        t.walletId === txToInsert.walletId && 
+      const alreadyExists = transactions.some(t =>
+        t.description === txToInsert.description &&
+        t.date === txToInsert.date &&
+        t.walletId === txToInsert.walletId &&
         t.amount === txToInsert.amount &&
         !t.isDeleted &&
         (t.groupId || t.isContinuous)
@@ -705,10 +705,10 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
 
     const tempId = 'temp-' + Date.now();
-    const optimisticTx = { 
-      ...txToInsert, 
-      id: tempId, 
-      userId: effectiveUserId, 
+    const optimisticTx = {
+      ...txToInsert,
+      id: tempId,
+      userId: effectiveUserId,
       space: activeSpace,
       created_at: new Date().toISOString()
     } as Transaction;
@@ -721,7 +721,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         .insert([{ ...txToInsert, userId: effectiveUserId, space: activeSpace }])
         .select()
         .single();
-      
+
       if (error) throw error;
       setTransactions(prev => prev.map(tx => tx.id === tempId ? data : tx));
       updateActivity('update');
@@ -733,18 +733,18 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const addTransactions = async (txs: Omit<Transaction, 'id'>[]) => {
     if (!user) return;
-    
+
     const baseTime = Date.now();
-    
+
     // Filter out transactions that already exist (only for recurrent ones)
     const uniqueTxs = txs.filter(newTx => {
       const isRecurrent = !!(newTx.groupId || (newTx as any).isContinuous);
       if (!isRecurrent) return true;
 
-      return !transactions.some(t => 
-        t.description === newTx.description && 
-        t.date === newTx.date && 
-        t.walletId === newTx.walletId && 
+      return !transactions.some(t =>
+        t.description === newTx.description &&
+        t.date === newTx.date &&
+        t.walletId === newTx.walletId &&
         t.amount === newTx.amount &&
         !t.isDeleted &&
         (t.groupId || t.isContinuous)
@@ -754,15 +754,15 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     if (uniqueTxs.length === 0) return;
 
     const txsToInsert = uniqueTxs.map((t, index) => {
-      const tx = { 
-        ...t, 
-        userId: effectiveUserId, 
+      const tx = {
+        ...t,
+        userId: effectiveUserId,
         space: activeSpace,
         created_at: new Date(baseTime + (txs.length - index)).toISOString()
       } as any;
 
       const wallet = rawWallets.find(w => w.id === tx.walletId);
-      
+
       if (wallet?.type === 'credit_card') {
         tx.isPaid = true;
         if (!tx.invoiceMonth || !tx.invoiceYear) {
@@ -782,12 +782,12 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     });
 
     const tempIds = txs.map(() => 'temp-' + Math.random().toString(36).substr(2, 9));
-    const optimisticTxs = txsToInsert.map((t, i) => ({ 
-      ...t, 
+    const optimisticTxs = txsToInsert.map((t, i) => ({
+      ...t,
       id: tempIds[i],
       created_at: t.created_at
     } as Transaction));
-    
+
     setTransactions(prev => [...optimisticTxs, ...prev]);
 
     try {
@@ -795,9 +795,9 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         .from('transactions')
         .insert(txsToInsert)
         .select();
-      
+
       if (error) throw error;
-      
+
       setTransactions(prev => {
         const filtered = prev.filter(tx => !tempIds.includes(tx.id));
         return [...(data || []), ...filtered];
@@ -811,14 +811,14 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const deleteTransaction = async (id: string) => {
     const originalTxs = [...transactions];
-    
+
     setTransactions(prev => prev.filter(tx => tx.id !== id));
 
     const { error } = await supabase
       .from('transactions')
       .delete()
       .eq('id', id);
-    
+
     if (error) {
       setTransactions(originalTxs);
       throw error;
@@ -828,14 +828,14 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const updateTransaction = async (id: string, updatedTx: Partial<Transaction>) => {
     let txToUpdate = { ...updatedTx };
-    
+
     const currentTx = transactions.find(t => t.id === id);
-    
+
     // Limpar a categoria se o tipo de lançamento não tiver categoria ou se for pagamento de fatura
     const finalDescription = txToUpdate.description || currentTx?.description;
     const isInvoicePayment = !!finalDescription?.toLowerCase().includes('pagamento de fatura');
     const finalType = txToUpdate.type || currentTx?.type;
-    
+
     if (isInvoicePayment || (finalType && !['income', 'expense'].includes(finalType))) {
       (txToUpdate as any).categoryId = null;
     } else if ('categoryId' in txToUpdate && (txToUpdate.categoryId === undefined || txToUpdate.categoryId === null)) {
@@ -845,7 +845,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     if (txToUpdate.walletId || txToUpdate.date) {
       const walletId = txToUpdate.walletId || currentTx?.walletId;
       const date = txToUpdate.date || currentTx?.date;
-      
+
       const wallet = rawWallets.find(w => w.id === walletId);
       if (wallet?.type === 'credit_card') {
         txToUpdate.isPaid = true;
@@ -866,7 +866,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
 
     const originalTxs = [...transactions];
-    
+
     setTransactions(prev => prev.map(tx => tx.id === id ? { ...tx, ...txToUpdate } as Transaction : tx));
 
     try {
@@ -876,7 +876,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         .eq('id', id)
         .select()
         .single();
-      
+
       if (error) throw error;
       setTransactions(prev => prev.map(tx => tx.id === id ? data : tx));
     } catch (error) {
@@ -888,7 +888,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const addCategory = async (c: Omit<Category, 'id'>) => {
     if (!effectiveUserId) return;
-    
+
     const tempId = 'temp-' + Date.now();
     const optimisticCat = { ...c, id: tempId, userId: effectiveUserId, space: activeSpace, isActive: true } as Category;
     setCategories(prev => [...prev, optimisticCat]);
@@ -899,7 +899,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         .insert([{ ...c, userId: effectiveUserId, space: activeSpace, isActive: true }])
         .select()
         .single();
-      
+
       if (error) throw error;
       setCategories(prev => prev.map(cat => cat.id === tempId ? data : cat));
       updateActivity('update');
@@ -918,7 +918,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       .eq('id', id)
       .select()
       .single();
-    
+
     if (error) throw error;
     setCategories(prev => prev.map(c => c.id === id ? data : c));
     updateActivity('update');
@@ -931,57 +931,57 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       .eq('id', id)
       .select()
       .single();
-    
+
     if (error) throw error;
     setCategories(prev => prev.map(c => c.id === id ? data : c));
     updateActivity('update');
   };
 
-    const deleteCategory = async (id: string) => {
-      // Verificar se a categoria ou qualquer uma de suas subcategorias tem transações
-      const subcategoryIds = categories.filter(c => c.parentId === id).map(c => c.id);
-      const allTargetIds = [id, ...subcategoryIds];
-      const hasTransactions = transactions.some(tx => allTargetIds.includes(tx.categoryId));
-      
-      if (hasTransactions) {
-        // Se houver transações (nela ou em subcategorias), arquivamos
-        const { error } = await supabase
+  const deleteCategory = async (id: string) => {
+    // Verificar se a categoria ou qualquer uma de suas subcategorias tem transações
+    const subcategoryIds = categories.filter(c => c.parentId === id).map(c => c.id);
+    const allTargetIds = [id, ...subcategoryIds];
+    const hasTransactions = transactions.some(tx => allTargetIds.includes(tx.categoryId));
+
+    if (hasTransactions) {
+      // Se houver transações (nela ou em subcategorias), arquivamos
+      const { error } = await supabase
+        .from('categories')
+        .update({ isDeleted: true, isActive: false })
+        .eq('id', id);
+      if (error) throw error;
+
+      // Também arquivamos as subcategorias para manter consistência
+      if (subcategoryIds.length > 0) {
+        await supabase
           .from('categories')
           .update({ isDeleted: true, isActive: false })
-          .eq('id', id);
-        if (error) throw error;
-
-        // Também arquivamos as subcategorias para manter consistência
-        if (subcategoryIds.length > 0) {
-          await supabase
-            .from('categories')
-            .update({ isDeleted: true, isActive: false })
-            .in('id', subcategoryIds);
-        }
-
-        // ATUALIZAÇÃO: Em vez de filter, usamos map para manter no estado com a flag isDeleted
-        setCategories(prev => prev.map(c => 
-          (c.id === id || c.parentId === id) 
-            ? { ...c, isDeleted: true, isActive: false } 
-            : c
-        ));
-      } else {
-        // Se não houver nada, excluímos fisicamente
-        const { error } = await supabase
-          .from('categories')
-          .delete()
-          .eq('id', id);
-        if (error) throw error;
-        
-        setCategories(prev => prev.filter(c => c.id !== id && c.parentId !== id));
+          .in('id', subcategoryIds);
       }
-      
-      updateActivity('update');
-    };
+
+      // ATUALIZAÇÃO: Em vez de filter, usamos map para manter no estado com a flag isDeleted
+      setCategories(prev => prev.map(c =>
+        (c.id === id || c.parentId === id)
+          ? { ...c, isDeleted: true, isActive: false }
+          : c
+      ));
+    } else {
+      // Se não houver nada, excluímos fisicamente
+      const { error } = await supabase
+        .from('categories')
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
+
+      setCategories(prev => prev.filter(c => c.id !== id && c.parentId !== id));
+    }
+
+    updateActivity('update');
+  };
 
   const addWallet = async (w: Omit<Wallet, 'id'>) => {
     if (!effectiveUserId) return;
-    
+
     const tempId = 'temp-' + Date.now();
     const optimisticWallet = { ...w, id: tempId, userId: effectiveUserId, space: activeSpace, balance: w.initialBalance || 0 } as Wallet;
     setRawWallets(prev => [...prev, optimisticWallet]);
@@ -992,7 +992,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         .insert([{ ...w, userId: effectiveUserId, space: activeSpace }])
         .select()
         .single();
-      
+
       if (error) throw error;
       setRawWallets(prev => prev.map(wal => wal.id === tempId ? data : wal));
       updateActivity('update');
@@ -1011,58 +1011,58 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       .eq('id', id)
       .select()
       .single();
-    
+
     if (error) throw error;
     setRawWallets(prev => prev.map(w => w.id === id ? data : w));
     updateActivity('update');
   };
 
-   const toggleWalletActive = async (id: string) => {
-     const wal = rawWallets.find(w => w.id === id);
-     if (!wal) return;
+  const toggleWalletActive = async (id: string) => {
+    const wal = rawWallets.find(w => w.id === id);
+    if (!wal) return;
 
-     setRawWallets(prev => prev.map(w => w.id === id ? { ...w, isActive: !w.isActive } : w));
+    setRawWallets(prev => prev.map(w => w.id === id ? { ...w, isActive: !w.isActive } : w));
 
-     const { data, error } = await supabase
-       .from('wallets')
-       .update({ isActive: !wal.isActive })
-       .eq('id', id)
-       .select()
-       .single();
-     
-     if (error) throw error;
-     setRawWallets(prev => prev.map(w => w.id === id ? data : w));
-     updateActivity('update');
-   };
- 
-   const deleteWallet = async (id: string) => {
-     const hasTransactions = transactions.some(tx => tx.walletId === id || tx.toWalletId === id);
-     
-     if (hasTransactions) {
-       const { error } = await supabase
-         .from('wallets')
-         .update({ isDeleted: true, isActive: false })
-         .eq('id', id);
-       if (error) throw error;
+    const { data, error } = await supabase
+      .from('wallets')
+      .update({ isActive: !wal.isActive })
+      .eq('id', id)
+      .select()
+      .single();
 
-       // ATUALIZAÇÃO: Mantemos no estado com isDeleted para preservar histórico
-       setRawWallets(prev => prev.map(w => w.id === id ? { ...w, isDeleted: true, isActive: false } : w));
-     } else {
-       const { error } = await supabase
-         .from('wallets')
-         .delete()
-         .eq('id', id);
-       if (error) throw error;
+    if (error) throw error;
+    setRawWallets(prev => prev.map(w => w.id === id ? data : w));
+    updateActivity('update');
+  };
 
-       setRawWallets(prev => prev.filter(w => w.id !== id));
-     }
-     
-     updateActivity('update');
-   };
+  const deleteWallet = async (id: string) => {
+    const hasTransactions = transactions.some(tx => tx.walletId === id || tx.toWalletId === id);
+
+    if (hasTransactions) {
+      const { error } = await supabase
+        .from('wallets')
+        .update({ isDeleted: true, isActive: false })
+        .eq('id', id);
+      if (error) throw error;
+
+      // ATUALIZAÇÃO: Mantemos no estado com isDeleted para preservar histórico
+      setRawWallets(prev => prev.map(w => w.id === id ? { ...w, isDeleted: true, isActive: false } : w));
+    } else {
+      const { error } = await supabase
+        .from('wallets')
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
+
+      setRawWallets(prev => prev.filter(w => w.id !== id));
+    }
+
+    updateActivity('update');
+  };
 
   const updateActivity = async (type: 'access' | 'update') => {
     if (!user) return;
-    
+
     const now = Date.now();
     if (type === 'access' && now - lastActivityUpdate.current < 5 * 60 * 1000) {
       return;
@@ -1070,7 +1070,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
     lastActivityUpdate.current = now;
     const key = type === 'access' ? 'last_access' : 'last_update';
-    
+
     try {
       await supabase.auth.updateUser({
         data: { [key]: new Date().toISOString() }
@@ -1084,20 +1084,20 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const userId = targetUserId || effectiveUserId;
     if (!userId) return;
     try {
-      const seedData = INITIAL_CATEGORIES_TEMPLATE.map(c => ({ 
-        ...c, 
-        userId: userId, 
-        space: space 
+      const seedData = INITIAL_CATEGORIES_TEMPLATE.map(c => ({
+        ...c,
+        userId: userId,
+        space: space
       }));
 
-      
+
       const { data, error } = await supabase
         .from('categories')
         .insert(seedData)
         .select();
-      
+
       if (error) throw error;
-      
+
       // Se o espaço semeado for o ativo e for para o próprio usuário, atualiza o estado local
       if (!targetUserId && space === activeSpace) {
         setCategories(data || []);
@@ -1110,11 +1110,11 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const addEquityAsset = async (asset: Omit<EquityAsset, 'id' | 'user_id' | 'created_at'>) => {
     const tempId = 'temp-' + Math.random().toString(36).substr(2, 9);
-    const newAsset = { 
-      ...asset, 
-      id: tempId, 
-      user_id: effectiveUserId, 
-      created_at: new Date().toISOString() 
+    const newAsset = {
+      ...asset,
+      id: tempId,
+      user_id: effectiveUserId,
+      created_at: new Date().toISOString()
     } as EquityAsset;
 
     setEquityAssets(prev => [newAsset, ...prev]);
@@ -1160,7 +1160,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const deleteEquityAsset = async (id: string) => {
     // Primeiro remove o histórico
     await supabase.from('equity_history').delete().eq('asset_id', id);
-    
+
     const { error } = await supabase
       .from('equity_assets')
       .delete()
@@ -1187,7 +1187,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       .single();
 
     if (error) throw error;
-    
+
     setEquityHistory(prev => {
       const filtered = prev.filter(h => !(h.asset_id === assetId && h.month_year === monthYear));
       return [...filtered, data];
@@ -1208,11 +1208,11 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const addDebt = async (debt: any) => {
     const tempId = 'temp-' + Math.random().toString(36).substr(2, 9);
-    const newDebt = { 
-      ...debt, 
-      id: tempId, 
-      user_id: effectiveUserId, 
-      created_at: new Date().toISOString() 
+    const newDebt = {
+      ...debt,
+      id: tempId,
+      user_id: effectiveUserId,
+      created_at: new Date().toISOString()
     };
 
     setDebts(prev => [newDebt, ...prev]);
@@ -1262,7 +1262,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const deleteDebt = async (id: string) => {
     await supabase.from('debt_history').delete().eq('debt_id', id);
-    
+
     const { error } = await supabase
       .from('debts')
       .delete()
@@ -1289,7 +1289,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       .single();
 
     if (error) throw error;
-    
+
     setDebtHistory(prev => {
       const filtered = prev.filter(h => !(h.debt_id === debtId && h.month_year === monthYear));
       return [...filtered, data];
@@ -1310,10 +1310,10 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const addNonRecurringExpense = async (expense: Omit<NonRecurringExpense, 'id' | 'user_id' | 'created_at'>) => {
     const tempId = 'temp-' + Math.random().toString(36).substr(2, 9);
-    const newExpense = { 
-      ...expense, 
-      id: tempId, 
-      user_id: effectiveUserId, 
+    const newExpense = {
+      ...expense,
+      id: tempId,
+      user_id: effectiveUserId,
       created_at: new Date().toISOString(),
       priority_order: null
     } as NonRecurringExpense;
@@ -1408,17 +1408,17 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       deleteNonRecurringExpense,
       saveWalletOrder: async (cards: string[], accounts: string[]) => {
         if (!user) return;
-        
+
         // Atualizar estado local imediatamente para UX suave
         setOrderedCards(cards);
         setOrderedAccounts(accounts);
 
         const cardsKey = `wallet_order_${activeSpace}_cards`;
         const accountsKey = `wallet_order_${activeSpace}_accounts`;
-        
+
         try {
           const { error } = await supabase.auth.updateUser({
-            data: { 
+            data: {
               [cardsKey]: cards,
               [accountsKey]: accounts
             }

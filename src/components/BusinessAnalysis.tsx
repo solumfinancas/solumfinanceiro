@@ -70,6 +70,7 @@ export const BusinessAnalysis: React.FC = () => {
   const [selectedYear, setSelectedYear] = useState<number>(() => new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState<number | 'consolidated'>('consolidated');
   const [activeSubTab, setActiveSubTab] = useState<'study' | 'operational' | 'pricing'>('study');
+  const [showMemento, setShowMemento] = useState(true);
   
   // Modais e Configurações Gerais DRE
   const [isConfigOpen, setIsConfigOpen] = useState(false);
@@ -771,6 +772,104 @@ export const BusinessAnalysis: React.FC = () => {
               </button>
             );
           })}
+        </div>
+      </div>
+
+      {/* Memento de Apoio ao Estudo das Categorias */}
+      <div className="bg-card border border-border shadow-sm rounded-3xl p-6 relative overflow-hidden group">
+        <div className="absolute top-0 right-0 p-4 opacity-[0.02] dark:opacity-[0.05] text-primary group-hover:scale-110 transition-transform duration-300">
+          <HelpCircle size={48} />
+        </div>
+        <div className="flex items-start gap-4">
+          <div className="w-10 h-10 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shrink-0 mt-0.5 shadow-sm">
+            <Info size={20} />
+          </div>
+          <div className="space-y-3 flex-1">
+            <div className="flex items-center justify-between gap-4">
+              <h4 className="text-xs font-black uppercase tracking-wider text-foreground flex items-center gap-1.5">
+                💡 Guia de Leitura — 
+                {activeSubTab === 'study' && " Estudo do Empreendimento"}
+                {activeSubTab === 'operational' && " Análise Operacional"}
+                {activeSubTab === 'pricing' && " Precificação & Margens"}
+              </h4>
+              <button 
+                onClick={() => setShowMemento(prev => !prev)}
+                className="text-[9px] font-black uppercase tracking-widest text-primary hover:text-white transition-all px-2.5 py-1.5 rounded-xl bg-primary/5 hover:bg-primary border border-primary/15 cursor-pointer shadow-sm"
+              >
+                {showMemento ? "Recolher Guia" : "Expandir Guia"}
+              </button>
+            </div>
+
+            <AnimatePresence initial={false}>
+              {showMemento && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: "auto", opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="overflow-hidden"
+                >
+                  {activeSubTab === 'study' && (
+                    <div className="text-xs text-muted-foreground leading-relaxed space-y-3 pt-3 border-t border-border/40 mt-1">
+                      <p className="font-medium">
+                        Para uma análise precisa da saúde de vendas da empresa, utilize as duas formas de leitura configurando as categorias de receitas em <span className="font-bold text-primary">Configurar Categorias</span>:
+                      </p>
+                      <ul className="list-disc pl-5 space-y-2">
+                        <li>
+                          <span className="font-black uppercase tracking-tight text-[9px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/15 mr-1.5">Faturamento Real:</span> 
+                          Selecione <strong>apenas</strong> as categorias de receitas nas quais estão registradas as vendas diretas da empresa. Caso inclua outras receitas operacionais ou não-operacionais (como empréstimos, repasses ou aportes), o faturamento real de vendas será exibido incorretamente nos gráficos.
+                        </li>
+                        <li>
+                          <span className="font-black uppercase tracking-tight text-[9px] bg-blue-500/10 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded border border-blue-500/15 mr-1.5">Leitura Alternativa (Liquidez):</span> 
+                          Selecione <strong>todas</strong> as categorias de receitas. Isso serve para justificar ou analisar a liquidez da empresa, explicando como, mesmo operando no negativo (lucro operacional menor que despesas), a empresa ainda mantém dinheiro em caixa através de empréstimos, aportes de sócios ou outras fontes.
+                        </li>
+                      </ul>
+                    </div>
+                  )}
+
+                  {activeSubTab === 'operational' && (
+                    <div className="text-xs text-muted-foreground leading-relaxed space-y-3 pt-3 border-t border-border/40 mt-1">
+                      <p className="font-medium">
+                        A análise da margem de contribuição e do ponto de equilíbrio exige diferentes estudos sobre as categorias de despesa selecionadas:
+                      </p>
+                      <ul className="list-disc pl-5 space-y-2">
+                        <li>
+                          <span className="font-black uppercase tracking-tight text-[9px] bg-purple-500/10 text-purple-600 dark:text-purple-400 px-2 py-0.5 rounded border border-purple-500/15 mr-1.5">Operação Plena:</span> 
+                          Selecione apenas o faturamento real e <strong>todas</strong> as categorias de despesa para entender o ponto de equilíbrio real da empresa no mercado.
+                        </li>
+                        <li>
+                          <span className="font-black uppercase tracking-tight text-[9px] bg-orange-500/10 text-orange-600 dark:text-orange-400 px-2 py-0.5 rounded border border-orange-500/15 mr-1.5">Exclusão dos Sócios:</span> 
+                          Selecione o faturamento e as despesas operacionais, <strong>exceto</strong> a categoria de retirada para os sócios (Pró-labore / Distribuição de lucros). Isso permite avaliar se o modelo operacional da empresa é sustentável por si só, antes de sofrer a retirada dos donos.
+                        </li>
+                        <li>
+                          <span className="font-black uppercase tracking-tight text-[9px] bg-zinc-500/10 text-zinc-600 dark:text-zinc-400 px-2 py-0.5 rounded border border-zinc-500/15 mr-1.5">Estudo por Eliminação:</span> 
+                          Vá na engrenagem ⚙️ e <strong>desmarque uma categoria de despesa por vez</strong> para estudar, por exclusão e isolamento, quais categorias exercem o maior impacto negativo ou positivo no ponto de equilíbrio operacional.
+                        </li>
+                      </ul>
+                    </div>
+                  )}
+
+                  {activeSubTab === 'pricing' && (
+                    <div className="text-xs text-muted-foreground leading-relaxed space-y-3 pt-3 border-t border-border/40 mt-1">
+                      <p className="font-medium">
+                        O cálculo das sugestões de preço via markup deve considerar a associação correta das despesas de venda:
+                      </p>
+                      <ul className="list-disc pl-5 space-y-2">
+                        <li>
+                          <span className="font-black uppercase tracking-tight text-[9px] bg-primary/10 text-primary px-2 py-0.5 rounded border border-primary/15 mr-1.5">Custos Diretos da Venda:</span> 
+                          No menu <span className="font-bold text-primary">Configurar Precificação</span>, selecione apenas as receitas de vendas e as categorias de despesa que variam diretamente conforme a venda é efetuada (como taxas de máquina de cartão, impostos diretos de nota fiscal, ou matéria-prima/produtos para revenda).
+                        </li>
+                        <li>
+                          <span className="font-black uppercase tracking-tight text-[9px] bg-amber-500/10 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded border border-amber-500/15 mr-1.5">Estudo por Eliminação:</span> 
+                          Experimente remover ou adicionar custos específicos na configuração para analisar, um a um, quais despesas mais encarecem os preços sugeridos dos produtos ou comprimem a margem de lucro.
+                        </li>
+                      </ul>
+                    </div>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
       </div>
 
