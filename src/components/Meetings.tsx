@@ -42,7 +42,8 @@ import {
   Star,
   Eye,
   EyeOff,
-  Lock
+  Lock,
+  Printer
 } from 'lucide-react';
 import { motion, AnimatePresence, Reorder, useDragControls } from 'framer-motion';
 import { cn } from '../lib/utils';
@@ -522,7 +523,7 @@ const MENTORSHIP_TOPICS: MentorshipTopic[] = [
 ];
 
 export const Meetings: React.FC = () => {
-  const { user, profile, viewingUserId } = useAuth();
+  const { user, profile, viewingProfile, viewingUserId } = useAuth();
   const {
     activeSpace,
     transactions,
@@ -532,13 +533,115 @@ export const Meetings: React.FC = () => {
     debtHistory,
     equityAssets,
     equityHistory,
-    nonRecurringExpenses
+    nonRecurringExpenses,
+    triggerPrint
   } = useFinance();
   const { showAlert, showConfirm } = useModal();
 
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [templates, setTemplates] = useState<MeetingTemplate[]>([]);
   const [selectedMeeting, setSelectedMeeting] = useState<Meeting | null>(null);
+
+  const handlePrint = () => {
+    const clientInfo = {
+      name: viewingProfile?.full_name || profile?.full_name || 'Não informado',
+      email: viewingProfile?.email || user?.email || profile?.email || 'Não informado',
+      phone: viewingProfile?.user_metadata?.personal_phone || 
+             viewingProfile?.user_metadata?.phone || 
+             viewingProfile?.phone || 
+             profile?.user_metadata?.personal_phone || 
+             profile?.user_metadata?.phone || 
+             profile?.phone || 
+             user?.user_metadata?.phone || 
+             'Não informado',
+      cnpj: activeSpace === 'business' ? (viewingProfile?.user_metadata?.business_cnpj || profile?.user_metadata?.business_cnpj || user?.user_metadata?.business_cnpj || undefined) : undefined
+    };
+
+    if (selectedMeeting) {
+      const statusChecklistRows = selectedMeeting.topics.map((t, idx) => [
+        String(idx + 1),
+        t.title,
+        t.completed ? 'CONCLUÍDO' : 'PENDENTE'
+      ]);
+
+      const sections: any[] = [
+        {
+          type: 'summary',
+          title: 'Resumo da Reunião',
+          summaryItems: [
+            { label: 'Data/Hora', value: formatDateLabel(selectedMeeting.date) },
+            { label: 'Total de Tópicos', value: String(selectedMeeting.topics.length) },
+            { label: 'Tópicos Concluídos', value: String(selectedMeeting.topics.filter(t => t.completed).length) },
+            { label: 'Progresso', value: `${getMeetingProgress(selectedMeeting)}%` }
+          ]
+        }
+      ];
+
+      if (selectedMeeting.observations) {
+        sections.push({
+          type: 'text',
+          title: 'Pauta e Observações',
+          content: selectedMeeting.observations
+        });
+      }
+
+      if (selectedMeeting.topics.length > 0) {
+        sections.push({
+          type: 'table',
+          title: 'Checklist de Acompanhamento',
+          headers: ['Item', 'Descrição do Tópico', 'Status'],
+          rows: statusChecklistRows
+        });
+      }
+
+      if (meetingNotes) {
+        sections.push({
+          type: 'text',
+          title: 'Anotações da Reunião',
+          content: meetingNotes
+        });
+      }
+
+      const printData = {
+        title: `Ata de Reunião: ${selectedMeeting.title}`,
+        subtitle: `Detalhes e checklist da reunião de acompanhamento`,
+        clientInfo,
+        filters: [
+          { label: 'Espaço', value: activeSpace === 'personal' ? 'Pessoal' : 'Empresarial' }
+        ],
+        sections
+      };
+
+      triggerPrint(printData);
+    } else {
+      const meetingsRows = filteredMeetings.map(m => [
+        m.title,
+        formatDateLabel(m.date),
+        `${m.topics.filter(t => t.completed).length}/${m.topics.length} concluídos`,
+        m.observations || 'Nenhuma observação cadastrada'
+      ]);
+
+      const printData = {
+        title: 'Histórico de Reuniões',
+        subtitle: `Cronologia completa de reuniões e diagnósticos do cliente`,
+        clientInfo,
+        filters: [
+          { label: 'Espaço', value: activeSpace === 'personal' ? 'Pessoal' : 'Empresarial' },
+          { label: 'Total de Encontros', value: String(filteredMeetings.length) }
+        ],
+        sections: [
+          {
+            type: 'table',
+            title: 'Lista de Reuniões Realizadas',
+            headers: ['Reunião', 'Data', 'Checklist', 'Pauta / Resumo'],
+            rows: meetingsRows
+          }
+        ]
+      };
+
+      triggerPrint(printData);
+    }
+  };
 
   const [loading, setLoading] = useState(true);
   const [templatesLoading, setTemplatesLoading] = useState(true);
@@ -1596,6 +1699,14 @@ export const Meetings: React.FC = () => {
           >
             <Presentation size={18} className="text-primary" />
             <span className="text-[10px] font-black uppercase tracking-[0.2em]">Apresentações</span>
+          </button>
+
+          <button
+            onClick={handlePrint}
+            title="Imprimir Relatório"
+            className="bg-card hover:bg-muted text-muted-foreground hover:text-foreground border border-border p-4 rounded-2xl flex items-center justify-center transition-all hover:scale-[1.02] active:scale-95 shadow-sm shrink-0"
+          >
+            <Printer size={18} />
           </button>
 
           {canManage && (

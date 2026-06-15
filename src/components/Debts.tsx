@@ -23,7 +23,8 @@ import {
   Layout,
   RotateCcw,
   Info,
-  FileText
+  FileText,
+  Printer
 } from 'lucide-react';
 import {
   AreaChart,
@@ -40,8 +41,7 @@ import { ConfirmModal } from './ui/ConfirmModal';
 import { Debt } from '../types';
 
 export const Debts: React.FC = () => {
-  const { user } = useAuth();
-  const { viewingUserId } = useAuth();
+  const { user, profile, viewingProfile, viewingUserId } = useAuth();
   const {
     activeSpace,
     debts,
@@ -53,7 +53,8 @@ export const Debts: React.FC = () => {
     deleteDebt,
     updateDebtValue,
     deleteDebtValue,
-    loading: contextLoading
+    loading: contextLoading,
+    triggerPrint
   } = useFinance();
   const { showAlert } = useModal();
 
@@ -74,6 +75,75 @@ export const Debts: React.FC = () => {
   const [confirmPaid, setConfirmPaid] = useState<Debt | null>(null);
   const [confirmReactivate, setConfirmReactivate] = useState<Debt | null>(null);
   const [viewingDebtDetails, setViewingDebtDetails] = useState<Debt | null>(null);
+
+  const handlePrint = () => {
+    const clientInfo = {
+      name: viewingProfile?.full_name || profile?.full_name || 'Não informado',
+      email: viewingProfile?.email || user?.email || profile?.email || 'Não informado',
+      phone: viewingProfile?.user_metadata?.personal_phone || 
+             viewingProfile?.user_metadata?.phone || 
+             viewingProfile?.phone || 
+             profile?.user_metadata?.personal_phone || 
+             profile?.user_metadata?.phone || 
+             profile?.phone || 
+             user?.user_metadata?.phone || 
+             'Não informado',
+      cnpj: activeSpace === 'business' ? (viewingProfile?.user_metadata?.business_cnpj || profile?.user_metadata?.business_cnpj || user?.user_metadata?.business_cnpj || undefined) : undefined
+    };
+
+    const debtsRows = filteredDebts.map(debt => {
+      const monthData = debtHistory.find(h => h.debt_id === debt.id && h.month_year === monthStr);
+      const displayValue = monthData ? monthData.value : (() => {
+        const past = debtHistory
+          .filter(h => h.debt_id === debt.id && new Date(h.month_year + 'T12:00:00') < selectedMonth)
+          .sort((a, b) => new Date(b.month_year + 'T12:00:00').getTime() - new Date(a.month_year + 'T12:00:00').getTime());
+        return past.length > 0 ? past[0].value : debt.total_value;
+      })();
+
+      const statusText = debt.status === 'paid' 
+        ? 'QUITADA' 
+        : (monthData ? 'ATUALIZADO' : 'PENDENTE');
+
+      return [
+        debt.name.toUpperCase(),
+        debt.interest_type || 'PRICE',
+        `${debt.interest_rate}% a.m.`,
+        formatCurrency(debt.monthly_payment),
+        formatCurrency(displayValue),
+        statusText
+      ];
+    });
+
+    const printData = {
+      title: 'Relatório de Controle de Dívidas & Financiamentos',
+      subtitle: `Visão geral da evolução e amortização de passivos`,
+      clientInfo,
+      filters: [
+        { label: 'Referência', value: formattedSelectedMonth.toUpperCase() },
+        { label: 'Espaço', value: activeSpace === 'personal' ? 'Pessoal' : 'Empresarial' }
+      ],
+      sections: [
+        {
+          type: 'summary',
+          title: 'Posição Consolidada do Período',
+          summaryItems: [
+            { label: 'Saldo Devedor Total', value: formatCurrency(debtSummary.total), color: '#ef4444' },
+            { label: 'Comprometido no Mês', value: formatCurrency(debtSummary.monthly), color: '#f59e0b' },
+            { label: 'Pago no Mês', value: formatCurrency(debtSummary.paid), color: '#10b981' },
+            { label: 'Contratos Ativos', value: String(debtSummary.count), color: '#3b82f6' }
+          ]
+        },
+        {
+          type: 'table',
+          title: 'Detalhamento dos Contratos de Dívidas',
+          headers: ['Credor / Financiamento', 'Sistema', 'Taxa Juros', 'Valor Parcela', 'Saldo Devedor', 'Situação'],
+          rows: debtsRows
+        }
+      ]
+    };
+
+    triggerPrint(printData);
+  };
 
   // Add/Edit Debt Form State
   const [debtForm, setDebtForm] = useState({
@@ -598,6 +668,13 @@ export const Debts: React.FC = () => {
             </button>
           </div>
 
+          <button
+            onClick={handlePrint}
+            title="Imprimir Relatório"
+            className="flex items-center justify-center p-4 h-12 w-12 rounded-2xl bg-card hover:bg-muted border border-border hover:scale-105 transition-all shadow-sm text-muted-foreground hover:text-foreground active:scale-95 shrink-0"
+          >
+            <Printer size={18} />
+          </button>
           <button
             onClick={handleOpenAddModal}
             className="h-12 px-6 rounded-2xl bg-rose-500 text-white text-[10px] font-black uppercase tracking-widest flex items-center gap-3 hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-rose-500/20"

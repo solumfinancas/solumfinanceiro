@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { FinanceProvider, useFinance } from './FinanceContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ModalProvider } from './contexts/ModalContext';
+import { PrintReport } from './components/ui/PrintReport';
 import { Sidebar } from './components/Sidebar';
 import { Dashboard } from './components/Dashboard';
 import { Wallets } from './components/Wallets';
@@ -35,7 +36,7 @@ import { MeetingPersistentReminder } from './components/MeetingPersistentReminde
 
 const AppContent = () => {
   const { user, profile, viewingUserId, viewingProfile, impersonateUser, loading: authLoading } = useAuth();
-  const { loading: financeLoading, wallets, activeSpace, initializedSpaces, setActiveSpace } = useFinance();
+  const { loading: financeLoading, wallets, activeSpace, initializedSpaces, setActiveSpace, activePrintReport } = useFinance();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [managementTab, setManagementTab] = useState(() => {
     return localStorage.getItem('solum_management_tab') || 'management';
@@ -389,7 +390,8 @@ const AppContent = () => {
   }
 
   return (
-    <div className="flex flex-col lg:flex-row h-screen overflow-hidden bg-background text-foreground transition-colors duration-300">
+    <>
+      <div className="flex flex-col lg:flex-row h-screen overflow-hidden bg-background text-foreground transition-colors duration-300 no-print">
       <Sidebar 
         activeTab={viewingManagement ? managementTab : activeTab} 
         isManagementOnly={viewingManagement && !viewingUserId}
@@ -597,7 +599,10 @@ const AppContent = () => {
         isOpen={isGlobalTxModalOpen} 
         onClose={() => setIsGlobalTxModalOpen(false)} 
       />
-    </div>
+
+      </div>
+      <PrintReport data={activePrintReport} />
+    </>
   );
 };
 

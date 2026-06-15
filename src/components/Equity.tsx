@@ -26,7 +26,8 @@ import {
   FileText,
   CheckCircle2,
   MessageSquare,
-  Settings2
+  Settings2,
+  Printer
 } from 'lucide-react';
 import { 
   AreaChart, 
@@ -43,8 +44,7 @@ import { ConfirmModal } from './ui/ConfirmModal';
 import { EquityAsset } from '../types';
 
 export const Equity: React.FC = () => {
-  const { user } = useAuth();
-  const { viewingUserId } = useAuth();
+  const { user, profile, viewingProfile, viewingUserId } = useAuth();
   const { 
     activeSpace, 
     equityAssets, 
@@ -54,7 +54,8 @@ export const Equity: React.FC = () => {
     deleteEquityAsset,
     updateEquityValue,
     deleteEquityValue,
-    loading: contextLoading
+    loading: contextLoading,
+    triggerPrint
   } = useFinance();
   const { showAlert } = useModal();
   
@@ -75,6 +76,75 @@ export const Equity: React.FC = () => {
   const [confirmEnd, setConfirmEnd] = useState<EquityAsset | null>(null);
   const [confirmReactivate, setConfirmReactivate] = useState<EquityAsset | null>(null);
   const [viewingAssetDetails, setViewingAssetDetails] = useState<EquityAsset | null>(null);
+
+  const handlePrint = () => {
+    const clientInfo = {
+      name: viewingProfile?.full_name || profile?.full_name || 'Não informado',
+      email: viewingProfile?.email || user?.email || profile?.email || 'Não informado',
+      phone: viewingProfile?.user_metadata?.personal_phone || 
+             viewingProfile?.user_metadata?.phone || 
+             viewingProfile?.phone || 
+             profile?.user_metadata?.personal_phone || 
+             profile?.user_metadata?.phone || 
+             profile?.phone || 
+             user?.user_metadata?.phone || 
+             'Não informado',
+      cnpj: activeSpace === 'business' ? (viewingProfile?.user_metadata?.business_cnpj || profile?.user_metadata?.business_cnpj || user?.user_metadata?.business_cnpj || undefined) : undefined
+    };
+
+    const assetsRows = filteredAssets.map(asset => {
+      const monthData = equityHistory.find(h => h.asset_id === asset.id && h.month_year === monthStr);
+      const displayValue = monthData ? monthData.value : (() => {
+        const past = equityHistory
+          .filter(h => h.asset_id === asset.id && new Date(h.month_year) <= selectedMonth)
+          .sort((a, b) => new Date(b.month_year).getTime() - new Date(a.month_year).getTime());
+        return past.length > 0 ? past[0].value : asset.initial_value;
+      })();
+
+      const regDate = new Date(asset.registration_date + 'T12:00:00');
+      const isRegistrationMonth = regDate.getMonth() === selectedMonth.getMonth() && 
+                                 regDate.getFullYear() === selectedMonth.getFullYear();
+
+      const obsText = isRegistrationMonth 
+        ? (asset.observation || 'Nenhuma')
+        : (monthData?.observation || 'Sem novas atualizações');
+
+      return [
+        asset.name.toUpperCase(),
+        new Date(asset.registration_date + 'T12:00:00').toLocaleDateString('pt-BR'),
+        formatCurrency(displayValue),
+        obsText
+      ];
+    });
+
+    const printData = {
+      title: 'Relatório de Patrimônio & Ativos',
+      subtitle: `Visão geral do valor de mercado e evolução de bens`,
+      clientInfo,
+      filters: [
+        { label: 'Referência', value: formattedSelectedMonth.toUpperCase() },
+        { label: 'Espaço', value: activeSpace === 'personal' ? 'Pessoal' : 'Empresarial' }
+      ],
+      sections: [
+        {
+          type: 'summary',
+          title: 'Posição Consolidada do Período',
+          summaryItems: [
+            { label: 'Valor Total do Patrimônio', value: formatCurrency(assetSummary.total), color: '#d97706' },
+            { label: 'Quantidade de Ativos', value: String(assetSummary.count), color: '#10b981' }
+          ]
+        },
+        {
+          type: 'table',
+          title: 'Detalhamento do Ativos Cadastrados',
+          headers: ['Patrimônio / Bem', 'Data Registro', 'Valor no Período', 'Observação / Atualização'],
+          rows: assetsRows
+        }
+      ]
+    };
+
+    triggerPrint(printData);
+  };
 
   // Add/Edit Asset Form State
   const [assetForm, setAssetForm] = useState({
@@ -395,6 +465,13 @@ export const Equity: React.FC = () => {
             </button>
           </div>
 
+          <button 
+            onClick={handlePrint}
+            title="Imprimir Relatório"
+            className="flex items-center justify-center p-4 h-12 w-12 rounded-2xl bg-card hover:bg-muted border border-border hover:scale-105 transition-all shadow-sm text-muted-foreground hover:text-foreground active:scale-95 shrink-0"
+          >
+            <Printer size={18} />
+          </button>
           <button 
             onClick={handleOpenAddModal}
             className="h-12 px-6 rounded-2xl bg-primary text-white text-[10px] font-black uppercase tracking-widest flex items-center gap-3 hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-primary/20"

@@ -168,3 +168,252 @@
   transform: scale(0.95);
   background: #92400e;
 }
+
+
+/* Estilos para impressão de relatórios em PDF */
+.print-report-container {
+  display: none;
+}
+
+@media print {
+  body {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    font-size: 11pt !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Ocultar elementos normais da interface */
+  .no-print,
+  button,
+  header,
+  nav,
+  aside,
+  .sidebar,
+  .main-nav {
+    display: none !important;
+  }
+
+  #root {
+    display: block !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* Exibir contêiner de impressão */
+  .print-report-container {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Cabeçalho */
+  .print-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 20px;
+    page-break-inside: avoid;
+  }
+
+  .print-header-brand {
+    text-align: left;
+  }
+
+  .print-brand-name {
+    font-size: 22pt;
+    font-weight: 800;
+    color: #1e3a8a; /* Azul escuro corporativo */
+    margin: 0;
+  }
+
+  .print-brand-tagline {
+    font-size: 9pt;
+    color: #64748b;
+    margin: 2px 0 0 0;
+  }
+
+  .print-header-client {
+    text-align: right;
+    max-width: 50%;
+  }
+
+  .print-client-title {
+    font-size: 10pt;
+    font-weight: 700;
+    color: #0f172a;
+    margin: 0 0 5px 0;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .print-client-grid {
+    font-size: 8pt;
+    color: #334155;
+    line-height: 1.4;
+    display: inline-block;
+    text-align: left;
+  }
+
+  .print-label {
+    font-weight: 600;
+    color: #475569;
+    margin-right: 4px;
+  }
+
+  .print-val {
+    color: #0f172a;
+  }
+
+  .print-divider {
+    border: 0;
+    border-top: 2px solid #e2e8f0;
+    margin: 20px 0;
+  }
+
+  /* Meta do Relatório */
+  .print-report-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 25px;
+    page-break-inside: avoid;
+  }
+
+  .print-report-title {
+    font-size: 15pt;
+    font-weight: 700;
+    color: #0f172a;
+    margin: 0;
+  }
+
+  .print-report-subtitle {
+    font-size: 9pt;
+    color: #475569;
+    margin: 4px 0 0 0;
+  }
+
+  .print-filters {
+    display: flex;
+    gap: 8px;
+  }
+
+  .print-filter-badge {
+    background-color: #f1f5f9;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 8pt;
+    color: #334155;
+  }
+
+  /* Seções e Cards de Resumo */
+  .print-section {
+    margin-bottom: 30px;
+    page-break-inside: auto;
+  }
+
+  .print-section-title {
+    font-size: 11pt;
+    font-weight: 700;
+    color: #1e3a8a;
+    margin: 0 0 12px 0;
+    border-bottom: 1px solid #cbd5e1;
+    padding-bottom: 4px;
+    page-break-after: avoid;
+  }
+
+  .print-summary-cards {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 20px;
+    page-break-inside: avoid;
+  }
+
+  .print-summary-card {
+    background-color: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .print-card-label {
+    font-size: 7.5pt;
+    color: #64748b;
+    text-transform: uppercase;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+
+  .print-card-value {
+    font-size: 11pt;
+    font-weight: 700;
+    color: #0f172a;
+  }
+
+  /* Tabelas */
+  .print-table-wrapper {
+    width: 100%;
+    margin-bottom: 20px;
+  }
+
+  .print-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 8.5pt;
+    text-align: left;
+  }
+
+  .print-table th {
+    background-color: #f1f5f9;
+    color: #334155;
+    font-weight: 700;
+    padding: 6px 8px;
+    border-bottom: 2px solid #cbd5e1;
+  }
+
+  .print-table td {
+    padding: 6px 8px;
+    border-bottom: 1px solid #e2e8f0;
+    color: #0f172a;
+  }
+
+  .print-table tr {
+    page-break-inside: avoid;
+  }
+
+  /* Texto Livre */
+  .print-text-content {
+    font-size: 9.5pt;
+    line-height: 1.5;
+    color: #334155;
+    background-color: #f8fafc;
+    padding: 10px;
+    border-radius: 6px;
+    border: 1px solid #e2e8f0;
+  }
+
+  /* Rodapé */
+  .print-footer {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: space-between;
+    font-size: 7.5pt;
+    color: #94a3b8;
+    border-top: 1px solid #e2e8f0;
+    padding-top: 6px;
+    margin-top: 20px;
+    page-break-inside: avoid;
+  }
+}

@@ -3,8 +3,9 @@ import {
   Tag, Plus, Edit, Trash2, ChevronDown, ChevronRight, ArrowUpCircle,
   ArrowDownCircle, Search, Eye, EyeOff, LayoutDashboard, Clock,
   CheckCircle2, X, History as HistoryIcon, Layers, Calendar, CreditCard, ThumbsUp, ThumbsDown,
-  TrendingUp, Check, ChevronLeft, Target, RefreshCw, PieChart as PieIcon, ArrowRight
+  TrendingUp, Check, ChevronLeft, Target, RefreshCw, PieChart as PieIcon, ArrowRight, Printer
 } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 import {
   ResponsiveContainer,
   PieChart,
@@ -68,9 +69,10 @@ export const Categories: React.FC = () => {
     updateTransaction, deleteTransaction, wallets,
     addCategory, toggleCategoryActive, deleteCategory,
     includeCategoryLimits, setIncludeCategoryLimits,
-    activeSpace
+    activeSpace, triggerPrint
   } = useFinance();
   const { showConfirm, showAlert } = useModal();
+  const { user, profile, viewingProfile } = useAuth();
 
   // State
   const [searchTerm, setSearchTerm] = useState('');
@@ -98,6 +100,98 @@ export const Categories: React.FC = () => {
   const [selectedTxIds, setSelectedTxIds] = useState<string[]>([]);
   const [showSearchFAB, setShowSearchFAB] = useState(false);
   const [modalMode, setModalMode] = useState<'full' | 'budget'>('full');
+
+  const handlePrint = () => {
+    const clientInfo = {
+      name: viewingProfile?.full_name || profile?.full_name || 'Não informado',
+      email: viewingProfile?.email || user?.email || profile?.email || 'Não informado',
+      phone: viewingProfile?.user_metadata?.personal_phone || 
+             viewingProfile?.user_metadata?.phone || 
+             viewingProfile?.phone || 
+             profile?.user_metadata?.personal_phone || 
+             profile?.user_metadata?.phone || 
+             profile?.phone || 
+             user?.user_metadata?.phone || 
+             'Não informado',
+      cnpj: activeSpace === 'business' ? (viewingProfile?.user_metadata?.business_cnpj || profile?.user_metadata?.business_cnpj || user?.user_metadata?.business_cnpj || undefined) : undefined
+    };
+
+    const periodString = filterMonth === 'all' 
+      ? `Ano de ${filterYear}`
+      : `${MONTH_NAMES[filterMonth - 1]} de ${filterYear}`;
+
+    const categoryRows = sortedActiveCats.map(c => {
+      const isIncome = c.type === 'income';
+      const balanceOrSpend = isIncome 
+        ? getCategoryBalance(c.id, filterMonth, filterYear)
+        : getCategorySpend(c.id, filterMonth, filterYear);
+      
+      const limitInfo = getCategoryEffectiveLimit(c.id);
+      
+      return [
+        c.name.toUpperCase(),
+        isIncome ? 'RECEITA' : 'DESPESA',
+        formatCurrency(balanceOrSpend),
+        isIncome ? 'N/A' : (limitInfo.total > 0 ? formatCurrency(limitInfo.total) : 'Sem limite'),
+        isIncome ? 'N/A' : (limitInfo.total > 0 ? `${Math.round((Math.min(balanceOrSpend, limitInfo.total) / limitInfo.total) * 100)}%` : '0%')
+      ];
+    });
+
+    const printData: any = {
+      title: 'Relatório de Categorias & Orçamentos',
+      subtitle: `Visão geral do orçamento e consumo por categorias`,
+      clientInfo,
+      filters: [
+        { label: 'Período', value: periodString },
+        { label: 'Espaço', value: activeSpace === 'personal' ? 'Pessoal' : 'Empresarial' },
+        { label: 'Status Lançamento', value: paymentFilter === 'all' ? 'Todos' : paymentFilter === 'paid' ? 'Pagos' : 'Pendentes' }
+      ],
+      sections: [
+        {
+          type: 'summary',
+          title: 'Resumo Financeiro do Período',
+          summaryItems: [
+            { 
+              label: 'Total de Receitas', 
+              value: formatCurrency(
+                transactions
+                  .filter(t => t.type === 'income' && (filterMonth === 'all' || new Date(t.date + 'T12:00:00Z').getUTCMonth() + 1 === filterMonth) && new Date(t.date + 'T12:00:00Z').getUTCFullYear() === filterYear)
+                  .reduce((acc, t) => acc + t.amount, 0)
+              ),
+              color: '#10b981' 
+            },
+            { 
+              label: 'Total de Despesas', 
+              value: formatCurrency(totalSpendGlobal),
+              color: '#f43f5e' 
+            },
+            { 
+              label: 'Limites Planejados', 
+              value: formatCurrency(totalLimitGlobal),
+              color: '#3b82f6' 
+            },
+            { 
+              label: 'Saldo no Período', 
+              value: formatCurrency(
+                transactions
+                  .filter(t => (filterMonth === 'all' || new Date(t.date + 'T12:00:00Z').getUTCMonth() + 1 === filterMonth) && new Date(t.date + 'T12:00:00Z').getUTCFullYear() === filterYear)
+                  .reduce((acc, t) => acc + (t.type === 'income' ? t.amount : -t.amount), 0)
+              ),
+              color: '#0ea5e9' 
+            }
+          ]
+        },
+        {
+          type: 'table',
+          title: 'Detalhamento por Categorias Ativas',
+          headers: ['Categoria', 'Tipo', 'Uso / Lançado', 'Limite Planejado', 'Aproveitamento'],
+          rows: categoryRows
+        }
+      ]
+    };
+
+    triggerPrint(printData);
+  };
 
   useEffect(() => {
     const searchInput = document.getElementById('search-input-categories');
@@ -790,6 +884,13 @@ export const Categories: React.FC = () => {
               <LayoutDashboard size={14} /> Balanço
             </button>
           </div>
+          <button
+            onClick={handlePrint}
+            title="Imprimir Relatório"
+            className="flex items-center justify-center p-4 h-14 w-14 rounded-2xl bg-card hover:bg-muted border border-border hover:scale-105 transition-all shadow-sm text-muted-foreground hover:text-foreground active:scale-95 shrink-0"
+          >
+            <Printer size={18} />
+          </button>
           <button
             onClick={() => handleOpenModal()}
             className="flex items-center justify-center gap-2 px-8 h-14 rounded-2xl bg-primary text-white hover:scale-105 transition-all shadow-lg shadow-primary/25 text-xs font-black uppercase tracking-widest active:scale-95"

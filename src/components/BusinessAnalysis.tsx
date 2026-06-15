@@ -22,7 +22,8 @@ import {
   Edit2,
   DollarSign,
   Tag,
-  FolderPlus
+  FolderPlus,
+  Printer
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -51,8 +52,8 @@ interface MenuProduct {
 }
 
 export const BusinessAnalysis: React.FC = () => {
-  const { transactions, categories, loading: financeLoading } = useFinance();
-  const { user, viewingUserId } = useAuth();
+  const { transactions, categories, loading: financeLoading, triggerPrint } = useFinance();
+  const { user, profile, viewingProfile, viewingUserId } = useAuth();
   
   const effectiveUserId = viewingUserId || user?.id;
 
@@ -71,6 +72,135 @@ export const BusinessAnalysis: React.FC = () => {
   const [selectedMonth, setSelectedMonth] = useState<number | 'consolidated'>('consolidated');
   const [activeSubTab, setActiveSubTab] = useState<'study' | 'operational' | 'pricing'>('study');
   const [showMemento, setShowMemento] = useState(true);
+
+  const handlePrint = () => {
+    const clientInfo = {
+      name: viewingProfile?.full_name || profile?.full_name || 'Não informado',
+      email: viewingProfile?.email || user?.email || profile?.email || 'Não informado',
+      phone: viewingProfile?.user_metadata?.personal_phone || 
+             viewingProfile?.user_metadata?.phone || 
+             viewingProfile?.phone || 
+             profile?.user_metadata?.personal_phone || 
+             profile?.user_metadata?.phone || 
+             profile?.phone || 
+             user?.user_metadata?.phone || 
+             'Não informado',
+      cnpj: viewingProfile?.user_metadata?.business_cnpj || profile?.user_metadata?.business_cnpj || user?.user_metadata?.business_cnpj || undefined
+    };
+
+    const periodLabel = selectedMonth === 'consolidated' 
+      ? `Exercício de ${selectedYear}`
+      : `${getMonthName(selectedMonth).toUpperCase()} de ${selectedYear}`;
+
+    let sections: any[] = [];
+    let title = '';
+    let subtitle = '';
+
+    if (activeSubTab === 'study') {
+      title = 'Estudo de Empreendimento Empresarial';
+      subtitle = 'Análise de lucros, receitas acumuladas e evolução de vendas';
+      
+      sections = [
+        {
+          type: 'summary',
+          title: 'Resumo Geral do Exercício',
+          summaryItems: [
+            { label: 'Faturamento Anual', value: formatCurrency(salesTrendData.acumuladoAnual), color: '#10b981' },
+            { label: 'Média Mensal', value: formatCurrency(salesTrendData.mediaMensal), color: '#3b82f6' },
+            { label: 'Tendência', value: salesTrendData.tendenciaGeral.toUpperCase(), color: '#d97706' }
+          ]
+        },
+        {
+          type: 'table',
+          title: 'Mensuração Mensal de Vendas',
+          headers: ['Mês', 'Faturamento Realizado', 'Evolução Mensal'],
+          rows: monthlyChartData.map((d, i) => {
+            const currentVal = d.Faturamento;
+            let evolString = 'Início';
+            if (i > 0) {
+              const prev = monthlyChartData[i - 1].Faturamento;
+              if (prev > 0) {
+                const diff = ((currentVal - prev) / prev) * 100;
+                evolString = `${diff >= 0 ? '+' : ''}${formatPercent(diff)}`;
+              } else if (currentVal > 0) {
+                evolString = '+100%';
+              } else {
+                evolString = '0%';
+              }
+            }
+            return [d.name.toUpperCase(), formatCurrency(currentVal), evolString];
+          })
+        }
+      ];
+    } else if (activeSubTab === 'operational') {
+      title = 'Análise de Viabilidade Operacional';
+      subtitle = 'Estudo de ponto de equilíbrio operatório e margem de contribuição';
+
+      sections = [
+        {
+          type: 'summary',
+          title: 'Indicadores de Saúde Operacional',
+          summaryItems: [
+            { label: 'Faturamento Real', value: formatCurrency(operationalAnalysis.receitas), color: '#10b981' },
+            { label: 'Margem Contribuição (%)', value: formatPercent(operationalAnalysis.margemPercentual), color: '#3b82f6' },
+            { label: 'Custos Fixos', value: formatCurrency(operationalAnalysis.custosFixos), color: '#ef4444' },
+            { label: 'Ponto Equilíbrio (Mínimo)', value: operationalAnalysis.margemPercentual < 0 ? 'PREJUÍZO REAL' : formatCurrency(operationalAnalysis.pontoEquilibrio), color: '#f59e0b' }
+          ]
+        },
+        {
+          type: 'text',
+          title: 'Diagnóstico Operacional',
+          content: operationalAnalysis.receitas === 0
+            ? 'Aguardando faturamento no período para gerar diagnóstico operacional.'
+            : operationalAnalysis.margemPercentual < 0
+              ? 'ALERTA DE SEGURANÇA CRÍTICA: Margem negativa detectada. A receita gerada não cobre sequer as despesas variáveis associadas diretamente às vendas. Quanto mais a empresa comercializa, maior é o prejuízo.'
+              : operationalAnalysis.atingiuEquilibrio
+                ? `ZONA DE LUCRO: Sua receita superou o Ponto de Equilíbrio em ${formatCurrency(operationalAnalysis.saldoEquilibrio)}. Todas as despesas variáveis e fixas foram plenamente cobertas.`
+                : `ZONA DE DÉFICIT: Sua receita ficou ${formatCurrency(Math.abs(operationalAnalysis.saldoEquilibrio))} abaixo do Ponto de Equilíbrio mínimo necessário para cobrir os custos fixos.`
+        }
+      ];
+    } else if (activeSubTab === 'pricing') {
+      title = 'Precificação Estratégica & Markup';
+      subtitle = 'Otimização de cardápio e markup baseado em custos operacionais e margem de lucro';
+
+      sections = [
+        {
+          type: 'summary',
+          title: 'Simulação de Markup do Período',
+          summaryItems: [
+            { label: 'Faturamento Apurado', value: formatCurrency(pricingDRE.faturamento), color: '#10b981' },
+            { label: 'Despesas Consideradas', value: formatCurrency(pricingDRE.despesas), color: '#ef4444' },
+            { label: 'Meta Lucro Desejada', value: `${pricingTargetMargin}%`, color: '#3b82f6' },
+            { label: 'Reajuste Médio Sugerido', value: pricingDRE.erroMatematico ? 'ERRO CONFIG' : formatPercent(pricingDRE.aumentoPercentual), color: '#f59e0b' }
+          ]
+        },
+        {
+          type: 'table',
+          title: 'Sugestões de Preço do Cardápio / Serviços',
+          headers: ['Produto / Serviço', 'Preço Atual', 'Novo Preço Sugerido', 'Diferença de Valor (Acréscimo)'],
+          rows: pricedProducts.map(p => [
+            p.name.toUpperCase(),
+            formatCurrency(p.price),
+            pricingDRE.erroMatematico ? 'N/A' : formatCurrency(p.sugerido),
+            pricingDRE.erroMatematico ? 'N/A' : `+ ${formatCurrency(p.acrescimo)}`
+          ])
+        }
+      ];
+    }
+
+    const printData = {
+      title,
+      subtitle,
+      clientInfo,
+      filters: [
+        { label: 'Referência', value: periodLabel },
+        { label: 'Visão Empresarial', value: activeSubTab === 'study' ? 'Estudo Empreendimento' : activeSubTab === 'operational' ? 'Análise Operacional' : 'Precificação' }
+      ],
+      sections
+    };
+
+    triggerPrint(printData);
+  };
   
   // Modais e Configurações Gerais DRE
   const [isConfigOpen, setIsConfigOpen] = useState(false);
@@ -679,6 +809,15 @@ export const BusinessAnalysis: React.FC = () => {
               Configurar Categorias
             </button>
           )}
+
+          {/* Botão de Impressora */}
+          <button
+            onClick={handlePrint}
+            title="Imprimir Relatório"
+            className="flex items-center justify-center p-3 h-11 w-11 rounded-xl bg-card hover:bg-muted border border-border hover:scale-105 transition-all shadow-sm text-muted-foreground hover:text-foreground active:scale-95 shrink-0"
+          >
+            <Printer size={16} />
+          </button>
 
           {/* Botão de Configuração de Precificação */}
           {activeSubTab === 'pricing' && (

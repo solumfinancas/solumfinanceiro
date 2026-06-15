@@ -57,6 +57,8 @@ interface FinanceContextType {
   addNonRecurringExpense: (expense: Omit<NonRecurringExpense, 'id' | 'user_id' | 'created_at'>) => Promise<void>;
   updateNonRecurringExpense: (id: string, expense: Partial<NonRecurringExpense>) => Promise<void>;
   deleteNonRecurringExpense: (id: string) => Promise<void>;
+  activePrintReport: any | null;
+  triggerPrint: (data: any) => void;
 }
 
 const FinanceContext = createContext<FinanceContextType | undefined>(undefined);
@@ -118,6 +120,24 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [debts, setDebts] = useState<any[]>([]);
   const [debtHistory, setDebtHistory] = useState<any[]>([]);
   const [nonRecurringExpenses, setNonRecurringExpenses] = useState<NonRecurringExpense[]>([]);
+  const [activePrintReport, setActivePrintReport] = useState<any | null>(null);
+
+  const triggerPrint = useCallback((data: any) => {
+    setActivePrintReport(data);
+    setTimeout(() => {
+      window.print();
+    }, 200);
+  }, []);
+
+  useEffect(() => {
+    const handleAfterPrint = () => {
+      setActivePrintReport(null);
+    };
+    window.addEventListener('afterprint', handleAfterPrint);
+    return () => {
+      window.removeEventListener('afterprint', handleAfterPrint);
+    };
+  }, []);
 
   const acknowledgeOverdue = () => {
     setHasAcknowledgedOverdue(true);
@@ -1399,6 +1419,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   return (
     <FinanceContext.Provider value={{
       transactions, categories, wallets, activeSpace, theme, loading,
+      activePrintReport, triggerPrint,
       setActiveSpace, toggleTheme, addTransaction, addTransactions, addCategory, addWallet, deleteTransaction, updateTransaction,
       toggleCategoryActive, updateCategory, deleteCategory, updateWallet, toggleWalletActive, deleteWallet, updateActivity,
       includeCategoryLimits, setIncludeCategoryLimits, seedCategories,

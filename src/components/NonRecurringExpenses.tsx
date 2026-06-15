@@ -24,7 +24,8 @@ import {
   ArrowUpRight,
   Target,
   Trophy,
-  ArrowUpDown
+  ArrowUpDown,
+  Printer
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -45,15 +46,15 @@ export const NonRecurringExpenses: React.FC<NonRecurringExpensesProps> = ({
   const labelPluralCap = isObjective ? 'Objetivos' : 'Gastos Eventuais';
   const labelPluralLow = isObjective ? 'objetivos' : 'gastos eventuais';
 
-  const { user } = useAuth();
-  const { viewingUserId } = useAuth();
+  const { user, profile, viewingProfile, viewingUserId } = useAuth();
   const {
     activeSpace,
     nonRecurringExpenses,
     addNonRecurringExpense,
     updateNonRecurringExpense,
     deleteNonRecurringExpense,
-    loading: contextLoading
+    loading: contextLoading,
+    triggerPrint
   } = useFinance();
   const { showAlert } = useModal();
 
@@ -62,6 +63,79 @@ export const NonRecurringExpenses: React.FC<NonRecurringExpensesProps> = ({
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<NonRecurringExpense | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+
+  const handlePrint = () => {
+    const clientInfo = {
+      name: viewingProfile?.full_name || profile?.full_name || 'Não informado',
+      email: viewingProfile?.email || user?.email || profile?.email || 'Não informado',
+      phone: viewingProfile?.user_metadata?.personal_phone || 
+             viewingProfile?.user_metadata?.phone || 
+             viewingProfile?.phone || 
+             profile?.user_metadata?.personal_phone || 
+             profile?.user_metadata?.phone || 
+             profile?.phone || 
+             user?.user_metadata?.phone || 
+             'Não informado',
+      cnpj: activeSpace === 'business' ? (viewingProfile?.user_metadata?.business_cnpj || profile?.user_metadata?.business_cnpj || user?.user_metadata?.business_cnpj || undefined) : undefined
+    };
+
+    const mapListToRows = (list: NonRecurringExpense[]) => {
+      return list.map((exp, idx) => {
+        const savedSoFar = (exp.history || []).reduce((sum, item) => sum + (item.skipped ? 0 : (item.value || 0)), 0);
+        const progress = Math.min(100, Math.round((savedSoFar / exp.amount) * 100));
+        return [
+          exp.description.toUpperCase(),
+          formatCurrency(exp.amount),
+          isObjective ? `${exp.frequency_months} meses` : `${exp.frequency_months}m (frequência)`,
+          formatCurrency(exp.amount / exp.frequency_months),
+          formatCurrency(savedSoFar),
+          `${progress}%`
+        ];
+      });
+    };
+
+    const printData = {
+      title: `Relatório de ${labelPluralCap}`,
+      subtitle: `Planejamento e acompanhamento de ${labelPluralLow}`,
+      clientInfo,
+      filters: [
+        { label: 'Referência', value: formattedSelectedMonth.toUpperCase() },
+        { label: 'Espaço', value: activeSpace === 'personal' ? 'Pessoal' : 'Empresarial' }
+      ],
+      sections: [
+        {
+          type: 'summary',
+          title: 'Resumo do Período',
+          summaryItems: [
+            { label: 'Total no Orçamento', value: formatCurrency(summary.inBudget.cost), color: '#3b82f6' },
+            { label: 'Aporte Mensal (No Orçam.)', value: formatCurrency(summary.inBudget.monthly), color: '#0ea5e9' },
+            { label: 'Guardado Acumulado', value: formatCurrency(summary.inBudget.saved + summary.outBudget.saved + summary.finished.saved), color: '#10b981' },
+            { label: 'Total Concluídos', value: String(summary.finished.count), color: '#d97706' }
+          ]
+        },
+        {
+          type: 'table',
+          title: `No Orçamento (${inBudgetExpenses.length})`,
+          headers: ['Descrição', 'Valor Alvo', 'Tempo/Freq.', 'Aporte Mensal', 'Total Guardado', 'Progresso'],
+          rows: mapListToRows(inBudgetExpenses)
+        },
+        {
+          type: 'table',
+          title: `Fora do Orçamento (${outBudgetExpenses.length})`,
+          headers: ['Descrição', 'Valor Alvo', 'Tempo/Freq.', 'Aporte Mensal', 'Total Guardado', 'Progresso'],
+          rows: mapListToRows(outBudgetExpenses)
+        },
+        {
+          type: 'table',
+          title: `Concluídos / Completados (${finishedExpenses.length})`,
+          headers: ['Descrição', 'Valor Alvo', 'Tempo/Freq.', 'Aporte Mensal', 'Total Guardado', 'Progresso'],
+          rows: mapListToRows(finishedExpenses)
+        }
+      ]
+    };
+
+    triggerPrint(printData);
+  };
 
   // Estado para ordenação por prioridades par a par
   const [comparison, setComparison] = useState<{
@@ -730,6 +804,13 @@ export const NonRecurringExpenses: React.FC<NonRecurringExpensesProps> = ({
             </button>
           </div>
 
+          <button
+            onClick={handlePrint}
+            title="Imprimir Relatório"
+            className="flex items-center justify-center p-4 h-12 w-12 rounded-2xl bg-card hover:bg-muted border border-border hover:scale-105 transition-all shadow-sm text-muted-foreground hover:text-foreground active:scale-95 shrink-0"
+          >
+            <Printer size={18} />
+          </button>
           <button
             onClick={handleOpenAddModal}
             className="h-12 px-6 rounded-2xl bg-primary text-white text-[10px] font-black uppercase tracking-widest flex items-center gap-3 hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-primary/20"
