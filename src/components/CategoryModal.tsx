@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   X, Tag, Wine, Shirt, ClipboardList, GraduationCap, Smile, Plane, 
   Building2, Music, Dribbble, Umbrella, Book, Briefcase, ChefHat, 
@@ -17,6 +17,7 @@ import { Check } from 'lucide-react';
 import { Category } from '../types';
 import { Portal } from './ui/Portal';
 import { IconRenderer } from './ui/IconRenderer';
+import { useFinance } from '../FinanceContext';
 
 interface CategoryModalProps {
   isOpen: boolean;
@@ -71,6 +72,7 @@ export const CategoryModal: React.FC<CategoryModalProps> = ({
   mode = 'full'
 }) => {
   const { showAlert } = useModal();
+  const { categories } = useFinance();
   const [formData, setFormData] = useState<Partial<Category>>({
     name: '',
     type: 'expense',
@@ -86,10 +88,11 @@ export const CategoryModal: React.FC<CategoryModalProps> = ({
   useEffect(() => {
     if (editingCategory) {
       if (editingCategory.parentId) {
+        const parent = categories.find(c => c.id === editingCategory.parentId);
         setFormData({
           ...editingCategory,
           icon: 'Tag',
-          color: parentColor || editingCategory.color
+          color: editingCategory.color || parentColor || parent?.color || '#3b82f6'
         });
         setHasLimit((editingCategory.limit || 0) > 0);
       } else {
@@ -97,10 +100,11 @@ export const CategoryModal: React.FC<CategoryModalProps> = ({
         setHasLimit(true); // Categorias pai sempre mostram o campo, ou baseado em limite > 0
       }
     } else {
+      const parent = parentId ? categories.find(c => c.id === parentId) : null;
       setFormData({
         name: '',
-        type: parentType || 'expense',
-        color: parentId ? (parentColor || (parentType === 'income' ? '#22c55e' : '#f43f5e')) : '#3b82f6',
+        type: parent?.type || parentType || 'expense',
+        color: parentId ? (parentColor || parent?.color || (parent?.type === 'income' ? '#22c55e' : '#f43f5e')) : '#3b82f6',
         icon: 'Tag',
         limit: 0,
         parentId: parentId,
@@ -108,7 +112,7 @@ export const CategoryModal: React.FC<CategoryModalProps> = ({
       });
       setHasLimit(!parentId); // Subcategorias novas começam sem meta (false), categorias novas começam com (true)
     }
-  }, [editingCategory, parentId, parentType, parentColor, isOpen]);
+  }, [editingCategory, parentId, parentType, parentColor, categories, isOpen]);
 
   // Lock background scroll
   useEffect(() => {
@@ -300,6 +304,41 @@ export const CategoryModal: React.FC<CategoryModalProps> = ({
                           >
                             <IconComp size={22} strokeWidth={2} />
                           </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Seleção de Cor para Subcategorias */}
+                {mode === 'full' && !!(parentId || formData.parentId) && (
+                  <div className="bg-muted/20 p-8 rounded-[2rem] border border-border/50 space-y-6 animate-in fade-in slide-in-from-top-4 duration-500">
+                    <div className="flex items-center gap-6">
+                      <div 
+                        className="w-16 h-16 rounded-2xl flex items-center justify-center shadow-lg border border-border bg-background"
+                      >
+                        <Tag size={24} style={{ color: formData.color }} />
+                      </div>
+                      <div className="space-y-1">
+                        <h3 className="font-black text-lg uppercase tracking-tight">Cor da Tag</h3>
+                        <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest opacity-60">Escolha a cor da etiqueta desta subcategoria</p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      <label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground ml-1">Cores Disponíveis</label>
+                      <div className="flex flex-wrap gap-3">
+                        {CATEGORY_COLORS.map(color => (
+                          <button
+                            key={color}
+                            type="button"
+                            onClick={() => setFormData({ ...formData, color })}
+                            className={cn(
+                              "w-8 h-8 rounded-full border-4 transition-all hover:scale-125 hover:shadow-lg active:scale-95",
+                              formData.color === color ? "border-foreground scale-110 shadow-md" : "border-background/50"
+                            )}
+                            style={{ backgroundColor: color }}
+                          />
                         ))}
                       </div>
                     </div>

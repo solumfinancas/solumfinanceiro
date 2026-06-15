@@ -44,7 +44,7 @@ interface Task {
 
 export const Tasks: React.FC = () => {
   const { user, profile, viewingUserId, viewingProfile } = useAuth();
-  const { setGlobalTasks } = useFinance();
+  const { setGlobalTasks, activeSpace } = useFinance();
   const { showAlert, showConfirm } = useModal();
 
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -115,6 +115,7 @@ export const Tasks: React.FC = () => {
           task_comments(count)
         `)
         .eq('user_id', effectiveUserId)
+        .eq('space', activeSpace)
         .order('deadline', { ascending: true });
 
       if (error) throw error;
@@ -137,7 +138,7 @@ export const Tasks: React.FC = () => {
   useEffect(() => {
     fetchEducatorId();
     fetchTasks();
-  }, [effectiveUserId, profile]);
+  }, [effectiveUserId, profile, activeSpace]);
 
   useEffect(() => {
     setGlobalTasks(tasks);
@@ -159,7 +160,8 @@ export const Tasks: React.FC = () => {
           title: newTask.title,
           instructions: newTask.instructions,
           deadline: new Date(newTask.deadline + 'T12:00:00Z').toISOString(),
-          completed: false
+          completed: false,
+          space: activeSpace
         })
         .select()
         .single();

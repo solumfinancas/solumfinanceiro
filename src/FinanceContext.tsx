@@ -272,6 +272,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         .from('tasks')
         .select('*')
         .eq('user_id', targetUserId)
+        .eq('space', targetSpace)
         .eq('archived', false);
 
       if (currentFetchIdentity.current?.userId !== targetUserId || currentFetchIdentity.current?.space !== targetSpace) {
@@ -986,6 +987,12 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const optimisticWallet = { ...w, id: tempId, userId: effectiveUserId, space: activeSpace, balance: w.initialBalance || 0 } as Wallet;
     setRawWallets(prev => [...prev, optimisticWallet]);
 
+    if (w.type === 'credit_card') {
+      setOrderedCards(prev => [...prev, tempId]);
+    } else {
+      setOrderedAccounts(prev => [...prev, tempId]);
+    }
+
     try {
       const { data, error } = await supabase
         .from('wallets')
@@ -995,9 +1002,23 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
       if (error) throw error;
       setRawWallets(prev => prev.map(wal => wal.id === tempId ? data : wal));
+
+      if (w.type === 'credit_card') {
+        setOrderedCards(prev => prev.map(id => id === tempId ? data.id : id));
+      } else {
+        setOrderedAccounts(prev => prev.map(id => id === tempId ? data.id : id));
+      }
+
       updateActivity('update');
     } catch (err) {
       setRawWallets(prev => prev.filter(wal => wal.id !== tempId));
+
+      if (w.type === 'credit_card') {
+        setOrderedCards(prev => prev.filter(id => id !== tempId));
+      } else {
+        setOrderedAccounts(prev => prev.filter(id => id !== tempId));
+      }
+
       throw err;
     }
   };

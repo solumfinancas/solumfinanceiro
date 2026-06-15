@@ -629,9 +629,16 @@ export const Wallets: React.FC = () => {
 
         <div className="flex flex-wrap gap-8 mt-6">
           {(() => {
-            const activeOrdered = orderedCards
-              .map(id => wallets.find(w => w.id === id))
-              .filter(w => w && w.isActive !== false && !w.isDeleted);
+            const activeOrdered = wallets
+              .filter(w => w.type === 'credit_card' && w.isActive !== false && !w.isDeleted)
+              .sort((a, b) => {
+                const idxA = orderedCards.indexOf(a.id);
+                const idxB = orderedCards.indexOf(b.id);
+                if (idxA === -1 && idxB === -1) return 0;
+                if (idxA === -1) return 1;
+                if (idxB === -1) return -1;
+                return idxA - idxB;
+              });
 
             const inactive = showInactiveCards
               ? wallets.filter(w => w.type === 'credit_card' && w.isActive === false && !w.isDeleted)
