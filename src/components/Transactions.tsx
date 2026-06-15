@@ -26,8 +26,10 @@ import {
   Info, 
   XCircle,
   X,
-  ArrowRight
+  ArrowRight,
+  Printer
 } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 import { TransactionModal } from './TransactionModal';
 import { RefundEditModal } from './RefundEditModal';
 import { formatCurrency, formatDate, cn, checkBudgetThreshold, getCategorySpend, getInvoicePeriod, getAvailableYears } from '../lib/utils';
@@ -54,9 +56,10 @@ export const Transactions: React.FC<TransactionsProps> = ({
   const { 
     transactions, categories, wallets, 
     addTransaction, addTransactions, deleteTransaction, updateTransaction,
-    orderedCards, orderedAccounts 
+    orderedCards, orderedAccounts, activeSpace, triggerPrint
   } = useFinance();
   const { showConfirm, showAlert } = useModal();
+  const { user, profile, viewingProfile } = useAuth();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [filter, setFilter] = useState<TransactionType | 'all'>('all');
   const [filterMonth, setFilterMonth] = useState<number | 'all'>(new Date().getMonth() + 1);
@@ -138,6 +141,111 @@ export const Transactions: React.FC<TransactionsProps> = ({
     setSelectedIds([]);
     setIsSelectionMode(false);
   }, [filterYear, filterMonth, filter, selectedWalletId, viewModeContas, isFilteringPastPending, necessityFilter, searchTerm]);
+
+
+  const handlePrint = () => {
+    const clientInfo = {
+      name: viewingProfile?.full_name || profile?.full_name || 'Não informado',
+      email: viewingProfile?.email || user?.email || profile?.email || 'Não informado',
+      phone: viewingProfile?.user_metadata?.personal_phone || 
+             viewingProfile?.user_metadata?.phone || 
+             viewingProfile?.phone || 
+             profile?.user_metadata?.personal_phone || 
+             profile?.user_metadata?.phone || 
+             profile?.phone || 
+             user?.user_metadata?.phone || 
+             'Não informado',
+      cnpj: activeSpace === 'business' ? (viewingProfile?.user_metadata?.business_cnpj || profile?.user_metadata?.business_cnpj || user?.user_metadata?.business_cnpj || undefined) : undefined
+    };
+
+    const periodString = filterMonth === 'all' 
+      ? `Ano de ${filterYear}`
+      : `${MONTH_NAMES[filterMonth - 1]} de ${filterYear}`;
+
+    const transactionRows = filteredTransactions.map(t => {
+      const category = categories.find(c => c.id === t.categoryId);
+      const wallet = wallets.find(w => w.id === t.walletId);
+      
+      const typeText = t.type === 'income' ? 'RECEITA' 
+                     : t.type === 'transfer' ? 'TRANSFERÊNCIA' 
+                     : t.type === 'provision' ? 'PROVISÃO' 
+                     : t.type === 'planned' ? 'PLANEJADO' 
+                     : 'DESPESA';
+                     
+      const statusText = t.isPaid ? 'LIQUIDADO' : 'PENDENTE';
+      const formattedValue = formatCurrency(t.amount);
+      const formattedDate = formatDate(t.date);
+
+      return [
+        formattedDate,
+        t.description.toUpperCase(),
+        (category?.name || 'Sem Categoria').toUpperCase(),
+        (wallet?.name || 'Não informada').toUpperCase(),
+        typeText,
+        formattedValue,
+        statusText
+      ];
+    });
+
+    const printData = {
+      title: 'Relatório Detalhado de Lançamentos',
+      subtitle: `Listagem de transações filtradas do período`,
+      clientInfo,
+      filters: [
+        { label: 'Período', value: periodString },
+        { label: 'Espaço', value: activeSpace === 'personal' ? 'Pessoal' : 'Empresarial' },
+        { label: 'Filtrado por tipo', value: filter === 'all' ? 'Todos' : filter === 'income' ? 'Receitas' : filter === 'expense' ? 'Despesas' : filter === 'transfer' ? 'Transferências' : filter === 'provision' ? 'Provisões' : 'Planejados' },
+        { label: 'Necessidade', value: necessityFilter === 'all' ? 'Todos' : necessityFilter === 'necessary' ? 'Fixo/Necessário' : necessityFilter === 'unnecessary' ? 'Fixo/Supérfluo' : necessityFilter === 'other' ? 'Variável/Outros' : necessityFilter === 'planned' ? 'Planejados' : necessityFilter === 'invoice' ? 'Pagamento de Fatura' : 'Somente Ciclos' }
+      ],
+      sections: [
+        {
+          type: 'summary',
+          title: 'Resumo dos Lançamentos Filtrados',
+          summaryItems: [
+            { 
+              label: 'Total de Receitas', 
+              value: formatCurrency(
+                filteredTransactions
+                  .filter(t => t.type === 'income')
+                  .reduce((acc, t) => acc + t.amount, 0)
+              ),
+              color: '#10b981' 
+            },
+            { 
+              label: 'Total de Despesas', 
+              value: formatCurrency(
+                filteredTransactions
+                  .filter(t => t.type === 'expense' || t.type === 'provision' || t.type === 'planned')
+                  .reduce((acc, t) => acc + t.amount, 0)
+              ),
+              color: '#f43f5e' 
+            },
+            { 
+              label: 'Saldo Geral Filtrado', 
+              value: formatCurrency(
+                filteredTransactions
+                  .reduce((acc, t) => acc + (t.type === 'income' ? t.amount : (t.type === 'transfer' ? 0 : -t.amount)), 0)
+              ),
+              color: '#0ea5e9' 
+            },
+            { 
+              label: 'Total de Lançamentos', 
+              value: String(filteredTransactions.length),
+              color: '#475569' 
+            }
+          ]
+        },
+        {
+          type: 'table',
+          title: `Lançamentos Encontrados (${filteredTransactions.length})`,
+          headers: ['Data', 'Descrição', 'Categoria', 'Conta / Cartão', 'Tipo', 'Valor', 'Situação'],
+          rows: transactionRows
+        }
+      ]
+    };
+
+    triggerPrint(printData);
+  };
 
   const availableYears = useMemo(() => getAvailableYears(transactions), [transactions]);
 
@@ -803,6 +911,13 @@ export const Transactions: React.FC<TransactionsProps> = ({
                <CreditCard size={14} /> Cartões
             </button>
           </div>
+          <button
+            onClick={handlePrint}
+            title="Imprimir Relatório"
+            className="flex items-center justify-center p-4 h-14 w-14 rounded-2xl bg-card hover:bg-muted border border-border hover:scale-105 transition-all shadow-sm text-muted-foreground hover:text-foreground active:scale-95 shrink-0"
+          >
+            <Printer size={18} />
+          </button>
           <button 
             onClick={() => {
               setEditingId(null);
