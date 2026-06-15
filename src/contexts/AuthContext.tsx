@@ -22,6 +22,29 @@ export interface Profile {
   business_imports_limit?: number;
 }
 
+export const isEducatorProfileExpired = (prof: Profile | null | undefined): boolean => {
+  if (!prof) return false;
+  if (prof.role === 'admin' || prof.role === 'master_admin') return false;
+  if (prof.role !== 'educator') return false;
+
+  if (prof.plan === 'trial') {
+    const expiry = prof.plan_expires_at 
+      ? new Date(prof.plan_expires_at) 
+      : (() => {
+          const created = new Date(prof.created_at || new Date());
+          const exp = new Date(created);
+          exp.setDate(created.getDate() + 30);
+          return exp;
+        })();
+    return expiry < new Date();
+  }
+
+  if (!prof.plan_expires_at) return true;
+
+  const expiryDate = new Date(prof.plan_expires_at);
+  return expiryDate < new Date();
+};
+
 interface AuthContextType {
   user: User | null;
   session: Session | null;
@@ -29,6 +52,8 @@ interface AuthContextType {
   loading: boolean;
   viewingUserId: string | null;
   viewingProfile: Profile | null;
+  isEducatorPlanExpired: boolean;
+  isClientLinkSuspended: boolean;
   impersonateUser: (id: string | null) => Promise<void>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -46,6 +71,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
   const [viewingUserId, setViewingUserId] = useState<string | null>(null);
   const [viewingProfile, setViewingProfile] = useState<Profile | null>(null);
+  const [isEducatorPlanExpired, setIsEducatorPlanExpired] = useState<boolean>(false);
+  const [isClientLinkSuspended, setIsClientLinkSuspended] = useState<boolean>(false);
   
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -135,6 +162,76 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
+  const checkEducatorStatus = useCallback(async (clientProfile: Profile | null) => {
+    if (!clientProfile || clientProfile.role !== 'user') {
+      setIsEducatorPlanExpired(false);
+      setIsClientLinkSuspended(false);
+      return;
+    }
+
+    try {
+      // 1. Busca o vínculo do cliente em educator_clients (sem restringir a active para detectar suspensão)
+      const { data: linkData, error: linkError } = await supabase
+        .from('educator_clients')
+        .select('educator_id, status')
+        .eq('client_id', clientProfile.id)
+        .maybeSingle();
+
+      if (linkError) {
+        console.error('Erro ao buscar vínculo de educador:', linkError);
+        setIsEducatorPlanExpired(false);
+        setIsClientLinkSuspended(false);
+        return;
+      }
+
+      if (!linkData) {
+        setIsEducatorPlanExpired(false);
+        setIsClientLinkSuspended(false);
+        return;
+      }
+
+      // 2. Se o status do vínculo não for 'active' (ou seja, for 'inactive' ou 'archived')
+      if (linkData.status !== 'active') {
+        setIsClientLinkSuspended(true);
+        setIsEducatorPlanExpired(false);
+        return;
+      }
+
+      setIsClientLinkSuspended(false);
+
+      if (!linkData.educator_id) {
+        setIsEducatorPlanExpired(false);
+        return;
+      }
+
+      // 3. Consulta a tabela profiles do educador associado
+      const { data: educatorProfile, error: educatorError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', linkData.educator_id)
+        .single();
+
+      if (educatorError) {
+        console.error('Erro ao buscar perfil do educador:', educatorError);
+        setIsEducatorPlanExpired(false);
+        return;
+      }
+
+      if (!educatorProfile) {
+        setIsEducatorPlanExpired(false);
+        return;
+      }
+
+      const expired = isEducatorProfileExpired(educatorProfile);
+      const suspended = educatorProfile.user_metadata?.is_suspended === true;
+      setIsEducatorPlanExpired(expired || suspended);
+    } catch (err) {
+      console.error('Erro ao verificar status do educador:', err);
+      setIsEducatorPlanExpired(false);
+      setIsClientLinkSuspended(false);
+    }
+  }, []);
+
   const refreshProfile = useCallback(async () => {
     // Forçar atualização da sessão para garantir que os metadados mais recentes sejam baixados
     // Isso é crucial após mudanças feitas via Edge Functions (como reset de espaço) que modificam o Auth
@@ -151,6 +248,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (targetId) {
        const p = await fetchProfile(targetId);
        setProfile(p);
+       if (p) {
+         await checkEducatorStatus(p);
+       }
     }
     
     // 3. Se estiver gerenciando alguém, recarrega o viewingProfile
@@ -158,7 +258,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
        const vp = await fetchProfile(viewingUserId, true);
        setViewingProfile(vp);
     }
-  }, [user, viewingUserId, fetchProfile]);
+  }, [user, viewingUserId, fetchProfile, checkEducatorStatus]);
 
 
 
@@ -239,19 +339,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
          });
        }
 
-       fetchProfile(user.id).then(p => {
-         if (mounted) {
-           setProfile(p);
-           // Se o perfil carregou (ou falhou mas retornou), encerramos o loading global
-           setLoading(false);
-         }
-       });
+        fetchProfile(user.id).then(async (p) => {
+          if (mounted) {
+            setProfile(p);
+            if (p) {
+              await checkEducatorStatus(p);
+            }
+            // Se o perfil carregou (ou falhou mas retornou), encerramos o loading global
+            setLoading(false);
+          }
+        });
     } else {
        setProfile(null);
        // Se não há usuário, o loading é encerrado pelo listener de Auth
     }
     return () => { mounted = false; };
-  }, [user, fetchProfile]);
+  }, [user, fetchProfile, checkEducatorStatus]);
 
   useEffect(() => {
     let mounted = true;
@@ -326,6 +429,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       loading, 
       viewingUserId, 
       viewingProfile,
+      isEducatorPlanExpired,
+      isClientLinkSuspended,
       impersonateUser, 
       signOut,
       refreshProfile 

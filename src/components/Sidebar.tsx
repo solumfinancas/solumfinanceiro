@@ -1,6 +1,6 @@
 import React from 'react';
 import { useFinance } from '../FinanceContext';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth, isEducatorProfileExpired } from '../contexts/AuthContext';
 import {
   LayoutDashboard,
   Wallet as WalletIcon,
@@ -15,6 +15,7 @@ import {
   Menu,
   X,
   Shield,
+  Lock,
   ArrowLeft,
   GraduationCap,
   Users,
@@ -50,6 +51,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const { theme, toggleTheme, activeSpace, setActiveSpace, initializedSpaces } = useFinance();
   const { user, profile, viewingProfile, signOut } = useAuth();
+  const isEducatorExpired = profile?.role === 'educator' && isEducatorProfileExpired(profile);
 
   const [isOpen, setIsOpen] = React.useState(false);
   const [activationModal, setActivationModal] = React.useState<{ isOpen: boolean; space: 'personal' | 'business' }>({
@@ -174,10 +176,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <div className="px-4 mb-6">
             <div className="bg-muted rounded-lg p-1 flex gap-1">
               <button
+                disabled={isEducatorExpired}
                 onClick={() => handleSpaceSwitch('personal')}
                 className={cn(
                   "flex-1 flex items-center justify-center gap-2 py-2 rounded-md text-sm font-medium transition-all relative overflow-hidden group",
-                  activeSpace === 'personal' ? "bg-card shadow-sm text-primary" : "text-muted-foreground hover:text-foreground"
+                  isEducatorExpired
+                    ? "opacity-40 cursor-not-allowed text-muted-foreground"
+                    : activeSpace === 'personal' ? "bg-card shadow-sm text-primary" : "text-muted-foreground hover:text-foreground"
                 )}
               >
                 <User size={16} />
@@ -187,10 +192,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 )}
               </button>
               <button
+                disabled={isEducatorExpired}
                 onClick={() => handleSpaceSwitch('business')}
                 className={cn(
                   "flex-1 flex items-center justify-center gap-2 py-2 rounded-md text-sm font-medium transition-all relative overflow-hidden group",
-                  activeSpace === 'business' ? "bg-card shadow-sm text-primary" : "text-muted-foreground hover:text-foreground"
+                  isEducatorExpired
+                    ? "opacity-40 cursor-not-allowed text-muted-foreground"
+                    : activeSpace === 'business' ? "bg-card shadow-sm text-primary" : "text-muted-foreground hover:text-foreground"
                 )}
               >
                 <Building2 size={16} />
@@ -204,38 +212,61 @@ export const Sidebar: React.FC<SidebarProps> = ({
         )}
 
         <nav className="flex-1 px-4 space-y-1 overflow-y-auto">
-          {menuItems.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => {
-                setActiveTab(item.id);
-                setIsOpen(false);
-              }}
-              className={cn(
-                "w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all group",
-                activeTab === item.id
-                  ? "bg-primary/10 text-primary"
-                  : "text-muted-foreground hover:bg-accent hover:text-foreground"
-              )}
-            >
-              <item.icon size={20} className={cn(
-                "transition-colors",
-                activeTab === item.id ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
-              )} />
-              {item.label}
-              {activeTab === item.id && (
-                <motion.div
-                  layoutId="active-pill"
-                  className="ml-auto w-1.5 h-1.5 rounded-full bg-primary"
-                />
-              )}
-            </button>
-          ))}
+          {menuItems.map((item) => {
+            const isDisabled = isEducatorExpired && item.id !== 'settings';
+            
+            return (
+              <button
+                key={item.id}
+                disabled={isDisabled}
+                onClick={() => {
+                  if (isDisabled) return;
+                  setActiveTab(item.id);
+                  setIsOpen(false);
+                }}
+                className={cn(
+                  "w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all group",
+                  isDisabled 
+                    ? "opacity-40 cursor-not-allowed text-muted-foreground" 
+                    : activeTab === item.id
+                      ? "bg-primary/10 text-primary"
+                      : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                )}
+              >
+                {isDisabled ? (
+                  <Lock size={20} className="text-muted-foreground/60" />
+                ) : (
+                  <item.icon size={20} className={cn(
+                    "transition-colors",
+                    activeTab === item.id ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
+                  )} />
+                )}
+                <span className={cn(isDisabled && "line-through text-muted-foreground/60")}>
+                  {item.label}
+                </span>
+                {isDisabled && (
+                  <Lock size={12} className="ml-auto text-muted-foreground/40" />
+                )}
+                {!isDisabled && activeTab === item.id && (
+                  <motion.div
+                    layoutId="active-pill"
+                    className="ml-auto w-1.5 h-1.5 rounded-full bg-primary"
+                  />
+                )}
+              </button>
+            );
+          })}
 
           {isManagementOnly && onExitManagement && (
             <button
+              disabled={isEducatorExpired}
               onClick={onExitManagement}
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-all group"
+              className={cn(
+                "w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all group",
+                isEducatorExpired 
+                  ? "opacity-40 cursor-not-allowed text-muted-foreground" 
+                  : "text-muted-foreground hover:bg-accent hover:text-foreground"
+              )}
             >
               <ArrowLeft size={20} className="text-muted-foreground group-hover:text-foreground transition-colors" />
               Sair do Portal de Gestão

@@ -14,15 +14,45 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../../../lib/utils';
-import { useAuth } from '../../../contexts/AuthContext';
+import { useAuth, isEducatorProfileExpired } from '../../../contexts/AuthContext';
 
 type SettingsSection = 'plans' | 'notifications';
 type BillingCycle = 'monthly' | 'annually';
 
 export const SettingsTab: React.FC = () => {
   const { profile } = useAuth();
+  const isAdmin = profile?.role === 'admin' || profile?.role === 'master_admin';
+  const currentPlanId = isAdmin ? 'ilimitado' : (profile?.plan || 'starter');
   const [activeSection, setActiveSection] = useState<SettingsSection>('plans');
   const [billingCycle, setBillingCycle] = useState<BillingCycle>('monthly');
+
+  const isExpired = !isAdmin && isEducatorProfileExpired(profile);
+  const [showExpiryModal, setShowExpiryModal] = useState(isExpired);
+
+  const formatDate = (dateString: string | null | undefined) => {
+    if (!dateString) return '-';
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('pt-BR');
+    } catch {
+      return '-';
+    }
+  };
+
+  const isTrial = profile?.plan === 'trial';
+  const registrationDate = formatDate(profile?.created_at);
+  const expirationDate = isTrial 
+    ? (() => {
+        if (profile?.plan_expires_at) return formatDate(profile.plan_expires_at);
+        if (profile?.created_at) {
+          const created = new Date(profile.created_at);
+          const exp = new Date(created);
+          exp.setDate(created.getDate() + 30);
+          return exp.toLocaleDateString('pt-BR');
+        }
+        return '-';
+      })()
+    : formatDate(profile?.plan_expires_at);
 
   const plans = [
     {
@@ -89,7 +119,6 @@ export const SettingsTab: React.FC = () => {
   };
 
   const daysRemaining = calculateDaysRemaining(profile?.plan_expires_at);
-  const isTrial = profile?.plan === 'trial';
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
@@ -153,14 +182,56 @@ export const SettingsTab: React.FC = () => {
                     </div>
                     <div>
                       <h3 className="text-2xl font-black text-foreground uppercase tracking-tighter mb-1">Período de Teste Grátis</h3>
-                      <p className="text-sm font-medium text-muted-foreground max-w-md">
-                        Você possui <span className="text-primary font-bold">{daysRemaining} dias</span> restantes de acesso completo com até 10 clientes.
+                      <p className="text-sm font-medium text-muted-foreground max-w-md mb-2">
+                        Você possui <span className="text-primary font-bold">{daysRemaining} dias</span> restantes de acesso completo com até 3 clientes e 20 importações por IA.
                       </p>
+                      <div className="flex items-center gap-4 text-xs font-bold text-muted-foreground/80 mt-1">
+                        <span className="flex items-center gap-1"><Calendar size={12} /> Registro: {registrationDate}</span>
+                        <span className="w-1.5 h-1.5 rounded-full bg-border" />
+                        <span className="flex items-center gap-1"><Clock size={12} /> Expiração: {expirationDate}</span>
+                      </div>
                     </div>
                   </div>
                   <div className="flex flex-col items-end gap-2">
                      <div className="px-4 py-2 bg-primary/10 border border-primary/20 rounded-xl text-[10px] font-black text-primary uppercase tracking-widest">
                        Plano Atual: Teste Grátis
+                     </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Active Plan Banner (Non-Trial) */}
+            {!isTrial && (
+              <div className="relative group overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent backdrop-blur-xl border border-border rounded-[2.5rem]" />
+                <div className="relative p-8 flex flex-col md:flex-row items-center justify-between gap-8">
+                  <div className="flex items-center gap-6">
+                    <div className="w-16 h-16 rounded-2xl bg-primary/20 border border-primary/30 flex items-center justify-center text-primary shadow-xl shadow-primary/20">
+                      <Zap size={32} />
+                    </div>
+                    <div>
+                      <h3 className="text-2xl font-black text-foreground uppercase tracking-tighter mb-1">
+                        Plano {currentPlanId === 'ilimitado' ? 'ILIMITADO' : currentPlanId.toUpperCase()}
+                      </h3>
+                      <p className="text-sm font-medium text-muted-foreground max-w-md mb-2">
+                        {currentPlanId === 'ilimitado' 
+                          ? 'Acesso irrestrito a todas as funcionalidades de gestão, simuladores, indicação de clientes e importação de extratos com IA.'
+                          : `Seu plano atual é o ${currentPlanId === 'starter' ? 'Starter' : currentPlanId === 'pro' ? 'Pro' : 'Business'}. Você possui acesso a todos os recursos da sua assinatura.`
+                        }
+                      </p>
+                      {currentPlanId !== 'ilimitado' && (
+                        <div className="flex items-center gap-4 text-xs font-bold text-muted-foreground/80 mt-1">
+                          <span className="flex items-center gap-1"><Calendar size={12} /> Registro: {registrationDate}</span>
+                          <span className="w-1.5 h-1.5 rounded-full bg-border" />
+                          <span className="flex items-center gap-1"><Clock size={12} /> Expiração: {expirationDate}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-end gap-2">
+                     <div className="px-4 py-2 bg-primary/10 border border-primary/20 rounded-xl text-[10px] font-black text-primary uppercase tracking-widest">
+                       Plano Atual: {currentPlanId === 'ilimitado' ? 'ILIMITADO' : currentPlanId === 'starter' ? 'Starter' : currentPlanId === 'pro' ? 'Pro' : 'Business'}
                      </div>
                   </div>
                 </div>
@@ -193,7 +264,7 @@ export const SettingsTab: React.FC = () => {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               {plans.map((plan) => {
                 const currentPrice = billingCycle === 'monthly' ? plan.monthlyPrice : plan.annualPrice;
-                const isCurrentPlan = profile?.plan === plan.id;
+                const isCurrentPlan = currentPlanId === plan.id;
 
                 return (
                   <div 
@@ -253,17 +324,17 @@ export const SettingsTab: React.FC = () => {
                     </div>
 
                     <button 
-                      disabled={isCurrentPlan}
+                      disabled={isCurrentPlan || isAdmin}
                       className={cn(
                         "w-full h-16 rounded-[1.5rem] text-[11px] font-black uppercase tracking-widest transition-all",
-                        isCurrentPlan
+                        (isCurrentPlan || isAdmin)
                           ? "bg-muted text-muted-foreground cursor-default"
                           : plan.popular 
                             ? "bg-primary text-white shadow-xl shadow-primary/30 hover:scale-[1.02] active:scale-95" 
                             : "bg-muted text-muted-foreground hover:bg-primary hover:text-white"
                       )}
                     >
-                      {isCurrentPlan ? 'Plano Atual' : 'Migrar Plano'}
+                      {isAdmin ? 'Acesso Ilimitado' : isCurrentPlan ? 'Plano Atual' : 'Migrar Plano'}
                     </button>
                   </div>
                 );
@@ -325,6 +396,41 @@ export const SettingsTab: React.FC = () => {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {showExpiryModal && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-md p-4 animate-in fade-in duration-300">
+          <div className="bg-card border border-border rounded-[2.5rem] max-w-md w-full p-8 shadow-2xl space-y-6 text-center animate-in zoom-in-95 duration-300">
+            <div className="w-20 h-20 rounded-3xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-500 mx-auto shadow-xl shadow-rose-500/10">
+              <Clock size={40} className="animate-pulse" />
+            </div>
+            
+            <div className="space-y-2">
+              <h2 className="text-2xl font-black text-foreground uppercase tracking-tighter">Assinatura Expirada</h2>
+              <p className="text-sm font-medium text-muted-foreground">
+                Seu período de vigência ou trial do Solum Financeiro expirou. Para reestabelecer o acesso completo ao painel e liberar o acesso dos seus clientes vinculados, escolha e assine um dos planos disponíveis.
+              </p>
+            </div>
+
+            <div className="bg-muted/30 border border-border/60 rounded-2xl p-4 text-left space-y-2 text-xs font-bold text-muted-foreground">
+              <div className="flex justify-between">
+                <span>Data de Cadastro:</span>
+                <span className="text-foreground">{registrationDate}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Data de Expiração:</span>
+                <span className="text-rose-500">{expirationDate}</span>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setShowExpiryModal(false)}
+              className="w-full h-14 bg-primary text-white text-xs font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all"
+            >
+              Ver Planos Disponíveis
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

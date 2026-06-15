@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth, Profile, UserRole } from '../../contexts/AuthContext';
+import { useAuth, Profile, UserRole, isEducatorProfileExpired } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { 
   Users, 
@@ -22,7 +22,8 @@ import {
   EyeOff,
   UserCheck,
   UserX,
-  Sparkles
+  Sparkles,
+  CreditCard
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../../lib/utils';
@@ -78,6 +79,25 @@ const getInitials = (name: string) => {
   return name?.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2) || '?';
 };
 
+const isUserSuspended = (p: Profile) => {
+  if (p.user_metadata?.is_suspended === true) return true;
+  if (p.role === 'educator' && isEducatorProfileExpired(p)) return true;
+  return false;
+};
+
+const getSuspensionReason = (p: Profile) => {
+  if (p.user_metadata?.is_suspended && p.user_metadata?.suspension_reason) {
+    return p.user_metadata.suspension_reason;
+  }
+  if (p.role === 'educator' && isEducatorProfileExpired(p)) {
+    if (p.plan === 'trial') {
+      return 'Período de teste (Trial) encerrado.';
+    }
+    return 'Vigência do plano expirada.';
+  }
+  return null;
+};
+
 export const ManagementPortal: React.FC<ManagementPortalProps> = ({ activeTab = 'management', onTabChange }) => {
   const { profile, impersonateUser } = useAuth();
   const { setActiveSpace } = useFinance();
@@ -112,6 +132,75 @@ export const ManagementPortal: React.FC<ManagementPortalProps> = ({ activeTab = 
   const [personalLimitInput, setPersonalLimitInput] = useState<number>(4);
   const [businessLimitInput, setBusinessLimitInput] = useState<number>(4);
   const [isSavingLimits, setIsSavingLimits] = useState(false);
+
+  // Gestão de Plano do Educador (Gerenciado por Admins/Secretários)
+  const [userToEditPlan, setUserToEditPlan] = useState<Profile | null>(null);
+  const [selectedPlan, setSelectedPlan] = useState<string>('starter');
+  const [planStartDate, setPlanStartDate] = useState<string>('');
+  const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'annually'>('monthly');
+  const [isSavingPlan, setIsSavingPlan] = useState(false);
+
+  useEffect(() => {
+    if (userToEditPlan) {
+      setSelectedPlan(userToEditPlan.plan || 'trial');
+      setBillingPeriod('monthly');
+      
+      const date = userToEditPlan.created_at ? new Date(userToEditPlan.created_at) : new Date();
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      setPlanStartDate(`${year}-${month}-${day}`);
+    }
+  }, [userToEditPlan]);
+
+  const parseInputDate = (dateStr: string) => {
+    const [year, month, day] = dateStr.split('-').map(Number);
+    return new Date(year, month - 1, day, 12, 0, 0);
+  };
+
+  const handleSavePlan = async () => {
+    if (!userToEditPlan) return;
+    setIsSavingPlan(true);
+    try {
+      const startDateObj = parseInputDate(planStartDate);
+      const expiresDateObj = new Date(startDateObj);
+      
+      if (selectedPlan === 'trial') {
+        expiresDateObj.setDate(startDateObj.getDate() + 30);
+      } else if (billingPeriod === 'monthly') {
+        expiresDateObj.setDate(startDateObj.getDate() + 30);
+      } else {
+        expiresDateObj.setDate(startDateObj.getDate() + 365);
+      }
+
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          plan: selectedPlan,
+          created_at: startDateObj.toISOString(),
+          plan_expires_at: expiresDateObj.toISOString()
+        })
+        .eq('id', userToEditPlan.id);
+
+      if (error) throw error;
+
+      showAlert('Sucesso', 'Plano e vigência atualizados com sucesso.', 'success');
+      
+      setProfiles(prev => prev.map(p => p.id === userToEditPlan.id ? {
+        ...p,
+        plan: selectedPlan,
+        created_at: startDateObj.toISOString(),
+        plan_expires_at: expiresDateObj.toISOString()
+      } : p));
+      
+      setUserToEditPlan(null);
+    } catch (err: any) {
+      console.error('Erro ao salvar plano:', err);
+      showAlert('Erro', 'Não foi possível atualizar o plano: ' + err.message, 'danger');
+    } finally {
+      setIsSavingPlan(false);
+    }
+  };
 
   useEffect(() => {
     if (userToEditLimits) {
@@ -609,8 +698,8 @@ export const ManagementPortal: React.FC<ManagementPortalProps> = ({ activeTab = 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
         {[
           { label: 'Total de Usuários', value: profiles.length, icon: Users, color: 'text-primary', bg: 'bg-primary/5' },
-          { label: 'Perfis Ativos', value: profiles.filter(p => !p.user_metadata?.is_suspended).length, icon: UserCheck, color: 'text-emerald-500', bg: 'bg-emerald-500/5' },
-          { label: 'Perfis Suspensos', value: profiles.filter(p => p.user_metadata?.is_suspended).length, icon: UserX, color: 'text-rose-500', bg: 'bg-rose-500/5' },
+          { label: 'Perfis Ativos', value: profiles.filter(p => !isUserSuspended(p)).length, icon: UserCheck, color: 'text-emerald-500', bg: 'bg-emerald-500/5' },
+          { label: 'Perfis Suspensos', value: profiles.filter(p => isUserSuspended(p)).length, icon: UserX, color: 'text-rose-500', bg: 'bg-rose-500/5' },
         ].map((stat, i) => (
           <div key={i} className="bg-card border border-border rounded-3xl p-6 flex items-center gap-4 shadow-sm">
             <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center", stat.bg, stat.color)}>
@@ -631,8 +720,8 @@ export const ManagementPortal: React.FC<ManagementPortalProps> = ({ activeTab = 
       ) : (
         <div className="space-y-12">
           {roleGroups.map((group) => {
-            const activeUsers = filteredProfiles.filter(p => group.roles.includes(p.role) && !p.user_metadata?.is_suspended);
-            const suspendedUsers = filteredProfiles.filter(p => group.roles.includes(p.role) && p.user_metadata?.is_suspended);
+            const activeUsers = filteredProfiles.filter(p => group.roles.includes(p.role) && !isUserSuspended(p));
+            const suspendedUsers = filteredProfiles.filter(p => group.roles.includes(p.role) && isUserSuspended(p));
             const hasSuspended = suspendedUsers.length > 0;
             const isShowingSuspended = showSuspendedInGroup[group.title];
             
@@ -695,7 +784,7 @@ export const ManagementPortal: React.FC<ManagementPortalProps> = ({ activeTab = 
                           exit={{ opacity: 0, scale: 0.95 }}
                           className={cn(
                             "bg-card border border-border rounded-[2.5rem] p-8 hover:border-primary/40 transition-all group relative overflow-hidden shadow-xl shadow-slate-200/40 dark:shadow-none",
-                            p.user_metadata?.is_suspended && "opacity-60 grayscale-[0.5] border-rose-500/20"
+                            isUserSuspended(p) && "opacity-60 grayscale-[0.5] border-rose-500/20"
                           )}
                         >
                           <div className="flex items-start justify-between mb-8">
@@ -787,6 +876,18 @@ export const ManagementPortal: React.FC<ManagementPortalProps> = ({ activeTab = 
                                         </button>
                                       )}
 
+                                      {p.role === 'educator' && ['admin', 'master_admin', 'secretary'].includes(profile?.role || '') && (
+                                        <button 
+                                          onClick={() => {
+                                            setUserToEditPlan(p);
+                                            setActiveMenuId(null);
+                                          }}
+                                          className="w-full flex items-center gap-3 px-4 py-3 text-[10px] font-black uppercase tracking-widest text-amber-500 hover:bg-amber-500/10 rounded-xl transition-all"
+                                        >
+                                          <CreditCard size={16} /> Gerenciar Plano
+                                        </button>
+                                      )}
+
                                       {['user', 'educator', 'admin', 'master_admin'].includes(p.role) && ['admin', 'master_admin', 'secretary'].includes(profile?.role || '') && (
                                         <button 
                                           onClick={() => {
@@ -869,27 +970,27 @@ export const ManagementPortal: React.FC<ManagementPortalProps> = ({ activeTab = 
                                   <p className="text-[10px] font-black uppercase tracking-[0.2em] text-primary/80">Nível de Acesso</p>
                                   <p className="text-xs font-black text-foreground uppercase tracking-tight">{getRoleLabel(p.role)}</p>
                                 </div>
-                                {p.user_metadata?.is_suspended && (
+                                {isUserSuspended(p) && (
                                   <div className="bg-rose-500/20 text-rose-500 text-[8px] font-black uppercase px-2 py-1 rounded-md border border-rose-500/30 animate-pulse">
                                     Suspenso
                                   </div>
                                 )}
                               </div>
                               
-                              {p.user_metadata?.is_suspended && p.user_metadata?.suspension_reason && (
+                              {isUserSuspended(p) && getSuspensionReason(p) && (
                                 <div className="pt-3 border-t border-rose-500/10">
                                   <p className="text-[9px] font-black uppercase tracking-widest text-rose-500/60 mb-1">Motivo da Suspensão</p>
-                                  <p className="text-[10px] font-bold text-rose-600 dark:text-rose-400 italic">"{p.user_metadata.suspension_reason}"</p>
+                                  <p className="text-[10px] font-bold text-rose-600 dark:text-rose-400 italic">"{getSuspensionReason(p)}"</p>
                                 </div>
                               )}
                             </div>
                             {p.id !== profile?.id && (
                               <button 
                                 onClick={() => handleStartImpersonation(p)}
-                                disabled={p.user_metadata?.is_suspended}
+                                disabled={isUserSuspended(p)}
                                 className={cn(
                                   "w-full h-14 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-3",
-                                  p.user_metadata?.is_suspended 
+                                  isUserSuspended(p) 
                                     ? "bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-600 cursor-not-allowed" 
                                     : "bg-primary text-white hover:scale-[1.02] active:scale-95 shadow-lg shadow-primary/30"
                                 )}
@@ -1411,6 +1512,151 @@ export const ManagementPortal: React.FC<ManagementPortalProps> = ({ activeTab = 
                   className="h-14 bg-primary text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50"
                 >
                   {isSavingLimits ? 'Gravando...' : 'Salvar'}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Modal Gestão de Plano do Educador */}
+      <AnimatePresence>
+        {userToEditPlan && (
+          <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }} 
+              animate={{ opacity: 1 }} 
+              exit={{ opacity: 0 }} 
+              onClick={() => setUserToEditPlan(null)} 
+              className="absolute inset-0 bg-slate-950/80 backdrop-blur-md" 
+            />
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0, y: 20 }} 
+              animate={{ scale: 1, opacity: 1, y: 0 }} 
+              exit={{ scale: 0.9, opacity: 0, y: 20 }} 
+              className="relative w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-[2.5rem] p-8 md:p-10 shadow-2xl z-10"
+            >
+              <button 
+                onClick={() => setUserToEditPlan(null)}
+                className="absolute top-6 right-6 w-10 h-10 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-white/10 transition-all"
+              >
+                <X size={20} />
+              </button>
+
+              <div className="space-y-1 mb-8">
+                <div className="flex items-center gap-2">
+                  <CreditCard className="text-primary" size={20} />
+                  <span className="text-[10px] font-black uppercase tracking-[0.3em] text-primary">Gestão de Conta</span>
+                </div>
+                <h2 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">Plano & Vigência</h2>
+                <p className="text-slate-500 dark:text-slate-400 text-[10px] font-bold uppercase tracking-widest leading-relaxed">
+                  Gerencie as credenciais de assinatura de <span className="text-slate-900 dark:text-white font-bold">{userToEditPlan.full_name}</span>.
+                </p>
+              </div>
+
+              <div className="space-y-6 mb-8">
+                {/* Seleção do Plano */}
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-4 block">Selecione o Plano</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { id: 'trial', name: 'Trial' },
+                      { id: 'starter', name: 'Starter' },
+                      { id: 'pro', name: 'Pro' },
+                      { id: 'business', name: 'Business' }
+                    ].map(p => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => setSelectedPlan(p.id)}
+                        className={cn(
+                          "py-3 rounded-xl border-2 text-[10px] font-black uppercase tracking-wider transition-all",
+                          selectedPlan === p.id
+                            ? "bg-primary/10 border-primary text-primary"
+                            : "bg-slate-50 dark:bg-slate-950/50 border-slate-200 dark:border-white/5 text-slate-500"
+                        )}
+                      >
+                        {p.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Vigência Inicial */}
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-4 block">Data de Vigência Inicial</label>
+                  <input
+                    type="date"
+                    value={planStartDate}
+                    onChange={e => setPlanStartDate(e.target.value)}
+                    className="w-full bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-white/5 rounded-2xl h-14 px-6 text-sm text-slate-900 dark:text-white outline-none focus:border-primary/50 transition-all"
+                  />
+                </div>
+
+                {/* Ciclo de Faturamento (se não for Trial) */}
+                {selectedPlan !== 'trial' && (
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-4 block">Ciclo de Faturamento</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {[
+                        { id: 'monthly', name: 'Mensal (30 dias)' },
+                        { id: 'annually', name: 'Anual (365 dias)' }
+                      ].map(cycle => (
+                        <button
+                          key={cycle.id}
+                          type="button"
+                          onClick={() => setBillingPeriod(cycle.id as any)}
+                          className={cn(
+                            "py-3 rounded-xl border-2 text-[10px] font-black uppercase tracking-wider transition-all",
+                            billingPeriod === cycle.id
+                              ? "bg-primary/10 border-primary text-primary"
+                              : "bg-slate-50 dark:bg-slate-950/50 border-slate-200 dark:border-white/5 text-slate-500"
+                          )}
+                        >
+                          {cycle.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Memento Dinâmico */}
+                <div className="bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-white/5 rounded-3xl p-5">
+                  <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block mb-2">Memento de Vigência</span>
+                  <p className="text-xs font-bold text-slate-700 dark:text-slate-300 leading-relaxed">
+                    {(() => {
+                      if (!planStartDate) return 'Selecione uma data inicial.';
+                      const start = parseInputDate(planStartDate);
+                      const end = new Date(start);
+                      
+                      if (selectedPlan === 'trial') {
+                        end.setDate(start.getDate() + 30);
+                        return `Plano Trial possui 30 dias de uso. Com início em ${start.toLocaleDateString('pt-BR')}, o plano irá expirar em ${end.toLocaleDateString('pt-BR')}.`;
+                      }
+                      
+                      const days = billingPeriod === 'monthly' ? 30 : 365;
+                      end.setDate(start.getDate() + days);
+                      return `Plano ${selectedPlan.toUpperCase()} ${billingPeriod === 'monthly' ? 'Mensal' : 'Anual'} possui ${days} dias de vigência. Com início em ${start.toLocaleDateString('pt-BR')}, o plano irá expirar em ${end.toLocaleDateString('pt-BR')}.`;
+                    })()}
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <button 
+                  type="button"
+                  onClick={() => setUserToEditPlan(null)} 
+                  className="h-14 bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  type="button"
+                  disabled={isSavingPlan}
+                  onClick={handleSavePlan} 
+                  className="h-14 bg-primary text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50"
+                >
+                  {isSavingPlan ? 'Gravando...' : 'Salvar'}
                 </button>
               </div>
             </motion.div>

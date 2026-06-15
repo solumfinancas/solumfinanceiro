@@ -56,7 +56,8 @@ export const ClientsTab: React.FC<ClientsTabProps> = ({
 }) => {
   const { profile, impersonateUser } = useAuth();
   const { setActiveSpace } = useFinance();
-  const { showAlert } = useModal();
+  const { showAlert, showConfirm } = useModal();
+  const isAdmin = profile?.role === 'admin' || profile?.role === 'master_admin';
   
   const [clients, setClients] = useState<ClientProfile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -77,7 +78,7 @@ export const ClientsTab: React.FC<ClientsTabProps> = ({
   const [activatingSpaceType, setActivatingSpaceType] = useState<'personal' | 'business' | null>(null);
   const [showActivationModal, setShowActivationModal] = useState(false);
 
-  const CLIENT_LIMIT = profile?.plan === 'starter' ? 5 : (profile?.plan === 'pro' || profile?.plan === 'professional' ? 10 : (profile?.plan === 'business' ? 20 : 5));
+  const CLIENT_LIMIT = profile?.plan === 'trial' ? 3 : (profile?.plan === 'starter' ? 5 : (profile?.plan === 'pro' || profile?.plan === 'professional' ? 10 : (profile?.plan === 'business' ? 20 : 5)));
 
   const activeClientsUsage = useMemo(() => {
     return clients
@@ -91,6 +92,7 @@ export const ClientsTab: React.FC<ClientsTabProps> = ({
 
   const clientsLimitByPlan = useMemo(() => {
     const plan = profile?.plan || 'starter';
+    if (plan === 'trial') return 20; // trial tem limite consolidado de 20 importações por IA
     if (plan === 'pro' || plan === 'professional') return 50; // 10 * 5
     if (plan === 'business') return 160; // 20 * 8
     return 20; // starter: 5 * 4
@@ -100,6 +102,7 @@ export const ClientsTab: React.FC<ClientsTabProps> = ({
     const isAdmin = profile?.role === 'admin' || profile?.role === 'master_admin';
     if (isAdmin) return Infinity;
     const plan = profile?.plan || 'starter';
+    if (plan === 'trial') return 0; // trial compartilha 20 importações por IA (consolidado)
     if (plan === 'pro' || plan === 'professional') return 10;
     if (plan === 'business') return 16;
     return 8; // starter
@@ -429,9 +432,45 @@ export const ClientsTab: React.FC<ClientsTabProps> = ({
       return customLimit;
     }
     const plan = profile?.plan || 'starter';
+    if (plan === 'trial') return 20; // trial tem limite consolidado de 20 importações
     if (plan === 'pro' || plan === 'professional') return 5;
     if (plan === 'business') return 8;
     return 4; // starter
+  };
+
+  const handleAddClientClick = async () => {
+    if (isAdmin) {
+      if (onAddClient) onAddClient();
+      return;
+    }
+
+    if (activeCount >= CLIENT_LIMIT) {
+      await showConfirm(
+        'Limite de Clientes Atingido',
+        `Você atingiu o limite de clientes ativos permitido no seu plano ${profile?.plan === 'trial' ? 'Trial' : profile?.plan === 'pro' || profile?.plan === 'professional' ? 'Pro' : profile?.plan === 'business' ? 'Business' : 'Starter'} (${activeCount} de ${CLIENT_LIMIT} clientes). Para cadastrar novos clientes, é necessário realizar o upgrade do seu plano na aba de Configurações.`,
+        {
+          confirmText: 'Entendido',
+          cancelText: 'Cancelar',
+          variant: 'danger'
+        }
+      );
+      return;
+    }
+
+    if (activeCount === CLIENT_LIMIT - 1) {
+      const confirmed = await showConfirm(
+        'Última Vaga Disponível',
+        `Atenção: Ao adicionar este cliente, você preencherá a última vaga disponível de cliente no seu plano atual (${CLIENT_LIMIT} de ${CLIENT_LIMIT}). Caso precise gerenciar mais clientes no futuro, será necessário realizar o upgrade do seu plano. Deseja prosseguir?`,
+        {
+          confirmText: 'Prosseguir',
+          cancelText: 'Cancelar',
+          variant: 'warning'
+        }
+      );
+      if (!confirmed) return;
+    }
+
+    if (onAddClient) onAddClient();
   };
 
   return (
@@ -456,76 +495,92 @@ export const ClientsTab: React.FC<ClientsTabProps> = ({
               <div className="flex justify-between items-end">
                 <div className="space-y-1">
                   <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Ocupação da Carteira</p>
-                  <p className="text-xl font-black text-foreground">{activeCount} <span className="text-muted-foreground/40 text-sm font-bold uppercase">de</span> {CLIENT_LIMIT} <span className="text-muted-foreground/40 text-sm font-bold uppercase tracking-tighter">clientes</span></p>
+                  {isAdmin ? (
+                    <p className="text-xl font-black text-foreground">{activeCount} <span className="text-muted-foreground/40 text-sm font-bold uppercase tracking-tighter">clientes ativos</span></p>
+                  ) : (
+                    <p className="text-xl font-black text-foreground">{activeCount} <span className="text-muted-foreground/40 text-sm font-bold uppercase">de</span> {CLIENT_LIMIT} <span className="text-muted-foreground/40 text-sm font-bold uppercase tracking-tighter">clientes</span></p>
+                  )}
                 </div>
                 <div className={cn(
                   "px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border",
+                  isAdmin ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-500" :
                   activeCount >= CLIENT_LIMIT ? "bg-rose-500/10 border-rose-500/20 text-rose-500" : "bg-emerald-500/10 border-emerald-500/20 text-emerald-500"
                 )}>
-                  {Math.round(progressPercent)}%
+                  {isAdmin ? 'Ilimitado' : `${Math.round(progressPercent)}%`}
                 </div>
               </div>
-              <div className="h-4 bg-muted/50 rounded-full border border-border overflow-hidden p-1 shadow-inner">
-                <motion.div 
-                  initial={{ width: 0 }}
-                  animate={{ width: `${progressPercent}%` }}
-                  className={cn(
-                    "h-full rounded-full shadow-lg transition-colors",
-                    progressPercent < 50 ? "bg-emerald-500 shadow-emerald-500/20" : 
-                    progressPercent < 80 ? "bg-primary shadow-primary/20" : 
-                    "bg-rose-500 shadow-rose-500/20"
-                  )}
-                />
-              </div>
+              {!isAdmin && (
+                <div className="h-4 bg-muted/50 rounded-full border border-border overflow-hidden p-1 shadow-inner">
+                  <motion.div 
+                    initial={{ width: 0 }}
+                    animate={{ width: `${progressPercent}%` }}
+                    className={cn(
+                      "h-full rounded-full shadow-lg transition-colors",
+                      progressPercent < 50 ? "bg-emerald-500 shadow-emerald-500/20" : 
+                      progressPercent < 80 ? "bg-primary shadow-primary/20" : 
+                      "bg-rose-500 shadow-rose-500/20"
+                    )}
+                  />
+                </div>
+              )}
             </div>
 
             {/* Consumo de Importações IA do Plano */}
              <div className="space-y-4 bg-card border p-5 rounded-3xl shadow-sm">
-               <div className="flex justify-between items-end">
-                 <div className="space-y-1">
-                   <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Consumo de IA do Plano</p>
-                   <p className="text-xl font-black text-foreground">
-                     {consolidatedUsage} <span className="text-muted-foreground/40 text-sm font-bold uppercase">de</span> {consolidatedLimit} <span className="text-muted-foreground/40 text-sm font-bold uppercase tracking-tighter">usos</span>
-                   </p>
-                 </div>
-                 <div className={cn(
-                   "px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border",
-                   consolidatedUsage >= consolidatedLimit ? "bg-rose-500/10 border-rose-500/20 text-rose-500" : "bg-primary/10 border-primary/20 text-primary"
-                 )}>
-                   {Math.round(Math.min((consolidatedUsage / consolidatedLimit) * 100, 100))}%
-                 </div>
-               </div>
-               <div className="h-3 bg-muted/50 rounded-full border border-border overflow-hidden p-0.5 shadow-inner">
-                 <motion.div 
-                   initial={{ width: 0 }}
-                   animate={{ width: `${Math.min((consolidatedUsage / consolidatedLimit) * 100, 100)}%` }}
-                   className={cn(
-                     "h-full rounded-full shadow-lg transition-colors",
-                     (consolidatedUsage / consolidatedLimit) < 0.5 ? "bg-primary shadow-primary/20" : 
-                     (consolidatedUsage / consolidatedLimit) < 0.8 ? "bg-amber-500 shadow-amber-500/20" : 
-                     "bg-rose-500 shadow-rose-500/20"
-                   )}
-                 />
-               </div>
+                <div className="flex justify-between items-end">
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Consumo de IA do Plano</p>
+                    {isAdmin ? (
+                      <p className="text-xl font-black text-foreground">
+                        {consolidatedUsage} <span className="text-muted-foreground/40 text-sm font-bold uppercase tracking-tighter">usos</span>
+                      </p>
+                    ) : (
+                      <p className="text-xl font-black text-foreground">
+                        {consolidatedUsage} <span className="text-muted-foreground/40 text-sm font-bold uppercase">de</span> {consolidatedLimit} <span className="text-muted-foreground/40 text-sm font-bold uppercase tracking-tighter">usos</span>
+                      </p>
+                    )}
+                  </div>
+                  <div className={cn(
+                    "px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border",
+                    isAdmin ? "bg-primary/10 border-primary/20 text-primary" :
+                    consolidatedUsage >= consolidatedLimit ? "bg-rose-500/10 border-rose-500/20 text-rose-500" : "bg-primary/10 border-primary/20 text-primary"
+                  )}>
+                    {isAdmin ? 'Ilimitado' : `${Math.round(Math.min((consolidatedUsage / consolidatedLimit) * 100, 100))}%`}
+                  </div>
+                </div>
+                {!isAdmin && (
+                  <div className="h-3 bg-muted/50 rounded-full border border-border overflow-hidden p-0.5 shadow-inner">
+                    <motion.div 
+                      initial={{ width: 0 }}
+                      animate={{ width: `${Math.min((consolidatedUsage / consolidatedLimit) * 100, 100)}%` }}
+                      className={cn(
+                        "h-full rounded-full shadow-lg transition-colors",
+                        (consolidatedUsage / consolidatedLimit) < 0.5 ? "bg-primary shadow-primary/20" : 
+                        (consolidatedUsage / consolidatedLimit) < 0.8 ? "bg-amber-500 shadow-amber-500/20" : 
+                        "bg-rose-500 shadow-rose-500/20"
+                      )}
+                    />
+                  </div>
+                )}
 
-               <div className="space-y-2 pt-2 border-t border-border/40">
-                 {/* Consumo dos Clientes */}
-                 <div className="flex justify-between items-center text-[10px] font-bold">
-                   <span className="text-muted-foreground uppercase tracking-widest">Uso dos Clientes:</span>
-                   <span className="text-slate-900 dark:text-slate-200">{activeClientsUsage} / {clientsLimitByPlan}</span>
-                 </div>
-                 {/* Consumo da Conta Própria */}
-                 <div className="flex justify-between items-center text-[10px] font-bold">
-                   <span className="text-muted-foreground uppercase tracking-widest">Uso Conta Própria:</span>
-                   <span className="text-slate-900 dark:text-slate-200">{educatorUsage} / {ownLimitByPlan === Infinity ? 'Ilimitado' : ownLimitByPlan}</span>
-                 </div>
-               </div>
-             </div>
+                <div className="space-y-2 pt-2 border-t border-border/40">
+                  {/* Consumo dos Clientes */}
+                  <div className="flex justify-between items-center text-[10px] font-bold">
+                    <span className="text-muted-foreground uppercase tracking-widest">Uso dos Clientes:</span>
+                    <span className="text-slate-900 dark:text-slate-200">{activeClientsUsage} usos {isAdmin ? '(Ilimitado)' : `/ ${clientsLimitByPlan}`}</span>
+                  </div>
+                  {/* Consumo da Conta Própria */}
+                  <div className="flex justify-between items-center text-[10px] font-bold">
+                    <span className="text-muted-foreground uppercase tracking-widest">Uso Conta Própria:</span>
+                    <span className="text-slate-900 dark:text-slate-200">{educatorUsage} / {ownLimitByPlan === Infinity ? 'Ilimitado' : ownLimitByPlan}</span>
+                  </div>
+                </div>
+              </div>
           </div>
         </div>
 
         <button 
-          onClick={onAddClient}
+          onClick={handleAddClientClick}
           className="bg-primary hover:scale-[1.02] active:scale-95 text-white px-8 py-4 rounded-2xl flex items-center justify-center gap-3 transition-all group shadow-xl shadow-primary/20"
         >
           <UserPlus size={20} className="group-hover:rotate-12 transition-transform" />

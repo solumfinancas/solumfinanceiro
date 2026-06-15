@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { FinanceProvider, useFinance } from './FinanceContext';
-import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { AuthProvider, useAuth, isEducatorProfileExpired } from './contexts/AuthContext';
 import { ModalProvider } from './contexts/ModalContext';
 import { PrintReport } from './components/ui/PrintReport';
 import { Sidebar } from './components/Sidebar';
@@ -35,7 +35,8 @@ import { MeetingPersistentReminder } from './components/MeetingPersistentReminde
 
 
 const AppContent = () => {
-  const { user, profile, viewingUserId, viewingProfile, impersonateUser, loading: authLoading } = useAuth();
+  const { user, profile, viewingUserId, viewingProfile, impersonateUser, loading: authLoading, isEducatorPlanExpired, isClientLinkSuspended, signOut } = useAuth();
+  const isEducatorExpired = profile?.role === 'educator' && isEducatorProfileExpired(profile);
   const { loading: financeLoading, wallets, activeSpace, initializedSpaces, setActiveSpace, activePrintReport } = useFinance();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [managementTab, setManagementTab] = useState(() => {
@@ -295,10 +296,34 @@ const AppContent = () => {
     setActiveSpace
   ]);
 
+  // Forçar redirecionamento do educador expirado para as configurações
+  React.useEffect(() => {
+    if (user && isEducatorExpired && !viewingUserId) {
+      setViewingManagement(true);
+      setManagementTab('settings');
+      setActiveSessionView('management');
+      localStorage.setItem('solum_management_tab', 'settings');
+      sessionStorage.setItem('solum_session_view', 'management');
+    }
+  }, [user, isEducatorExpired, viewingUserId]);
 
   // Verificação de suspensão global
   if (user && profile?.user_metadata?.is_suspended) {
     return <SuspensionBlock reason={profile.user_metadata.suspension_reason} />;
+  }
+
+  // Verificação se o cliente foi suspenso diretamente pelo educador (vínculo inativo/arquivado)
+  if (user && profile?.role === 'user' && isClientLinkSuspended) {
+    return <SuspensionBlock reason={profile.user_metadata?.suspension_reason || 'Seu acesso foi temporariamente suspenso pelo seu educador financeiro devido a pendências de vigência.'} />;
+  }
+
+  // Verificação se o educador do cliente está expirado/suspenso/inadimplente
+  if (user && profile?.role === 'user' && isEducatorPlanExpired) {
+    return (
+      <SuspensionBlock 
+        reason="Identificamos pendências administrativas temporárias na conta do seu educador financeiro responsável. Por este motivo, seu acesso foi suspenso. Por favor, entre em contato diretamente com o seu educador financeiro para esclarecimentos e reativação." 
+      />
+    );
   }
 
 
