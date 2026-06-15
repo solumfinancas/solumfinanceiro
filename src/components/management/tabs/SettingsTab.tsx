@@ -188,7 +188,7 @@ export const SettingsTab: React.FC = () => {
                       <div className="flex items-center gap-4 text-xs font-bold text-muted-foreground/80 mt-1">
                         <span className="flex items-center gap-1"><Calendar size={12} /> Registro: {registrationDate}</span>
                         <span className="w-1.5 h-1.5 rounded-full bg-border" />
-                        <span className="flex items-center gap-1"><Clock size={12} /> Expiração: {expirationDate}</span>
+                        <span className="flex items-center gap-1"><Clock size={12} /> Expiração: {expirationDate} ({daysRemaining} {daysRemaining === 1 ? 'dia restante' : 'dias restantes'})</span>
                       </div>
                     </div>
                   </div>
@@ -224,7 +224,7 @@ export const SettingsTab: React.FC = () => {
                         <div className="flex items-center gap-4 text-xs font-bold text-muted-foreground/80 mt-1">
                           <span className="flex items-center gap-1"><Calendar size={12} /> Registro: {registrationDate}</span>
                           <span className="w-1.5 h-1.5 rounded-full bg-border" />
-                          <span className="flex items-center gap-1"><Clock size={12} /> Expiração: {expirationDate}</span>
+                          <span className="flex items-center gap-1"><Clock size={12} /> Expiração: {expirationDate} ({daysRemaining} {daysRemaining === 1 ? 'dia restante' : 'dias restantes'})</span>
                         </div>
                       )}
                     </div>

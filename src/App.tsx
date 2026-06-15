@@ -37,6 +37,24 @@ import { MeetingPersistentReminder } from './components/MeetingPersistentReminde
 const AppContent = () => {
   const { user, profile, viewingUserId, viewingProfile, impersonateUser, loading: authLoading, isEducatorPlanExpired, isClientLinkSuspended, signOut } = useAuth();
   const isEducatorExpired = profile?.role === 'educator' && isEducatorProfileExpired(profile);
+  
+  const educatorDaysRemaining = React.useMemo(() => {
+    if (profile?.role !== 'educator') return null;
+    if (!profile.plan_expires_at) {
+      if (profile.plan === 'trial' && profile.created_at) {
+        const created = new Date(profile.created_at);
+        const exp = new Date(created);
+        exp.setDate(created.getDate() + 30);
+        const diff = exp.getTime() - new Date().getTime();
+        return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+      }
+      return 0;
+    }
+    const expiry = new Date(profile.plan_expires_at);
+    const diff = expiry.getTime() - new Date().getTime();
+    return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+  }, [profile]);
+
   const { loading: financeLoading, wallets, activeSpace, initializedSpaces, setActiveSpace, activePrintReport } = useFinance();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [managementTab, setManagementTab] = useState(() => {
@@ -540,8 +558,51 @@ const AppContent = () => {
           </div>
         )}
 
-        {/* Trial Notification Bar */}
-        {profile?.role === 'educator' && profile?.plan === 'trial' && !viewingUserId && (
+        {/* Notification Bar para Expiração de Planos (Restando 10 dias ou menos) */}
+        {profile?.role === 'educator' && educatorDaysRemaining !== null && educatorDaysRemaining > 0 && educatorDaysRemaining <= 10 && !viewingUserId && (
+          <div className="max-w-[1600px] mx-auto mb-6">
+            <div className="relative group overflow-hidden">
+               <div className="absolute inset-0 bg-gradient-to-r from-rose-500/10 via-rose-500/5 to-transparent backdrop-blur-xl border border-rose-500/20 rounded-[2rem]" />
+               <div className="relative p-5 flex flex-col md:flex-row items-center justify-between gap-6">
+                 <div className="flex items-center gap-5">
+                   <div className="w-12 h-12 rounded-2xl bg-rose-500/20 border border-rose-500/30 flex items-center justify-center text-rose-500 shadow-lg shadow-rose-500/10">
+                     <AlertCircle size={24} className="animate-pulse" />
+                   </div>
+                   <div>
+                     <div className="flex items-center gap-2 mb-1">
+                       <span className="px-3 py-1 rounded-full bg-rose-500 text-white text-[8px] font-black uppercase tracking-widest shadow-lg shadow-rose-500/20">
+                         Renovação de Assinatura
+                       </span>
+                     </div>
+                     <h3 className="text-lg font-black tracking-tighter text-foreground uppercase">
+                       Restam apenas <span className="text-rose-500">{educatorDaysRemaining} {educatorDaysRemaining === 1 ? 'dia' : 'dias'}</span> de vigência do seu plano
+                     </h3>
+                     <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                       Atenção: A ausência de renovação suspenderá automaticamente a sua conta e o acesso de todos os seus clientes vinculados.
+                     </p>
+                   </div>
+                 </div>
+
+                 <button 
+                   onClick={() => {
+                     setViewingManagement(true);
+                     setManagementTab('settings');
+                     setActiveSessionView('management');
+                     localStorage.setItem('solum_management_tab', 'settings');
+                     sessionStorage.setItem('solum_session_view', 'management');
+                   }}
+                   className="flex items-center gap-3 px-8 py-4 bg-rose-500 text-white rounded-2xl text-[11px] font-black uppercase tracking-widest hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-rose-500/30"
+                 >
+                   Renovar Plano Agora
+                   <ArrowRight size={18} />
+                 </button>
+               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Trial Notification Bar (Apenas se tiver mais de 10 dias restantes) */}
+        {profile?.role === 'educator' && profile?.plan === 'trial' && educatorDaysRemaining !== null && educatorDaysRemaining > 10 && !viewingUserId && (
           <div className="max-w-[1600px] mx-auto mb-6">
             <div className="relative group overflow-hidden">
                <div className="absolute inset-0 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent backdrop-blur-xl border border-amber-500/20 rounded-[2rem]" />
@@ -557,13 +618,7 @@ const AppContent = () => {
                        </span>
                      </div>
                      <h3 className="text-lg font-black tracking-tighter text-foreground uppercase">
-                       Restam <span className="text-amber-500">{(() => {
-                         if (!profile.plan_expires_at) return 0;
-                         const expiry = new Date(profile.plan_expires_at);
-                         const now = new Date();
-                         const diff = expiry.getTime() - now.getTime();
-                         return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
-                       })()} dias</span> de teste
+                       Restam <span className="text-amber-500">{educatorDaysRemaining} dias</span> de teste
                      </h3>
                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
                        Aproveite todos os recursos antes que seu período expire.
@@ -577,6 +632,7 @@ const AppContent = () => {
                      setManagementTab('settings');
                      setActiveSessionView('management');
                      localStorage.setItem('solum_management_tab', 'settings');
+                     sessionStorage.setItem('solum_session_view', 'management');
                    }}
                    className="flex items-center gap-3 px-8 py-4 bg-amber-500 text-white rounded-2xl text-[11px] font-black uppercase tracking-widest hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-amber-500/30"
                  >
