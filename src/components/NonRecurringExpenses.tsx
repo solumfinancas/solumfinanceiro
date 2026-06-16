@@ -783,41 +783,43 @@ export const NonRecurringExpenses: React.FC<NonRecurringExpensesProps> = ({
           </p>
         </div>
 
-        <div className="flex items-center gap-3 self-end md:self-auto">
-          <div className="flex items-center bg-card border border-border rounded-2xl p-1 shadow-sm">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 md:gap-3 w-full md:w-auto">
+          <div className="flex items-center bg-card border border-border rounded-2xl p-1 shadow-sm justify-between w-full sm:w-auto">
             <button
               type="button"
               onClick={() => changeMonth(-1)}
-              className="w-10 h-10 rounded-xl hover:bg-muted flex items-center justify-center text-muted-foreground transition-all"
+              className="w-10 h-10 rounded-xl hover:bg-muted flex items-center justify-center text-muted-foreground transition-all shrink-0"
             >
               <ChevronLeft size={20} />
             </button>
-            <div className="px-4 text-[10px] font-black uppercase tracking-widest text-foreground min-w-[140px] text-center">
+            <div className="px-2 text-[10px] font-black uppercase tracking-widest text-foreground min-w-[140px] text-center truncate flex-1 sm:flex-none">
               {formattedSelectedMonth}
             </div>
             <button
               type="button"
               onClick={() => changeMonth(1)}
-              className="w-10 h-10 rounded-xl hover:bg-muted flex items-center justify-center text-muted-foreground transition-all"
+              className="w-10 h-10 rounded-xl hover:bg-muted flex items-center justify-center text-muted-foreground transition-all shrink-0"
             >
               <ChevronRight size={20} />
             </button>
           </div>
 
-          <button
-            onClick={handlePrint}
-            title="Imprimir Relatório"
-            className="flex items-center justify-center p-4 h-12 w-12 rounded-2xl bg-card hover:bg-muted border border-border hover:scale-105 transition-all shadow-sm text-muted-foreground hover:text-foreground active:scale-95 shrink-0"
-          >
-            <Printer size={18} />
-          </button>
-          <button
-            onClick={handleOpenAddModal}
-            className="h-12 px-6 rounded-2xl bg-primary text-white text-[10px] font-black uppercase tracking-widest flex items-center gap-3 hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-primary/20"
-          >
-            <Plus size={18} />
-            Novo
-          </button>
+          <div className="flex items-center gap-2 justify-end sm:justify-start w-full sm:w-auto">
+            <button
+              onClick={handlePrint}
+              title="Imprimir Relatório"
+              className="flex items-center justify-center p-4 h-12 w-12 rounded-2xl bg-card hover:bg-muted border border-border hover:scale-105 transition-all shadow-sm text-muted-foreground hover:text-foreground active:scale-95 shrink-0"
+            >
+              <Printer size={18} />
+            </button>
+            <button
+              onClick={handleOpenAddModal}
+              className="h-12 flex-1 sm:flex-initial px-4 md:px-6 rounded-2xl bg-primary text-white text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 md:gap-3 hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-primary/20 shrink-0"
+            >
+              <Plus size={18} />
+              <span>Novo</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -908,16 +910,16 @@ export const NonRecurringExpenses: React.FC<NonRecurringExpensesProps> = ({
           {/* Summary Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
             {/* Card 1: No Orçamento */}
-            <div className="relative group overflow-hidden bg-card border border-border rounded-[2.5rem] p-6 shadow-xl shadow-slate-200/40 dark:shadow-none flex flex-col justify-between h-full min-h-[130px]">
+            <div className="relative group overflow-hidden bg-card border border-border rounded-2xl sm:rounded-[2.5rem] p-4 sm:p-6 shadow-xl shadow-slate-200/40 dark:shadow-none flex flex-col justify-between h-full min-h-[100px] sm:min-h-[130px]">
               <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-3xl -mr-16 -mt-16 transition-all group-hover:scale-110" />
               <div className="relative flex items-start justify-between gap-2 w-full">
                 <p className="text-[9px] font-black uppercase tracking-[0.05em] text-primary leading-tight mt-1">No Orçamento (Mensal)</p>
-                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary shadow-inner shrink-0">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary shadow-inner shrink-0">
                   <PiggyBank size={18} />
                 </div>
               </div>
               <div className="relative mt-4 w-full">
-                <h2 className="text-xl lg:text-2xl font-black tracking-tighter text-foreground break-all" title={formatCurrency(summary.inBudget.monthly)}>
+                <h2 className="text-lg sm:text-xl lg:text-2xl font-black tracking-tighter text-foreground break-all" title={formatCurrency(summary.inBudget.monthly)}>
                   {formatCurrency(summary.inBudget.monthly)}
                 </h2>
                 <p className="text-[8px] font-bold text-muted-foreground mt-1 uppercase tracking-widest leading-normal">{summary.inBudget.count} itens planejados</p>
@@ -925,16 +927,16 @@ export const NonRecurringExpenses: React.FC<NonRecurringExpensesProps> = ({
             </div>
 
             {/* Card 2: Guardado no Orçamento */}
-            <div className="relative group overflow-hidden bg-card border border-border rounded-[2.5rem] p-6 shadow-xl shadow-slate-200/40 dark:shadow-none flex flex-col justify-between h-full min-h-[130px]">
+            <div className="relative group overflow-hidden bg-card border border-border rounded-2xl sm:rounded-[2.5rem] p-4 sm:p-6 shadow-xl shadow-slate-200/40 dark:shadow-none flex flex-col justify-between h-full min-h-[100px] sm:min-h-[130px]">
               <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 rounded-full blur-3xl -mr-16 -mt-16 transition-all group-hover:scale-110" />
               <div className="relative flex items-start justify-between gap-2 w-full">
                 <p className="text-[9px] font-black uppercase tracking-[0.05em] text-emerald-500 leading-tight mt-1">Guardado no Orçamento</p>
-                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-500 shadow-inner shrink-0">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-500 shadow-inner shrink-0">
                   <PiggyBank size={18} />
                 </div>
               </div>
               <div className="relative mt-4 w-full">
-                <h2 className="text-xl lg:text-2xl font-black tracking-tighter text-foreground break-all" title={formatCurrency(summary.inBudget.saved)}>
+                <h2 className="text-lg sm:text-xl lg:text-2xl font-black tracking-tighter text-foreground break-all" title={formatCurrency(summary.inBudget.saved)}>
                   {formatCurrency(summary.inBudget.saved)}
                 </h2>
                 <p className="text-[8px] font-bold text-muted-foreground mt-1 uppercase tracking-widest leading-normal">Acumulado líquido ativo</p>
@@ -942,16 +944,16 @@ export const NonRecurringExpenses: React.FC<NonRecurringExpensesProps> = ({
             </div>
 
             {/* Card 3: Fora do Orçamento */}
-            <div className="relative group overflow-hidden bg-card border border-border rounded-[2.5rem] p-6 shadow-xl shadow-slate-200/40 dark:shadow-none flex flex-col justify-between h-full min-h-[130px]">
+            <div className="relative group overflow-hidden bg-card border border-border rounded-2xl sm:rounded-[2.5rem] p-4 sm:p-6 shadow-xl shadow-slate-200/40 dark:shadow-none flex flex-col justify-between h-full min-h-[100px] sm:min-h-[130px]">
               <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 rounded-full blur-3xl -mr-16 -mt-16 transition-all group-hover:scale-110" />
               <div className="relative flex items-start justify-between gap-2 w-full">
                 <p className="text-[9px] font-black uppercase tracking-[0.05em] text-amber-500 leading-tight mt-1">Fora do Orçamento (Mensal)</p>
-                <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-500 shadow-inner shrink-0">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-500 shadow-inner shrink-0">
                   <AlertCircle size={18} />
                 </div>
               </div>
               <div className="relative mt-4 w-full">
-                <h2 className="text-xl lg:text-2xl font-black tracking-tighter text-foreground break-all" title={formatCurrency(summary.outBudget.monthly)}>
+                <h2 className="text-lg sm:text-xl lg:text-2xl font-black tracking-tighter text-foreground break-all" title={formatCurrency(summary.outBudget.monthly)}>
                   {formatCurrency(summary.outBudget.monthly)}
                 </h2>
                 <p className="text-[8px] font-bold text-muted-foreground mt-1 uppercase tracking-widest leading-normal">{summary.outBudget.count} itens aguardando</p>
@@ -959,16 +961,16 @@ export const NonRecurringExpenses: React.FC<NonRecurringExpensesProps> = ({
             </div>
 
             {/* Card 4: Guardado Finalizados */}
-            <div className="relative group overflow-hidden bg-card border border-border rounded-[2.5rem] p-6 shadow-xl shadow-slate-200/40 dark:shadow-none flex flex-col justify-between h-full min-h-[130px]">
+            <div className="relative group overflow-hidden bg-card border border-border rounded-2xl sm:rounded-[2.5rem] p-4 sm:p-6 shadow-xl shadow-slate-200/40 dark:shadow-none flex flex-col justify-between h-full min-h-[100px] sm:min-h-[130px]">
               <div className="absolute top-0 right-0 w-32 h-32 bg-rose-500/5 rounded-full blur-3xl -mr-16 -mt-16 transition-all group-hover:scale-110" />
               <div className="relative flex items-start justify-between gap-2 w-full">
                 <p className="text-[9px] font-black uppercase tracking-[0.05em] text-rose-500 leading-tight mt-1">Guardado Finalizados</p>
-                <div className="w-10 h-10 rounded-xl bg-rose-500/10 flex items-center justify-center text-rose-500 shadow-inner shrink-0">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-rose-500/10 flex items-center justify-center text-rose-500 shadow-inner shrink-0">
                   <Trophy size={18} />
                 </div>
               </div>
               <div className="relative mt-4 w-full">
-                <h2 className="text-xl lg:text-2xl font-black tracking-tighter text-foreground break-all" title={formatCurrency(summary.finished.saved)}>
+                <h2 className="text-lg sm:text-xl lg:text-2xl font-black tracking-tighter text-foreground break-all" title={formatCurrency(summary.finished.saved)}>
                   {formatCurrency(summary.finished.saved)}
                 </h2>
                 <p className="text-[8px] font-bold text-muted-foreground mt-1 uppercase tracking-widest leading-normal">{summary.finished.count} itens concluídos</p>
@@ -976,16 +978,16 @@ export const NonRecurringExpenses: React.FC<NonRecurringExpensesProps> = ({
             </div>
 
             {/* Card 5: Reserva Mensal Total */}
-            <div className="relative group overflow-hidden bg-card border border-border rounded-[2.5rem] p-6 shadow-xl shadow-slate-200/40 dark:shadow-none flex flex-col justify-between h-full min-h-[130px]">
+            <div className="relative group overflow-hidden bg-card border border-border rounded-2xl sm:rounded-[2.5rem] p-4 sm:p-6 shadow-xl shadow-slate-200/40 dark:shadow-none flex flex-col justify-between h-full min-h-[100px] sm:min-h-[130px]">
               <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 rounded-full blur-3xl -mr-16 -mt-16 transition-all group-hover:scale-110" />
               <div className="relative flex items-start justify-between gap-2 w-full">
                 <p className="text-[9px] font-black uppercase tracking-[0.05em] text-blue-500 leading-tight mt-1">Reserva Mensal Total</p>
-                <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-500 shadow-inner shrink-0">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-500 shadow-inner shrink-0">
                   <DollarSign size={18} />
                 </div>
               </div>
               <div className="relative mt-4 w-full">
-                <h2 className="text-xl lg:text-2xl font-black tracking-tighter text-foreground break-all" title={formatCurrency(summary.totalMonthly)}>
+                <h2 className="text-lg sm:text-xl lg:text-2xl font-black tracking-tighter text-foreground break-all" title={formatCurrency(summary.totalMonthly)}>
                   {formatCurrency(summary.totalMonthly)}
                 </h2>
                 <p className="text-[8px] font-bold text-muted-foreground mt-1 uppercase tracking-widest leading-normal">Soma de todos os ciclos</p>
@@ -996,8 +998,8 @@ export const NonRecurringExpenses: React.FC<NonRecurringExpensesProps> = ({
           {/* Tables Section */}
           <div className="space-y-12">
             {/* Table: No Orçamento */}
-            <div className="bg-card border border-border rounded-[3rem] overflow-hidden shadow-xl shadow-slate-200/20 dark:shadow-none">
-              <div className="p-8 border-b border-border bg-emerald-500/5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="bg-card border border-border rounded-2xl sm:rounded-[3rem] overflow-hidden shadow-xl shadow-slate-200/20 dark:shadow-none">
+              <div className="p-4 sm:p-8 border-b border-border bg-emerald-500/5 flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                   <div className="flex items-center gap-2 mb-1">
                     <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
@@ -1017,7 +1019,7 @@ export const NonRecurringExpenses: React.FC<NonRecurringExpensesProps> = ({
                 </div>
               </div>
 
-              <div className="overflow-x-auto">
+              <div className="hidden md:block overflow-x-auto">
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-border bg-muted/10">
@@ -1155,11 +1157,118 @@ export const NonRecurringExpenses: React.FC<NonRecurringExpensesProps> = ({
                   </tbody>
                 </table>
               </div>
+
+              {/* Versão Card Móvel */}
+              <div className="block md:hidden divide-y divide-border bg-card">
+                {inBudgetExpenses.length === 0 ? (
+                  <div className="px-6 py-12 text-center">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Nenhum {labelLow} planejado no orçamento.</p>
+                  </div>
+                ) : (
+                  inBudgetExpenses.map(expense => {
+                    const hasUpdateThisMonth = (expense.history || []).some(item => item.month_year === selectedMonthStr);
+                    const saved = (expense.history || []).reduce((sum, item) => sum + (item.skipped ? 0 : (item.value || 0)), 0);
+                    return (
+                      <div key={expense.id} className="p-4 sm:p-6 space-y-3 sm:space-y-4 hover:bg-muted/10 transition-all text-left">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex flex-col gap-0.5">
+                            <span className="text-[9px] font-black uppercase tracking-tight text-primary">
+                              {expense.identification_date ? new Date(expense.identification_date + 'T12:00:00').toLocaleDateString('pt-BR') : '-'}
+                            </span>
+                            <span 
+                              onClick={() => setViewingExpenseDetails(expense)}
+                              className="text-sm font-black uppercase tracking-tight text-foreground hover:text-primary transition-colors cursor-pointer hover:underline"
+                            >
+                              {expense.description}
+                            </span>
+                            {expense.observation && (
+                              <span className="text-[10px] font-medium text-muted-foreground italic mt-0.5 leading-relaxed">
+                                {expense.observation}
+                              </span>
+                            )}
+                          </div>
+                          
+                          {hasUpdateThisMonth ? (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-[7px] font-black uppercase tracking-wider shrink-0">
+                              <span className="w-1 h-1 rounded-full bg-emerald-500 shrink-0" />
+                              Atualizado
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/20 text-[7px] font-black uppercase tracking-wider animate-pulse shrink-0">
+                              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping shrink-0" />
+                              Pendente
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-2 text-[10px] font-bold text-muted-foreground">
+                          <span className="px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-500 font-black text-[8px] uppercase tracking-wider">
+                            {isObjective ? `Em ${expense.frequency_months} meses` : `A cada ${expense.frequency_months} meses`}
+                          </span>
+                          {expense.is_recurrent && (
+                            <span className="inline-flex items-center gap-1 text-[8px] font-black text-blue-500 uppercase tracking-widest">
+                              <RefreshCw size={8} /> Recorrente
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 sm:gap-3 bg-muted/40 p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-border">
+                          <div>
+                            <p className="text-[8px] font-black uppercase text-muted-foreground tracking-widest mb-1">Aporte / Reserva</p>
+                            <p className="text-xs font-black text-emerald-500">{formatCurrency(expense.amount / expense.frequency_months)}</p>
+                          </div>
+                          <div>
+                            <p className="text-[8px] font-black uppercase text-muted-foreground tracking-widest mb-1">Valor Alvo</p>
+                            <p className="text-xs font-black text-foreground">{formatCurrency(expense.amount)}</p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between text-[9px] font-black uppercase tracking-widest text-muted-foreground">
+                          <span>Entrou: {expense.budget_entry_date ? new Date(expense.budget_entry_date + 'T12:00:00').toLocaleDateString('pt-BR') : '-'}</span>
+                          <span className="text-primary">Guardado: {formatCurrency(saved)}</span>
+                        </div>
+
+                        <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
+                          <button
+                            onClick={() => {
+                              setFinishDate(new Date().toISOString().split('T')[0]);
+                              setConfirmFinish(expense);
+                            }}
+                            className="w-10 h-10 rounded-xl bg-emerald-500/5 text-emerald-500 border border-emerald-500/10 flex items-center justify-center hover:bg-emerald-500 hover:text-white transition-all shadow-sm"
+                            title="Finalizar Gasto"
+                          >
+                            <Check size={16} />
+                          </button>
+                          <button
+                            onClick={() => setConfirmToggleBudget(expense)}
+                            className="w-10 h-10 rounded-xl bg-amber-500/5 text-amber-500 border border-amber-500/10 flex items-center justify-center hover:bg-amber-500 hover:text-white transition-all shadow-sm"
+                            title="Remover do Orçamento"
+                          >
+                            <RotateCcw size={16} />
+                          </button>
+                          <button
+                            onClick={() => handleOpenEditModal(expense)}
+                            className="w-10 h-10 rounded-xl bg-primary/5 text-primary border border-primary/10 flex items-center justify-center hover:bg-primary hover:text-white transition-all shadow-sm"
+                          >
+                            <Edit2 size={16} />
+                          </button>
+                          <button
+                            onClick={() => setConfirmDelete(expense)}
+                            className="w-10 h-10 rounded-xl bg-rose-500/5 text-rose-500 border border-rose-500/10 flex items-center justify-center hover:bg-rose-500 hover:text-white transition-all shadow-sm"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
             </div>
 
             {/* Table: Fora do Orçamento */}
-            <div className="bg-card border border-border rounded-[3rem] overflow-hidden shadow-xl shadow-slate-200/20 dark:shadow-none">
-              <div className="p-8 border-b border-border bg-amber-500/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="bg-card border border-border rounded-2xl sm:rounded-[3rem] overflow-hidden shadow-xl shadow-slate-200/20 dark:shadow-none">
+              <div className="p-4 sm:p-8 border-b border-border bg-amber-500/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                   <div className="flex items-center gap-2 mb-1">
                     <div className="w-2 h-2 rounded-full bg-amber-500" />
@@ -1180,7 +1289,7 @@ export const NonRecurringExpenses: React.FC<NonRecurringExpensesProps> = ({
                 )}
               </div>
 
-              <div className="overflow-x-auto">
+              <div className="hidden md:block overflow-x-auto">
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-border bg-muted/10">
@@ -1303,11 +1412,104 @@ export const NonRecurringExpenses: React.FC<NonRecurringExpensesProps> = ({
                   </tbody>
                 </table>
               </div>
+
+              {/* Versão Card Móvel */}
+              <div className="block md:hidden divide-y divide-border bg-card">
+                {outBudgetExpenses.length === 0 ? (
+                  <div className="px-6 py-12 text-center">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Nenhum {labelLow} fora do orçamento.</p>
+                  </div>
+                ) : (
+                  outBudgetExpenses.map(expense => {
+                    const saved = (expense.history || []).reduce((sum, item) => sum + (item.skipped ? 0 : (item.value || 0)), 0);
+                    return (
+                      <div key={expense.id} className="p-4 sm:p-6 space-y-3 sm:space-y-4 hover:bg-muted/10 transition-all text-left">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex flex-col gap-0.5">
+                            <span className="text-[9px] font-black uppercase tracking-tight text-muted-foreground">
+                              {expense.identification_date ? new Date(expense.identification_date + 'T12:00:00').toLocaleDateString('pt-BR') : '-'}
+                            </span>
+                            <span 
+                              onClick={() => setViewingExpenseDetails(expense)}
+                              className="text-sm font-black uppercase tracking-tight text-muted-foreground/60 hover:text-amber-500 transition-colors cursor-pointer hover:underline"
+                            >
+                              {expense.description}
+                            </span>
+                            {expense.observation && (
+                              <span className="text-[10px] font-medium text-muted-foreground italic mt-0.5 leading-relaxed">
+                                {expense.observation}
+                              </span>
+                            )}
+                          </div>
+                          {expense.priority_order !== null && expense.priority_order !== undefined && (
+                            <div className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-primary/10 border border-primary/20 text-primary text-xs font-black shrink-0">
+                              {expense.priority_order}º
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-2 text-[10px] font-bold text-muted-foreground">
+                          <span className="px-2 py-0.5 rounded-full bg-muted text-muted-foreground font-black text-[8px] uppercase tracking-wider">
+                            {isObjective ? `Em ${expense.frequency_months} meses` : `A cada ${expense.frequency_months} meses`}
+                          </span>
+                          {expense.is_recurrent && (
+                            <span className="inline-flex items-center gap-1 text-[8px] font-black text-muted-foreground uppercase tracking-widest">
+                              <RefreshCw size={8} /> Recorrente
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 sm:gap-3 bg-muted/40 p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-border">
+                          <div>
+                            <p className="text-[8px] font-black uppercase text-muted-foreground tracking-widest mb-1">Aporte / Reserva</p>
+                            <p className="text-xs font-black text-amber-500/60">{formatCurrency(expense.amount / expense.frequency_months)}</p>
+                          </div>
+                          <div>
+                            <p className="text-[8px] font-black uppercase text-muted-foreground tracking-widest mb-1">Valor Alvo</p>
+                            <p className="text-xs font-black text-muted-foreground/60">{formatCurrency(expense.amount)}</p>
+                          </div>
+                        </div>
+
+                        {saved > 0 && (
+                          <div className="flex items-center justify-end text-[9px] font-black uppercase tracking-widest text-primary">
+                            <span>Guardado: {formatCurrency(saved)}</span>
+                          </div>
+                        )}
+
+                        <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
+                          <button
+                            onClick={() => {
+                              setBudgetEntryDateInput(new Date().toISOString().split('T')[0]);
+                              setConfirmToggleBudget(expense);
+                            }}
+                            className="w-10 h-10 rounded-xl bg-blue-500/5 text-blue-500 border border-blue-500/10 flex items-center justify-center hover:bg-blue-500 hover:text-white transition-all shadow-sm"
+                            title="Mover para o Orçamento"
+                          >
+                            <ArrowUpRight size={16} />
+                          </button>
+                          <button
+                            onClick={() => handleOpenEditModal(expense)}
+                            className="w-10 h-10 rounded-xl bg-primary/5 text-primary border border-primary/10 flex items-center justify-center hover:bg-primary hover:text-white transition-all shadow-sm"
+                          >
+                            <Edit2 size={16} />
+                          </button>
+                          <button
+                            onClick={() => setConfirmDelete(expense)}
+                            className="w-10 h-10 rounded-xl bg-rose-500/5 text-rose-500 border border-rose-500/10 flex items-center justify-center hover:bg-rose-500 hover:text-white transition-all shadow-sm"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
             </div>
 
             {/* Table: Finalizados */}
-            <div className="bg-card border border-border rounded-[3rem] overflow-hidden shadow-xl shadow-slate-200/20 dark:shadow-none">
-              <div className="p-8 border-b border-border bg-slate-500/5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="bg-card border border-border rounded-2xl sm:rounded-[3rem] overflow-hidden shadow-xl shadow-slate-200/20 dark:shadow-none">
+              <div className="p-4 sm:p-8 border-b border-border bg-slate-500/5 flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                   <div className="flex items-center gap-2 mb-1">
                     <div className="w-2 h-2 rounded-full bg-slate-500" />
@@ -1317,7 +1519,7 @@ export const NonRecurringExpenses: React.FC<NonRecurringExpensesProps> = ({
                 </div>
               </div>
 
-              <div className="overflow-x-auto">
+              <div className="hidden md:block overflow-x-auto">
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-border bg-muted/10">
@@ -1427,6 +1629,96 @@ export const NonRecurringExpenses: React.FC<NonRecurringExpensesProps> = ({
                     )}
                   </tbody>
                 </table>
+              </div>
+
+              {/* Versão Card Móvel */}
+              <div className="block md:hidden divide-y divide-border bg-card">
+                {finishedExpenses.length === 0 ? (
+                  <div className="px-6 py-12 text-center">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Nenhum {labelLow} finalizado recentemente.</p>
+                  </div>
+                ) : (
+                  finishedExpenses.map(expense => {
+                    const saved = (expense.history || []).reduce((sum, item) => sum + (item.skipped ? 0 : (item.value || 0)), 0);
+                    return (
+                      <div key={expense.id} className="p-4 sm:p-6 space-y-3 sm:space-y-4 hover:bg-muted/10 transition-all text-left">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex flex-col gap-0.5">
+                            <span className="text-[9px] font-black uppercase tracking-tight text-muted-foreground">
+                              Entrou: {expense.budget_entry_date ? new Date(expense.budget_entry_date + 'T12:00:00').toLocaleDateString('pt-BR') : '-'}
+                            </span>
+                            <span 
+                              onClick={() => setViewingExpenseDetails(expense)}
+                              className="text-sm font-black uppercase tracking-tight text-muted-foreground/60 cursor-pointer hover:underline"
+                            >
+                              {expense.description}
+                            </span>
+                            {expense.observation && (
+                              <span className="text-[10px] font-medium text-muted-foreground italic mt-0.5 leading-relaxed">
+                                {expense.observation}
+                              </span>
+                            )}
+                          </div>
+                          <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-500 text-[8px] font-black uppercase tracking-widest shrink-0">
+                            Concluído
+                          </span>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-2 text-[10px] font-bold text-muted-foreground">
+                          <span className="px-2 py-0.5 rounded-full bg-muted text-muted-foreground font-black text-[8px] uppercase tracking-wider">
+                            {isObjective ? `Em ${expense.frequency_months} meses` : `A cada ${expense.frequency_months} meses`}
+                          </span>
+                          {expense.is_recurrent && (
+                            <span className="inline-flex items-center gap-1 text-[8px] font-black text-muted-foreground/60 uppercase tracking-widest">
+                              <RefreshCw size={8} /> Recorrente
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 sm:gap-3 bg-muted/40 p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-border">
+                          <div>
+                            <p className="text-[8px] font-black uppercase text-muted-foreground tracking-widest mb-1">Finalizado em</p>
+                            <p className="text-xs font-black text-emerald-500">{expense.finished_at ? new Date(expense.finished_at + 'T12:00:00').toLocaleDateString('pt-BR') : '-'}</p>
+                          </div>
+                          <div>
+                            <p className="text-[8px] font-black uppercase text-muted-foreground tracking-widest mb-1">Valor Total</p>
+                            <p className="text-xs font-black text-muted-foreground/40 line-through">{formatCurrency(expense.amount)}</p>
+                          </div>
+                        </div>
+
+                        {saved > 0 && (
+                          <div className="flex items-center justify-end text-[9px] font-black uppercase tracking-widest text-primary">
+                            <span>Guardado: {formatCurrency(saved)}</span>
+                          </div>
+                        )}
+
+                        <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
+                          <button
+                            onClick={() => setConfirmReactivate(expense)}
+                            className="w-10 h-10 rounded-xl bg-blue-500/5 text-blue-500 border border-blue-500/10 flex items-center justify-center hover:bg-blue-500 hover:text-white transition-all shadow-sm"
+                            title="Reativar Gasto"
+                          >
+                            <RotateCcw size={16} />
+                          </button>
+                          <button
+                            onClick={() => handleOpenEditModal(expense)}
+                            className="w-10 h-10 rounded-xl bg-primary/5 text-primary border border-primary/10 flex items-center justify-center hover:bg-primary hover:text-white transition-all shadow-sm"
+                            title="Editar Gasto"
+                          >
+                            <Edit2 size={16} />
+                          </button>
+                          <button
+                            onClick={() => setConfirmDelete(expense)}
+                            className="w-10 h-10 rounded-xl bg-rose-500/5 text-rose-500 border border-rose-500/10 flex items-center justify-center hover:bg-rose-500 hover:text-white transition-all shadow-sm"
+                            title="Excluir Gasto"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
               </div>
             </div>
           </div>

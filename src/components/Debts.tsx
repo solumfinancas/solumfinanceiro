@@ -649,39 +649,41 @@ export const Debts: React.FC = () => {
           <p className="text-muted-foreground text-[10px] font-bold uppercase tracking-[0.2em]">Gestão e amortização de compromissos financeiros</p>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="flex items-center bg-card border border-border rounded-2xl p-1 shadow-sm">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 md:gap-3 w-full md:w-auto">
+          <div className="flex items-center bg-card border border-border rounded-2xl p-1 shadow-sm justify-between w-full sm:w-auto">
             <button
               onClick={() => changeMonth(-1)}
-              className="w-10 h-10 rounded-xl hover:bg-muted flex items-center justify-center text-muted-foreground transition-all"
+              className="w-10 h-10 rounded-xl hover:bg-muted flex items-center justify-center text-muted-foreground transition-all shrink-0"
             >
               <ChevronLeft size={20} />
             </button>
-            <div className="px-4 text-[10px] font-black uppercase tracking-widest text-foreground min-w-[140px] text-center">
+            <div className="px-4 text-[10px] font-black uppercase tracking-widest text-foreground min-w-[140px] text-center flex-1 sm:flex-none">
               {formattedSelectedMonth}
             </div>
             <button
               onClick={() => changeMonth(1)}
-              className="w-10 h-10 rounded-xl hover:bg-muted flex items-center justify-center text-muted-foreground transition-all"
+              className="w-10 h-10 rounded-xl hover:bg-muted flex items-center justify-center text-muted-foreground transition-all shrink-0"
             >
               <ChevronRight size={20} />
             </button>
           </div>
 
-          <button
-            onClick={handlePrint}
-            title="Imprimir Relatório"
-            className="flex items-center justify-center p-4 h-12 w-12 rounded-2xl bg-card hover:bg-muted border border-border hover:scale-105 transition-all shadow-sm text-muted-foreground hover:text-foreground active:scale-95 shrink-0"
-          >
-            <Printer size={18} />
-          </button>
-          <button
-            onClick={handleOpenAddModal}
-            className="h-12 px-6 rounded-2xl bg-rose-500 text-white text-[10px] font-black uppercase tracking-widest flex items-center gap-3 hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-rose-500/20"
-          >
-            <Plus size={18} />
-            Nova Dívida
-          </button>
+          <div className="flex items-center gap-2 justify-end sm:justify-start w-full sm:w-auto shrink-0">
+            <button
+              onClick={handlePrint}
+              title="Imprimir Relatório"
+              className="flex items-center justify-center p-4 h-12 w-12 rounded-2xl bg-card hover:bg-muted border border-border hover:scale-105 transition-all shadow-sm text-muted-foreground hover:text-foreground active:scale-95 shrink-0"
+            >
+              <Printer size={18} />
+            </button>
+            <button
+              onClick={handleOpenAddModal}
+              className="h-12 flex-1 sm:flex-initial px-6 rounded-2xl bg-rose-500 text-white text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-rose-500/20 shrink-0"
+            >
+              <Plus size={18} />
+              <span>Nova Dívida</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -785,8 +787,8 @@ export const Debts: React.FC = () => {
 
 
           {/* Debts Table/List */}
-          <div className="bg-card border border-border rounded-[3rem] overflow-hidden shadow-xl shadow-slate-200/20 dark:shadow-none">
-            <div className="p-8 border-b border-border bg-muted/30 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="bg-card border border-border rounded-2xl sm:rounded-[3rem] overflow-hidden shadow-xl shadow-slate-200/20 dark:shadow-none">
+            <div className="p-4 sm:p-8 border-b border-border bg-muted/30 flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div>
                 <h3 className="text-lg font-black uppercase tracking-tighter text-foreground">Suas Dívidas</h3>
                 <p className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest mt-1">Gerencie e acompanhe a quitação de cada compromisso</p>
@@ -803,7 +805,7 @@ export const Debts: React.FC = () => {
               </div>
             </div>
 
-            <div className="overflow-x-auto">
+            <div className="hidden lg:block overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-border bg-muted/10">
@@ -1089,6 +1091,261 @@ export const Debts: React.FC = () => {
                 </tbody>
               </table>
             </div>
+
+            {/* Versão Card Móvel */}
+            <div className="block lg:hidden divide-y divide-border bg-card">
+              {contextLoading ? (
+                <div className="px-6 py-12 text-center">
+                  <div className="w-8 h-8 border-2 border-rose-500/20 rounded-full animate-spin border-t-rose-500 mx-auto" />
+                </div>
+              ) : filteredDebts.length === 0 ? (
+                <div className="px-6 py-12 text-center text-muted-foreground">
+                  <History size={48} className="opacity-20 mx-auto mb-4" />
+                  <p className="text-[10px] font-black uppercase tracking-widest">Nenhuma dívida para este período.</p>
+                </div>
+              ) : (
+                filteredDebts.map(debt => {
+                  const monthData = debtHistory.find(h => h.debt_id === debt.id && h.month_year === monthStr);
+                  const displayValue = monthData ? monthData.value : (() => {
+                    const past = debtHistory
+                      .filter(h => h.debt_id === debt.id && new Date(h.month_year + 'T12:00:00') < selectedMonth)
+                      .sort((a, b) => new Date(b.month_year + 'T12:00:00').getTime() - new Date(a.month_year + 'T12:00:00').getTime());
+                    return past.length > 0 ? past[0].value : debt.total_value;
+                  })();
+
+                  const regDate = new Date(debt.due_date + 'T12:00:00');
+                  const isRegistrationMonth = regDate.getMonth() === selectedMonth.getMonth() &&
+                    regDate.getFullYear() === selectedMonth.getFullYear();
+
+                  const remainingMonths = debt.status === 'active' && debt.monthly_payment > 0 && displayValue > 0
+                    ? Math.round(displayValue / debt.monthly_payment)
+                    : 0;
+
+                  return (
+                    <div key={debt.id} className="p-4 sm:p-6 space-y-4 hover:bg-muted/10 transition-all text-left">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <button
+                              onClick={() => setViewingDebtDetails(debt)}
+                              className={cn(
+                                "text-sm font-black uppercase tracking-tight text-foreground hover:text-rose-500 transition-colors text-left",
+                                debt.status === 'paid' && "text-muted-foreground line-through"
+                              )}
+                            >
+                              {debt.name}
+                            </button>
+                            <span className={cn(
+                              "px-1.5 py-0.5 rounded-md text-[7px] font-black uppercase tracking-widest border shrink-0",
+                              debt.interest_type === 'SAC'
+                                ? "bg-amber-500/10 text-amber-500 border-amber-500/20"
+                                : "bg-blue-500/10 text-blue-500 border-blue-500/20"
+                            )}>
+                              {debt.interest_type || 'PRICE'}
+                            </span>
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            {debt.status === 'paid' ? (
+                              <span className="px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-500 text-[7px] font-black uppercase tracking-widest">
+                                Quitada
+                              </span>
+                            ) : monthData ? (
+                              <span className={cn(
+                                "px-1.5 py-0.5 rounded-md text-[7px] font-black uppercase tracking-widest flex items-center gap-1",
+                                isRegistrationMonth ? "bg-blue-500/10 text-blue-500" : "bg-emerald-500/10 text-emerald-500"
+                              )}>
+                                {isRegistrationMonth ? (
+                                  <>Mês de Registro</>
+                                ) : (
+                                  <>
+                                    <div className="w-1 h-1 rounded-full bg-emerald-500" />
+                                    Saldo Atualizado
+                                  </>
+                                )}
+                              </span>
+                            ) : (
+                              <span className="px-1.5 py-0.5 rounded-md bg-amber-500/10 text-amber-500 text-[7px] font-black uppercase tracking-widest flex items-center gap-1 animate-pulse">
+                                <AlertCircle size={8} />
+                                Pendente Atualização
+                              </span>
+                            )}
+
+                            {remainingMonths > 0 && (() => {
+                              const targetDate = new Date(selectedMonth);
+                              targetDate.setMonth(targetDate.getMonth() + remainingMonths);
+                              const formattedTarget = targetDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+
+                              return (
+                                <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-blue-500/5 border border-blue-500/10 w-fit shrink-0">
+                                  <div className="w-1 h-1 rounded-full bg-blue-500 animate-pulse" />
+                                  <span className="text-[8px] font-black uppercase tracking-[0.1em] text-blue-500">
+                                    QUITAÇÃO: {formattedTarget}
+                                  </span>
+                                </div>
+                              );
+                            })()}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="text-[9px] font-medium text-muted-foreground uppercase tracking-widest leading-relaxed break-words">
+                        {debt.observation || 'Sem observações de origem'}
+                        {monthData?.observation && monthData.observation.trim() !== '' && (
+                          <div className="text-[9px] font-black text-rose-500 uppercase tracking-widest leading-relaxed break-words mt-1">
+                            Mês: {monthData.observation}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3 bg-muted/40 p-3 rounded-xl border border-border">
+                        <div>
+                          <p className="text-[8px] font-black uppercase text-muted-foreground tracking-widest mb-1">Informações de Pagamento</p>
+                          <div className="flex flex-col gap-0.5">
+                            <span className="text-[10px] font-black text-foreground">
+                              {debt.installments_count}X DE {formatCurrency(debt.monthly_payment)}
+                            </span>
+                            <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">
+                              JUROS: {debt.interest_rate}% | {remainingMonths > 0 ? `${remainingMonths} RESTANTES` : 'CONCLUÍDO'}
+                            </span>
+                          </div>
+                        </div>
+                        <div>
+                          <p className="text-[8px] font-black uppercase text-muted-foreground tracking-widest mb-1">Saldo Devedor</p>
+                          <div className="flex flex-col gap-0.5">
+                            <span className="text-[10px] font-black text-rose-500">
+                              {formatCurrency(displayValue)}
+                            </span>
+                            {monthData && (() => {
+                              const registrationDate = new Date(debt.due_date + 'T12:00:00');
+                              const isRegMonth = registrationDate.getMonth() === selectedMonth.getMonth() &&
+                                registrationDate.getFullYear() === selectedMonth.getFullYear();
+
+                              const prevVal = isRegMonth ? debt.total_value : (() => {
+                                const prevMonth = new Date(selectedMonth);
+                                prevMonth.setMonth(prevMonth.getMonth() - 1);
+                                const prevMonthStr = `${prevMonth.getFullYear()}-${String(prevMonth.getMonth() + 1).padStart(2, '0')}-01`;
+                                const prevHist = debtHistory.find(h => h.debt_id === debt.id && h.month_year === prevMonthStr);
+
+                                if (prevHist) return prevHist.value;
+
+                                const past = debtHistory
+                                  .filter(h => h.debt_id === debt.id && new Date(h.month_year + 'T12:00:00') < selectedMonth)
+                                  .sort((a, b) => new Date(b.month_year + 'T12:00:00').getTime() - new Date(a.month_year + 'T12:00:00').getTime());
+
+                                return past.length > 0 ? past[0].value : debt.total_value;
+                              })();
+
+                              const diff = prevVal - monthData.value;
+
+                              if (diff > 0.01) {
+                                return (
+                                  <span className="text-[8px] font-black text-emerald-500 uppercase tracking-widest">
+                                    Pago: {formatCurrency(diff)}
+                                  </span>
+                                );
+                              } else if (Math.abs(diff) <= 0.01) {
+                                return (
+                                  <span className="text-[8px] font-black text-amber-500 uppercase tracking-widest">
+                                    Saldo Mantido
+                                  </span>
+                                );
+                              } else {
+                                return (
+                                  <span className="text-[8px] font-black text-rose-500 uppercase tracking-widest">
+                                    Saldo Aumentou: {formatCurrency(Math.abs(diff))}
+                                  </span>
+                                );
+                              }
+                            })()}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
+                        {isRegistrationMonth && (
+                          <button
+                            onClick={() => handleOpenEditModal(debt)}
+                            title="Editar Configurações da Dívida"
+                            className="w-10 h-10 rounded-xl bg-rose-500/5 text-rose-500 border border-rose-500/10 flex items-center justify-center hover:bg-rose-500 hover:text-white transition-all shadow-sm"
+                          >
+                            <Edit2 size={16} />
+                          </button>
+                        )}
+
+                        {monthData ? (
+                          <button
+                            onClick={() => setConfirmDeleteHistory({ id: monthData.id, monthYear: monthStr })}
+                            title="Remover Atualização do Mês"
+                            className="w-10 h-10 rounded-xl bg-orange-500/5 text-orange-500 border border-orange-500/10 flex items-center justify-center hover:bg-orange-500 hover:text-white transition-all shadow-sm"
+                          >
+                            <RotateCcw size={16} />
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => {
+                              const isSac = debt.interest_type === 'SAC';
+                              const registrationDate = new Date((debt.due_date || '') + 'T12:00:00');
+                              const isRegMonth = registrationDate.getMonth() === selectedMonth.getMonth() &&
+                                registrationDate.getFullYear() === selectedMonth.getFullYear();
+                              const initialMsg = isSac
+                                ? (isRegMonth ? "Pagamento parcial / Ajuste no mês de registro" : "Pagamento parcial / Ajuste de saldo")
+                                : "";
+
+                              setEditingValue({
+                                debtId: debt.id,
+                                value: displayValue,
+                                originalValue: displayValue,
+                                observation: initialMsg,
+                                monthYear: monthStr,
+                                step: isSac ? 'full_adjust' : 'choice'
+                              });
+                              setAmortizationTab(isSac ? 'manual' : 'amortize');
+                              setInstallmentsToAmortize(1);
+                              setPayNormalInstallment(true);
+                              setAmortizationAmountPaid(0);
+                              setIsObservationEdited(false);
+                            }}
+                            title="Atualizar Saldo Devedor Mensal"
+                            className="w-10 h-10 rounded-xl bg-emerald-500/5 text-emerald-500 border border-emerald-500/10 flex items-center justify-center hover:bg-emerald-500 hover:text-white transition-all shadow-sm"
+                          >
+                            <TrendingDown size={16} />
+                          </button>
+                        )}
+
+                        {debt.status === 'active' && (
+                          <button
+                            onClick={() => setConfirmPaid(debt)}
+                            title="Marcar como Quitada"
+                            className="w-10 h-10 rounded-xl bg-emerald-500/5 text-emerald-500 border border-emerald-500/10 flex items-center justify-center hover:bg-emerald-500 hover:text-white transition-all shadow-sm"
+                          >
+                            <PowerOff size={16} />
+                          </button>
+                        )}
+
+                        {debt.status === 'paid' && (
+                          <button
+                            onClick={() => setConfirmReactivate(debt)}
+                            title="Reativar Dívida"
+                            className="w-10 h-10 rounded-xl bg-amber-500/5 text-amber-500 border border-amber-500/10 flex items-center justify-center hover:bg-amber-500 hover:text-white transition-all shadow-sm"
+                          >
+                            <RotateCcw size={16} />
+                          </button>
+                        )}
+
+                        <button
+                          onClick={() => setConfirmDelete(debt)}
+                          title="Excluir Dívida Permanente"
+                          className="w-10 h-10 rounded-xl bg-slate-500/5 text-slate-500 border border-slate-500/10 flex items-center justify-center hover:bg-slate-500 hover:text-white transition-all shadow-sm"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
           </div>
 
           {/* Charts Section */}
@@ -1142,8 +1399,8 @@ export const Debts: React.FC = () => {
                         tickLine={false}
                         tick={{ fontSize: 9, fontWeight: 900, fill: 'var(--muted-foreground)' }}
                         dy={15}
-                        interval={chartRange === 'all' ? 'preserveStartEnd' : 0}
-                        minTickGap={10}
+                        interval="preserveStartEnd"
+                        minTickGap={30}
                         padding={{ left: 20, right: 20 }}
                       />
                       <YAxis hide domain={['auto', 'auto']} />
@@ -1233,8 +1490,8 @@ export const Debts: React.FC = () => {
                         tickLine={false}
                         tick={{ fontSize: 9, fontWeight: 900, fill: 'var(--muted-foreground)' }}
                         dy={15}
-                        interval={chartRange === 'all' ? 'preserveStartEnd' : 0}
-                        minTickGap={10}
+                        interval="preserveStartEnd"
+                        minTickGap={30}
                         padding={{ left: 20, right: 20 }}
                       />
                       <YAxis hide domain={['auto', 'auto']} />
@@ -1328,8 +1585,8 @@ export const Debts: React.FC = () => {
                         tickLine={false}
                         tick={{ fontSize: 9, fontWeight: 900, fill: 'var(--muted-foreground)' }}
                         dy={15}
-                        interval={chartRange === 'all' ? 'preserveStartEnd' : 0}
-                        minTickGap={10}
+                        interval="preserveStartEnd"
+                        minTickGap={30}
                         padding={{ left: 20, right: 20 }}
                       />
                       <YAxis hide domain={['auto', 'auto']} />

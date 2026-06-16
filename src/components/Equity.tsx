@@ -446,39 +446,41 @@ export const Equity: React.FC = () => {
           <p className="text-muted-foreground text-[10px] font-bold uppercase tracking-[0.2em]">Acompanhamento e evolução dos seus ativos</p>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="flex items-center bg-card border border-border rounded-2xl p-1 shadow-sm">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 md:gap-3 w-full md:w-auto">
+          <div className="flex items-center bg-card border border-border rounded-2xl p-1 shadow-sm justify-between w-full sm:w-auto">
             <button 
               onClick={() => changeMonth(-1)}
-              className="w-10 h-10 rounded-xl hover:bg-muted flex items-center justify-center text-muted-foreground transition-all"
+              className="w-10 h-10 rounded-xl hover:bg-muted flex items-center justify-center text-muted-foreground transition-all shrink-0"
             >
               <ChevronLeft size={20} />
             </button>
-            <div className="px-4 text-[10px] font-black uppercase tracking-widest text-foreground min-w-[140px] text-center">
+            <div className="px-4 text-[10px] font-black uppercase tracking-widest text-foreground min-w-[140px] text-center flex-1 sm:flex-none">
               {formattedSelectedMonth}
             </div>
             <button 
               onClick={() => changeMonth(1)}
-              className="w-10 h-10 rounded-xl hover:bg-muted flex items-center justify-center text-muted-foreground transition-all"
+              className="w-10 h-10 rounded-xl hover:bg-muted flex items-center justify-center text-muted-foreground transition-all shrink-0"
             >
               <ChevronRight size={20} />
             </button>
           </div>
 
-          <button 
-            onClick={handlePrint}
-            title="Imprimir Relatório"
-            className="flex items-center justify-center p-4 h-12 w-12 rounded-2xl bg-card hover:bg-muted border border-border hover:scale-105 transition-all shadow-sm text-muted-foreground hover:text-foreground active:scale-95 shrink-0"
-          >
-            <Printer size={18} />
-          </button>
-          <button 
-            onClick={handleOpenAddModal}
-            className="h-12 px-6 rounded-2xl bg-primary text-white text-[10px] font-black uppercase tracking-widest flex items-center gap-3 hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-primary/20"
-          >
-            <Plus size={18} />
-            Novo Patrimônio
-          </button>
+          <div className="flex items-center gap-2 justify-end sm:justify-start w-full sm:w-auto shrink-0">
+            <button 
+              onClick={handlePrint}
+              title="Imprimir Relatório"
+              className="flex items-center justify-center p-4 h-12 w-12 rounded-2xl bg-card hover:bg-muted border border-border hover:scale-105 transition-all shadow-sm text-muted-foreground hover:text-foreground active:scale-95 shrink-0"
+            >
+              <Printer size={18} />
+            </button>
+            <button 
+              onClick={handleOpenAddModal}
+              className="h-12 flex-1 sm:flex-initial px-6 rounded-2xl bg-primary text-white text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-primary/20 shrink-0"
+            >
+              <Plus size={18} />
+              <span>Novo Patrimônio</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -543,8 +545,8 @@ export const Equity: React.FC = () => {
 
 
           {/* Assets Table/List */}
-          <div className="bg-card border border-border rounded-[3rem] overflow-hidden shadow-xl shadow-slate-200/20 dark:shadow-none">
-            <div className="p-8 border-b border-border bg-muted/30 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div className="bg-card border border-border rounded-2xl sm:rounded-[3rem] overflow-hidden shadow-xl shadow-slate-200/20 dark:shadow-none">
+            <div className="p-4 sm:p-8 border-b border-border bg-slate-500/5 flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div>
                 <h3 className="text-lg font-black uppercase tracking-tighter text-foreground">Seus Ativos</h3>
                 <p className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest mt-1">Gerencie e acompanhe a evolução de cada bem</p>
@@ -561,7 +563,7 @@ export const Equity: React.FC = () => {
               </div>
             </div>
 
-            <div className="overflow-x-auto">
+            <div className="hidden md:block overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-border bg-muted/10">
@@ -739,6 +741,159 @@ export const Equity: React.FC = () => {
                 </tbody>
               </table>
             </div>
+
+            {/* Versão Card Móvel */}
+            <div className="block md:hidden divide-y divide-border bg-card">
+              {contextLoading ? (
+                <div className="px-6 py-12 text-center">
+                  <div className="w-8 h-8 border-2 border-primary/20 rounded-full animate-spin border-t-primary mx-auto" />
+                </div>
+              ) : filteredAssets.length === 0 ? (
+                <div className="px-6 py-12 text-center text-muted-foreground">
+                  <History size={48} className="opacity-20 mx-auto mb-4" />
+                  <p className="text-[10px] font-black uppercase tracking-widest">Nenhum patrimônio para este período.</p>
+                </div>
+              ) : (
+                filteredAssets.map(asset => {
+                  const monthData = equityHistory.find(h => h.asset_id === asset.id && h.month_year === monthStr);
+                  const displayValue = monthData ? monthData.value : (() => {
+                    const past = equityHistory
+                      .filter(h => h.asset_id === asset.id && new Date(h.month_year) <= selectedMonth)
+                      .sort((a, b) => new Date(b.month_year).getTime() - new Date(a.month_year).getTime());
+                    return past.length > 0 ? past[0].value : asset.initial_value;
+                  })();
+
+                  const isEndedThisMonth = asset.ended_at && 
+                    new Date(asset.ended_at + 'T12:00:00').getMonth() === selectedMonth.getMonth() &&
+                    new Date(asset.ended_at + 'T12:00:00').getFullYear() === selectedMonth.getFullYear();
+
+                  const regDate = new Date(asset.registration_date + 'T12:00:00');
+                  const isRegistrationMonth = regDate.getMonth() === selectedMonth.getMonth() && 
+                                             regDate.getFullYear() === selectedMonth.getFullYear();
+
+                  return (
+                    <div key={asset.id} className="p-4 sm:p-6 space-y-4 hover:bg-muted/10 transition-all text-left">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <button
+                              onClick={() => setViewingAssetDetails(asset)}
+                              className={cn(
+                                "text-sm font-black uppercase tracking-tight text-foreground hover:text-primary transition-colors text-left",
+                                asset.ended_at && "text-muted-foreground line-through"
+                              )}
+                            >
+                              {asset.name}
+                            </button>
+                            {isRegistrationMonth ? (
+                              <span className="px-1.5 py-0.5 rounded-md bg-blue-500/10 text-blue-500 text-[7px] font-black uppercase tracking-widest shrink-0">
+                                Mês de Registro
+                              </span>
+                            ) : monthData ? (
+                              <span className="px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-500 text-[7px] font-black uppercase tracking-widest flex items-center gap-1 shrink-0">
+                                <div className="w-1 h-1 rounded-full bg-emerald-500" />
+                                Atualizado
+                              </span>
+                            ) : (
+                              <span className="px-1.5 py-0.5 rounded-md bg-amber-500/10 text-amber-500 text-[7px] font-black uppercase tracking-widest flex items-center gap-1 animate-pulse shrink-0">
+                                <AlertCircle size={8} />
+                                Pendente de Atualização
+                              </span>
+                            )}
+                            {isEndedThisMonth && (
+                              <span className="px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-500 text-[8px] font-black uppercase tracking-widest shrink-0">
+                                Encerrado
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="text-[9px] font-medium text-muted-foreground uppercase tracking-widest leading-relaxed break-words">
+                        {isRegistrationMonth ? (
+                          asset.observation && (
+                            <span>{asset.observation}</span>
+                          )
+                        ) : monthData ? (
+                          <span>{monthData.observation || 'Sem observações novas'}</span>
+                        ) : (
+                          <span className="text-amber-500/60 italic">
+                            Aguardando atualização de valor e observações...
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3 bg-muted/40 p-3 rounded-xl border border-border">
+                        <div>
+                          <p className="text-[8px] font-black uppercase text-muted-foreground tracking-widest mb-1">Data Registro</p>
+                          <span className="text-[10px] font-black text-foreground">
+                            {new Date(asset.registration_date + 'T12:00:00').toLocaleDateString('pt-BR')}
+                          </span>
+                        </div>
+                        <div>
+                          <p className="text-[8px] font-black uppercase text-muted-foreground tracking-widest mb-1">Valor em {formattedSelectedMonth}</p>
+                          <span className="text-[10px] font-black text-emerald-500">
+                            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(displayValue)}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
+                        {isRegistrationMonth ? (
+                          <button 
+                            onClick={() => handleOpenEditModal(asset)}
+                            title="Editar Ativo"
+                            className="w-10 h-10 rounded-xl bg-primary/5 text-primary border border-primary/10 flex items-center justify-center hover:bg-primary hover:text-white transition-all shadow-sm"
+                          >
+                            <Edit2 size={16} />
+                          </button>
+                        ) : (
+                          <button 
+                            onClick={() => setEditingValue({
+                              assetId: asset.id,
+                              value: displayValue,
+                              observation: monthData?.observation || '',
+                              monthYear: selectedMonth.toISOString().split('T')[0],
+                              step: 'choice'
+                            })}
+                            title="Atualizar Valor Mensal"
+                            className="w-10 h-10 rounded-xl bg-emerald-500/5 text-emerald-500 border border-emerald-500/10 flex items-center justify-center hover:bg-emerald-500 hover:text-white transition-all shadow-sm"
+                          >
+                            <TrendingUp size={16} />
+                          </button>
+                        )}
+
+                        {asset.ended_at ? (
+                          <button 
+                            onClick={() => setConfirmReactivate(asset)}
+                            title="Reativar Ativo"
+                            className="w-10 h-10 rounded-xl bg-blue-500/5 text-blue-500 border border-blue-500/10 flex items-center justify-center hover:bg-blue-500 hover:text-white transition-all shadow-sm"
+                          >
+                            <Layout size={16} />
+                          </button>
+                        ) : (
+                          <button 
+                            onClick={() => setConfirmEnd(asset)}
+                            title="Encerrar Bem"
+                            className="w-10 h-10 rounded-xl bg-amber-500/5 text-amber-500 border border-amber-500/10 flex items-center justify-center hover:bg-amber-500 hover:text-white transition-all shadow-sm"
+                          >
+                            <PowerOff size={16} />
+                          </button>
+                        )}
+
+                        <button 
+                          onClick={() => setConfirmDelete(asset)}
+                          title="Excluir Ativo Permanente"
+                          className="w-10 h-10 rounded-xl bg-rose-500/5 text-rose-500 border border-rose-500/10 flex items-center justify-center hover:bg-rose-500 hover:text-white transition-all shadow-sm"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
           </div>
 
           {/* Evolution Chart at the Bottom */}
@@ -791,8 +946,8 @@ export const Equity: React.FC = () => {
                       tick={{ fontSize: 9, fontWeight: 900, fill: 'var(--muted-foreground)' }}
                       dy={15}
                       padding={{ left: 30, right: 30 }}
-                      interval={chartRange === 'all' ? 'preserveStartEnd' : 0}
-                      minTickGap={10}
+                      interval="preserveStartEnd"
+                      minTickGap={30}
                     />
                     <YAxis 
                       hide
