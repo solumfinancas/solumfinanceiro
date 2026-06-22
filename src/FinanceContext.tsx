@@ -281,7 +281,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         return;
       }
 
-      const txsData = txs || [];
+      const txsData = (txs || []).map(t => ({ ...t, amount: Number(t.amount) || 0 }));
       setTransactions(prev => {
         const optimistic = prev.filter(t => typeof t.id === 'string' && t.id.startsWith('temp-'));
         return [...txsData, ...optimistic];
@@ -522,14 +522,15 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
               typeof t.id === 'string' &&
               t.id.startsWith('temp-') &&
               t.description === payload.new.description &&
-              t.amount === payload.new.amount &&
+              Number(t.amount) === Number(payload.new.amount) &&
               t.date === payload.new.date;
 
             const filtered = prev.filter(t => !isOptimisticMatch(t));
-            return [payload.new as Transaction, ...filtered];
+            const newTx = { ...payload.new, amount: Number(payload.new.amount) || 0 } as Transaction;
+            return [newTx, ...filtered];
           });
         } else if (payload.eventType === 'UPDATE') {
-          setTransactions(prev => prev.map(t => t.id === payload.new.id ? { ...t, ...payload.new } : t));
+          setTransactions(prev => prev.map(t => t.id === payload.new.id ? { ...t, ...payload.new, amount: Number(payload.new.amount) || 0 } as Transaction : t));
         } else if (payload.eventType === 'DELETE') {
           setTransactions(prev => prev.filter(t => t.id !== payload.old.id));
         }
@@ -668,23 +669,25 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         const shouldCountExpense = isCreditCard ? isExpenseType : (t.isPaid !== false && isExpenseType);
         const shouldCountIncome = isCreditCard ? isIncomeType : (t.isPaid !== false && isIncomeType);
 
+        const tAmount = Number(t.amount) || 0;
+
         if (t.walletId === w.id) {
-          if (shouldCountIncome) balanceChange += t.amount;
-          if (shouldCountExpense) balanceChange -= t.amount;
-          if (t.type === 'transfer' && t.isPaid !== false) balanceChange -= t.amount;
+          if (shouldCountIncome) balanceChange += tAmount;
+          if (shouldCountExpense) balanceChange -= tAmount;
+          if (t.type === 'transfer' && t.isPaid !== false) balanceChange -= tAmount;
         }
 
         const isInvoicePayment = t.description.toLowerCase().includes('pagamento de fatura');
         if ((t.type === 'transfer' || t.type === 'provision' || (isCreditCard && isInvoicePayment)) && t.toWalletId === w.id) {
           if (t.isPaid !== false) {
-            balanceChange += t.amount;
+            balanceChange += tAmount;
           }
         }
 
         return sum + balanceChange;
       }, 0);
 
-      return { ...w, balance: (w.initialBalance || 0) + txSum };
+      return { ...w, balance: (Number(w.initialBalance) || 0) + txSum };
     });
   }, [transactions, rawWallets]);
 
@@ -728,6 +731,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const tempId = 'temp-' + Date.now();
     const optimisticTx = {
       ...txToInsert,
+      amount: Number(txToInsert.amount) || 0,
       id: tempId,
       userId: effectiveUserId,
       space: activeSpace,
@@ -744,7 +748,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         .single();
 
       if (error) throw error;
-      setTransactions(prev => prev.map(tx => tx.id === tempId ? data : tx));
+      setTransactions(prev => prev.map(tx => tx.id === tempId ? { ...data, amount: Number(data.amount) || 0 } : tx));
       updateActivity('update');
     } catch (error) {
       setTransactions(prev => prev.filter(tx => tx.id !== tempId));
@@ -805,6 +809,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const tempIds = txs.map(() => 'temp-' + Math.random().toString(36).substr(2, 9));
     const optimisticTxs = txsToInsert.map((t, i) => ({
       ...t,
+      amount: Number(t.amount) || 0,
       id: tempIds[i],
       created_at: t.created_at
     } as Transaction));
@@ -821,7 +826,8 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
       setTransactions(prev => {
         const filtered = prev.filter(tx => !tempIds.includes(tx.id));
-        return [...(data || []), ...filtered];
+        const savedTxs = (data || []).map(t => ({ ...t, amount: Number(t.amount) || 0 }));
+        return [...savedTxs, ...filtered];
       });
       updateActivity('update');
     } catch (error) {
@@ -899,7 +905,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         .single();
 
       if (error) throw error;
-      setTransactions(prev => prev.map(tx => tx.id === id ? data : tx));
+      setTransactions(prev => prev.map(tx => tx.id === id ? { ...data, amount: Number(data.amount) || 0 } : tx));
     } catch (error) {
       setTransactions(originalTxs);
       throw error;

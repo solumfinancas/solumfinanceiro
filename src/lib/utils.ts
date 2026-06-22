@@ -40,7 +40,7 @@ export function getCategorySpend(
       const pMatch = paymentFilter === 'all' || (paymentFilter === 'paid' ? t.isPaid : !t.isPaid);
       return relevantIds.includes(t.categoryId) && mMatch && yMatch && t.type === 'expense' && pMatch;
     })
-    .reduce((sum, t) => sum + t.amount, 0);
+    .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
 }
 
 export function getCategoryBalance(
@@ -61,7 +61,7 @@ export function getCategoryBalance(
       const pMatch = paymentFilter === 'all' || (paymentFilter === 'paid' ? t.isPaid : !t.isPaid);
       return relevantIds.includes(t.categoryId) && mMatch && yMatch && pMatch;
     })
-    .reduce((sum, t) => sum + (t.type === 'income' ? t.amount : -t.amount), 0);
+    .reduce((sum, t) => sum + (t.type === 'income' ? (Number(t.amount) || 0) : -(Number(t.amount) || 0)), 0);
 }
 
 export function checkBudgetThreshold(currentSpend: number, limit: number): '75' | '100' | null {
@@ -151,7 +151,7 @@ export function getInvoiceAmount(transactions: Transaction[], walletId: string, 
       const txDateStr = typeof t.date === 'string' ? t.date.split('T')[0] : normalizeToDateString(new Date(t.date));
       return txDateStr >= startStr && txDateStr <= endStr;
     })
-    .reduce((sum, t) => sum + (t.type === 'income' ? -t.amount : t.amount), 0);
+    .reduce((sum, t) => sum + (t.type === 'income' ? -(Number(t.amount) || 0) : (Number(t.amount) || 0)), 0);
 
   // Check if it's paid
   const payments = transactions.filter(t => 
@@ -160,7 +160,7 @@ export function getInvoiceAmount(transactions: Transaction[], walletId: string, 
     t.invoiceYear === period.due.getUTCFullYear()
   );
   
-  const paidSum = payments.reduce((sum, t) => sum + t.amount, 0);
+  const paidSum = payments.reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
   const isLastPaid = amount <= 0 || paidSum >= (amount - 0.01); // 0 amount or fully paid
   const status = new Date() > period.end ? 'closed' : 'open';
 

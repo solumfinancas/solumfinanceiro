@@ -332,7 +332,7 @@ Regras:
         id: Math.random().toString(36).substr(2, 9),
         date: tx.date,
         description: tx.description,
-        amount: tx.amount,
+        amount: Number(tx.amount) || 0,
         type: tx.type,
         categoryId: categoryId || '',
         suggestedType: tx.type,
