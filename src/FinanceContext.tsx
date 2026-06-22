@@ -268,20 +268,46 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       }
 
       // 4. Transações
-      const { data: txs, error: txErr } = await supabase
-        .from('transactions')
-        .select('*')
-        .eq('userId', targetUserId)
-        .eq('space', targetSpace)
-        .order('date', { ascending: false })
-        .order('created_at', { ascending: false });
-      if (txErr) throw txErr;
+      let allTxs: any[] = [];
+      let fromIndex = 0;
+      const batchSize = 1000;
+      let hasMore = true;
+      let txErr = null;
 
-      if (currentFetchIdentity.current?.userId !== targetUserId || currentFetchIdentity.current?.space !== targetSpace) {
-        return;
+      while (hasMore) {
+        const { data: batch, error } = await supabase
+          .from('transactions')
+          .select('*')
+          .eq('userId', targetUserId)
+          .eq('space', targetSpace)
+          .order('date', { ascending: false })
+          .order('created_at', { ascending: false })
+          .range(fromIndex, fromIndex + batchSize - 1);
+
+        if (error) {
+          txErr = error;
+          break;
+        }
+
+        if (currentFetchIdentity.current?.userId !== targetUserId || currentFetchIdentity.current?.space !== targetSpace) {
+          return;
+        }
+
+        if (batch && batch.length > 0) {
+          allTxs = [...allTxs, ...batch];
+          if (batch.length < batchSize) {
+            hasMore = false;
+          } else {
+            fromIndex += batchSize;
+          }
+        } else {
+          hasMore = false;
+        }
       }
 
-      const txsData = (txs || []).map(t => ({ ...t, amount: Number(t.amount) || 0 }));
+      if (txErr) throw txErr;
+
+      const txsData = allTxs.map(t => ({ ...t, amount: Number(t.amount) || 0 }));
       setTransactions(prev => {
         const optimistic = prev.filter(t => typeof t.id === 'string' && t.id.startsWith('temp-'));
         return [...txsData, ...optimistic];
