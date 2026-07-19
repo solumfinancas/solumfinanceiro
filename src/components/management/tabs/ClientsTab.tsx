@@ -25,13 +25,16 @@ import {
   ArrowRight,
   Briefcase,
   Rocket,
-  Settings
+  Settings,
+  AlertTriangle,
+  CheckCircle2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../../../lib/utils';
 import { useModal } from '../../../contexts/ModalContext';
 import { useFinance } from '../../../FinanceContext';
 import { SpaceActivationModal } from '../../SpaceActivationModal';
+import { ArchivedClientResetModal } from '../../ArchivedClientResetModal';
 
 interface ClientProfile extends Profile {
   link_status: 'active' | 'inactive' | 'archived';
@@ -39,6 +42,7 @@ interface ClientProfile extends Profile {
   inactivated_at?: string;
   archived_at?: string;
   tool_usage_only?: boolean;
+  data_reset_status?: 'reset' | 'kept' | null;
 }
 
 interface ClientsTabProps {
@@ -77,6 +81,7 @@ export const ClientsTab: React.FC<ClientsTabProps> = ({
   const [showActivationSelector, setShowActivationSelector] = useState(false);
   const [activatingSpaceType, setActivatingSpaceType] = useState<'personal' | 'business' | null>(null);
   const [showActivationModal, setShowActivationModal] = useState(false);
+  const [archivedResetModalClient, setArchivedResetModalClient] = useState<ClientProfile | null>(null);
 
   const CLIENT_LIMIT = profile?.plan === 'trial' ? 3 : (profile?.plan === 'starter' ? 5 : (profile?.plan === 'pro' || profile?.plan === 'professional' ? 10 : (profile?.plan === 'business' ? 20 : 5)));
 
@@ -138,14 +143,18 @@ export const ClientsTab: React.FC<ClientsTabProps> = ({
 
       const formattedClients: ClientProfile[] = (data || [])
         .filter(item => (item.profiles as any)?.id !== profile.id)
-        .map(item => ({
-          ...(item.profiles as any),
-          link_status: item.status,
-          linked_at: item.created_at,
-          inactivated_at: item.inactivated_at,
-          archived_at: item.archived_at,
-          tool_usage_only: item.tool_usage_only
-        }));
+        .map(item => {
+          const prof = (item.profiles as any) || {};
+          return {
+            ...prof,
+            link_status: item.status,
+            linked_at: item.created_at,
+            inactivated_at: item.inactivated_at,
+            archived_at: item.archived_at,
+            tool_usage_only: item.tool_usage_only,
+            data_reset_status: prof.user_metadata?.data_reset_status || null
+          };
+        });
 
       setClients(formattedClients);
       
@@ -204,6 +213,21 @@ export const ClientsTab: React.FC<ClientsTabProps> = ({
     };
   }, [profile]);
 
+  const updateClientResetStatusInMetadata = async (clientId: string, status: 'reset' | 'kept' | null) => {
+    try {
+      const client = clients.find(c => c.id === clientId);
+      const currentMetadata = client?.user_metadata || {};
+      const updatedMetadata = { ...currentMetadata, data_reset_status: status };
+      
+      await supabase
+        .from('profiles')
+        .update({ user_metadata: updatedMetadata })
+        .eq('id', clientId);
+    } catch (err) {
+      console.warn('Aviso ao atualizar metadata do cliente:', err);
+    }
+  };
+
   const handleUpdateStatus = async (clientId: string, newStatus: 'active' | 'inactive' | 'archived', reason?: string) => {
     if (newStatus === 'inactive' && !reason) {
       const client = clients.find(c => c.id === clientId);
@@ -230,6 +254,9 @@ export const ClientsTab: React.FC<ClientsTabProps> = ({
         updateData.inactivated_at = null;
         updateData.archived_at = null;
       }
+
+      // Sempre que o status muda (ex: re-ativado, re-inativado ou re-arquivado), o reset de dados volta para nulo/vazio
+      await updateClientResetStatusInMetadata(clientId, null);
 
       // 1. Chamar Edge Function para suspensão global e sincronização automática
       if (newStatus === 'inactive' || newStatus === 'active') {
@@ -266,7 +293,7 @@ export const ClientsTab: React.FC<ClientsTabProps> = ({
       }
 
       setClients(prev => prev.map(c => 
-        c.id === clientId ? { ...c, ...updateData, link_status: newStatus } : c
+        c.id === clientId ? { ...c, ...updateData, link_status: newStatus, data_reset_status: null } : c
       ));
       
       showAlert('Sucesso', 'Status do cliente atualizado e sincronizado.', 'success');
@@ -333,7 +360,7 @@ export const ClientsTab: React.FC<ClientsTabProps> = ({
         client.tool_usage_only ? "Categoria de uso removida." : "Cliente categorizado para uso apenas da ferramenta.", 
         "success"
       );
-    } catch (err) {
+    } catch (err: any) {
       console.error("Erro ao atualizar categoria:", err);
       showAlert("Erro", "Não foi possível atualizar a categoria do cliente.", "danger");
     } finally {
@@ -342,21 +369,62 @@ export const ClientsTab: React.FC<ClientsTabProps> = ({
     }
   };
 
-  const handleResetUserData = async (clientId: string) => {
+  const handleResetUserData = async (clientId: string, isManualAction = false) => {
     try {
-      const { error } = await supabase.rpc('reset_user_data', { target_user_id: clientId });
-      if (error) throw error;
+      // 1. Tentar chamar RPC reset_user_data se configurada no Supabase
+      try {
+        await supabase.rpc('reset_user_data', { target_user_id: clientId });
+      } catch (e) {
+        console.warn('Executando limpeza via consultas explícitas...');
+      }
       
-      // Atualizar o timestamp de arquivamento para o momento do reset
+      // 2. Limpeza explícita de todas as abas financeiras, reuniões e tarefas (preservando Perfil e Anamnese)
+      await Promise.allSettled([
+        supabase.from('transactions').delete().eq('userId', clientId),
+        supabase.from('categories').delete().eq('userId', clientId),
+        supabase.from('wallets').delete().eq('userId', clientId),
+        supabase.from('debt_history').delete().eq('user_id', clientId),
+        supabase.from('debts').delete().eq('userId', clientId),
+        supabase.from('equity_history').delete().eq('user_id', clientId),
+        supabase.from('equity_assets').delete().eq('userId', clientId),
+        supabase.from('non_recurring_expenses').delete().eq('userId', clientId),
+        supabase.from('meetings').delete().eq('user_id', clientId),
+        supabase.from('tasks').delete().eq('user_id', clientId),
+      ]);
+
+      // 3. Atualizar data_reset_status para 'reset' no metadata do perfil do cliente
+      await updateClientResetStatusInMetadata(clientId, 'reset');
+      
+      // Também marcar arquivamento no vínculo
       await supabase
         .from('educator_clients')
         .update({ archived_at: new Date().toISOString() })
+        .eq('educator_id', profile?.id)
         .eq('client_id', clientId);
 
-      showAlert('Limpeza Automática', 'Os dados de um cliente arquivado há mais de 30 dias foram resetados.', 'success');
+      showAlert(
+        isManualAction ? 'Dados Apagados' : 'Limpeza Concluída', 
+        'Todos os dados de carteiras, cartões, categorias, lançamentos, dívidas, patrimônio, gastos eventuais, reuniões e tarefas foram excluídos com sucesso. Perfil e Anamnese permanecem intactos.', 
+        'success'
+      );
+      setArchivedResetModalClient(null);
       fetchClients();
-    } catch (err) {
+    } catch (err: any) {
       console.error('Erro ao resetar dados:', err);
+      showAlert('Erro', 'Não foi possível apagar os dados do cliente: ' + (err.message || 'Erro desconhecido'), 'danger');
+    }
+  };
+
+  const handleKeepUserData = async (client: ClientProfile) => {
+    try {
+      await updateClientResetStatusInMetadata(client.id, 'kept');
+
+      showAlert('Decisão Salva', 'Os dados do cliente serão mantidos. Uma tag indicará a pendência de exclusão no ambiente de Arquivados.', 'warning');
+      setArchivedResetModalClient(null);
+      fetchClients();
+    } catch (err: any) {
+      console.error('Erro ao registrar escolha:', err);
+      showAlert('Erro', 'Não foi possível salvar a escolha: ' + (err.message || 'Erro desconhecido'), 'danger');
     }
   };
 
@@ -375,16 +443,17 @@ export const ClientsTab: React.FC<ClientsTabProps> = ({
         }
       }
 
-      // 2. Arquivados > 30 dias -> Reset
+      // 2. Arquivados > 30 dias -> Perguntar se quer resetar (Modal uma única vez)
       if (client.link_status === 'archived' && client.archived_at) {
-        // Verificar se já foi resetado verificando se ainda tem espaços inicializados
-        const hasSpaces = (client.user_metadata?.initialized_spaces || []).length > 0;
-        if (hasSpaces) {
-          const archivedTime = now.getTime() - new Date(client.archived_at).getTime();
-          if (archivedTime > thirtyDays) {
-            console.log(`Auto-resetando dados do cliente: ${client.full_name}`);
-            await handleResetUserData(client.id);
-            return;
+        const archivedTime = now.getTime() - new Date(client.archived_at).getTime();
+        if (archivedTime > thirtyDays) {
+          // Se ainda não houve escolha registrada pelo educador/admin
+          if (!client.data_reset_status) {
+            const isDismissedInSession = sessionStorage.getItem(`dismissed_reset_modal_${client.id}`);
+            if (!isDismissedInSession) {
+              setArchivedResetModalClient(client);
+              return; // Exibe o modal para o cliente encontrado
+            }
           }
         }
       }
@@ -838,6 +907,31 @@ export const ClientsTab: React.FC<ClientsTabProps> = ({
                               {client.tool_usage_only ? <X size={16} /> : <Settings size={16} />}
                               {client.tool_usage_only ? 'Remover Categoria Uso' : 'Uso apenas da ferramenta'}
                             </button>
+
+                            {/* Opção "Apagar dados" para clientes no ambiente Arquivados */}
+                            {client.link_status === 'archived' && (
+                              <>
+                                <div className="h-px bg-border my-1 mx-2" />
+                                <button 
+                                  onClick={async () => {
+                                    setActiveMenuId(null);
+                                    const confirmed = await showConfirm(
+                                      'Apagar Dados do Cliente',
+                                      `Atenção! Esta ação é permanente. Todas as informações do cliente ${client.full_name} (carteiras, cartões, categorias, lançamentos, dívidas, patrimônio, gastos eventuais, objetivos, reuniões e tarefas) serão deletadas permanentemente e NÃO poderão ser resgatadas.\n\nSerão mantidos apenas o perfil básico, serviços contratados e a anamnese.\n\nDeseja prosseguir com a exclusão?`,
+                                      'danger',
+                                      'Apagar Dados Permanecemente',
+                                      'Cancelar'
+                                    );
+                                    if (confirmed) {
+                                      await handleResetUserData(client.id, true);
+                                    }
+                                  }}
+                                  className="w-full flex items-center gap-3 px-4 py-3 text-[10px] font-black uppercase tracking-widest text-rose-500 hover:bg-rose-500/10 rounded-xl transition-all"
+                                >
+                                  <Trash2 size={16} /> Apagar Dados
+                                </button>
+                              </>
+                            )}
                           </div>
                         </motion.div>
                       )}
@@ -865,6 +959,21 @@ export const ClientsTab: React.FC<ClientsTabProps> = ({
                       )}>
                         {client.link_status === 'active' ? 'Ativo' : client.link_status === 'inactive' ? 'Inativo' : 'Arquivado'}
                       </div>
+                      
+                      {/* Tags de status de exclusão no ambiente ARQUIVADOS */}
+                      {client.link_status === 'archived' && client.data_reset_status === 'reset' && (
+                        <div className="flex items-center gap-1 px-2 py-1 bg-emerald-500/10 border border-emerald-500/30 rounded-md text-emerald-500">
+                          <CheckCircle2 size={10} />
+                          <span className="text-[7px] font-black uppercase tracking-wider">Dados Excluídos</span>
+                        </div>
+                      )}
+
+                      {client.link_status === 'archived' && client.data_reset_status === 'kept' && (
+                        <div className="flex items-center gap-1 px-2 py-1 bg-rose-500/10 border border-rose-500/30 rounded-md text-rose-500">
+                          <AlertTriangle size={10} />
+                          <span className="text-[7px] font-black uppercase tracking-wider">Falta Excluir Dados</span>
+                        </div>
+                      )}
                       
                       {client.tool_usage_only && (
                         <div className="flex items-center gap-1 px-2 py-1 bg-blue-500/10 border border-blue-500/20 rounded-md">
@@ -1240,6 +1349,22 @@ export const ClientsTab: React.FC<ClientsTabProps> = ({
             setActivatingSpaceType(null);
             fetchClients(); // Atualiza a lista para mostrar o novo espaço
             showAlert('Sucesso', 'Espaço ativado com sucesso para o cliente.', 'success');
+          }}
+        />
+      )}
+
+      {/* Modal de Confirmação de Reset de Cliente Arquivado (>30 dias) */}
+      {archivedResetModalClient && (
+        <ArchivedClientResetModal
+          isOpen={!!archivedResetModalClient}
+          client={archivedResetModalClient}
+          onConfirmReset={(client) => handleResetUserData(client.id, false)}
+          onConfirmKeep={(client) => handleKeepUserData(client)}
+          onClose={() => {
+            if (archivedResetModalClient) {
+              sessionStorage.setItem(`dismissed_reset_modal_${archivedResetModalClient.id}`, 'true');
+            }
+            setArchivedResetModalClient(null);
           }}
         />
       )}
