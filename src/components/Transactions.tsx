@@ -32,7 +32,7 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import { TransactionModal } from './TransactionModal';
 import { RefundEditModal } from './RefundEditModal';
-import { formatCurrency, formatDate, cn, checkBudgetThreshold, getCategorySpend, getInvoicePeriod, getAvailableYears } from '../lib/utils';
+import { formatCurrency, formatDate, cn, checkBudgetThreshold, getCategorySpend, getInvoicePeriod, getAvailableYears, buildOrganizedWalletOptions } from '../lib/utils';
 import { Transaction, TransactionType } from '../types';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CustomSelect } from './ui/CustomSelect';
@@ -1058,24 +1058,25 @@ export const Transactions: React.FC<TransactionsProps> = ({
             <CustomSelect 
               options={[
                 { id: 'all', name: viewModeContas === 'cartoes' ? 'Todos os Cartões' : 'Geral (Contas)', icon: 'Layers' },
-                ...(() => {
-                  const filtered = wallets.filter(w => (viewModeContas === 'cartoes' ? w.type === 'credit_card' : w.type !== 'credit_card') && w.isActive !== false);
-                  const orderList = viewModeContas === 'cartoes' ? orderedCards : orderedAccounts;
-                  
-                  return [...filtered].sort((a, b) => {
-                    const indexA = orderList.indexOf(a.id);
-                    const indexB = orderList.indexOf(b.id);
-                    if (indexA === -1 && indexB === -1) return 0;
-                    if (indexA === -1) return 1;
-                    if (indexB === -1) return -1;
-                    return indexA - indexB;
-                  }).map(w => ({
-                    id: w.id,
-                    name: w.name,
-                    icon: w.logoUrl || w.icon || (w.type === 'credit_card' ? 'CreditCard' : 'Wallet'),
-                    color: w.color
-                  }));
-                })()
+                ...(viewModeContas === 'cartoes'
+                  ? wallets
+                      .filter(w => w.type === 'credit_card' && w.isActive !== false && !w.isDeleted)
+                      .sort((a, b) => {
+                        const idxA = orderedCards.indexOf(a.id);
+                        const idxB = orderedCards.indexOf(b.id);
+                        if (idxA === -1 && idxB === -1) return 0;
+                        if (idxA === -1) return 1;
+                        if (idxB === -1) return -1;
+                        return idxA - idxB;
+                      })
+                      .map(w => ({
+                        id: w.id,
+                        name: w.name,
+                        icon: w.logoUrl || w.icon || 'CreditCard',
+                        color: w.color
+                      }))
+                  : buildOrganizedWalletOptions(wallets, orderedCards, orderedAccounts, { excludeCreditCards: true })
+                )
               ]}
               value={selectedWalletId}
               onChange={(val) => setSelectedWalletId(val)}

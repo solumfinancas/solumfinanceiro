@@ -27,6 +27,7 @@ import * as XLSX from 'xlsx';
 import { motion, AnimatePresence } from 'framer-motion';
 import { TransactionType } from '../types';
 import { CustomSelect, SelectOption } from './ui/CustomSelect';
+import { buildOrganizedWalletOptions } from '../lib/utils';
 
 interface ImportRow {
   id: string;
@@ -49,7 +50,7 @@ interface ImportProps {
 }
 
 export const Import: React.FC<ImportProps> = ({ setActiveTab }) => {
-  const { categories, wallets, addTransactions, activeSpace } = useFinance();
+  const { categories, wallets, addTransactions, activeSpace, orderedCards, orderedAccounts } = useFinance();
   const { profile, viewingProfile, refreshProfile } = useAuth();
   const { showAlert, showConfirm } = useModal();
   const activeProfile = viewingProfile || profile;
@@ -71,6 +72,58 @@ export const Import: React.FC<ImportProps> = ({ setActiveTab }) => {
       setBusinessLimitInput(viewingProfile.business_imports_limit !== undefined && viewingProfile.business_imports_limit !== null ? viewingProfile.business_imports_limit : 4);
     }
   }, [viewingProfile]);
+
+  const creditCardsList = useMemo(() => {
+    const list = wallets.filter(w => w.isActive && w.type === 'credit_card');
+    list.sort((a, b) => {
+      const idxA = orderedCards.indexOf(a.id);
+      const idxB = orderedCards.indexOf(b.id);
+      if (idxA === -1 && idxB === -1) return 0;
+      if (idxA === -1) return 1;
+      if (idxB === -1) return -1;
+      return idxA - idxB;
+    });
+    return list;
+  }, [wallets, orderedCards]);
+
+  const checkingWalletsList = useMemo(() => {
+    const list = wallets.filter(w => w.isActive && w.type !== 'credit_card' && (!w.walletCategory || w.walletCategory === 'checking'));
+    list.sort((a, b) => {
+      const idxA = orderedAccounts.indexOf(a.id);
+      const idxB = orderedAccounts.indexOf(b.id);
+      if (idxA === -1 && idxB === -1) return 0;
+      if (idxA === -1) return 1;
+      if (idxB === -1) return -1;
+      return idxA - idxB;
+    });
+    return list;
+  }, [wallets, orderedAccounts]);
+
+  const savingsWalletsList = useMemo(() => {
+    const list = wallets.filter(w => w.isActive && w.type !== 'credit_card' && w.walletCategory === 'savings');
+    list.sort((a, b) => {
+      const idxA = orderedAccounts.indexOf(a.id);
+      const idxB = orderedAccounts.indexOf(b.id);
+      if (idxA === -1 && idxB === -1) return 0;
+      if (idxA === -1) return 1;
+      if (idxB === -1) return -1;
+      return idxA - idxB;
+    });
+    return list;
+  }, [wallets, orderedAccounts]);
+
+  const wishlistWalletsList = useMemo(() => {
+    const list = wallets.filter(w => w.isActive && w.type !== 'credit_card' && w.walletCategory === 'wishlist');
+    list.sort((a, b) => {
+      const idxA = orderedAccounts.indexOf(a.id);
+      const idxB = orderedAccounts.indexOf(b.id);
+      if (idxA === -1 && idxB === -1) return 0;
+      if (idxA === -1) return 1;
+      if (idxB === -1) return -1;
+      return idxA - idxB;
+    });
+    return list;
+  }, [wallets, orderedAccounts]);
 
   const handleSaveLimits = async () => {
     if (!viewingProfile) return;
@@ -432,17 +485,12 @@ export const Import: React.FC<ImportProps> = ({ setActiveTab }) => {
     row.description.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const walletOptions = useMemo(() =>
-    wallets
-      .filter(w => w.isActive && w.id !== selectedWalletId)
-      .sort((a, b) => (a.type === b.type ? 0 : a.type === 'credit_card' ? -1 : 1))
-      .map(w => ({
-        id: w.id,
-        name: w.type === 'credit_card' ? `(CARTÃO) ${w.name}` : w.name,
-        logoUrl: w.logoUrl,
-        type: w.type
-      }))
-    , [wallets, selectedWalletId]);
+  const walletOptions = useMemo(() => {
+    return buildOrganizedWalletOptions(wallets, orderedCards, orderedAccounts, {
+      excludeCreditCards: true,
+      excludeWalletId: selectedWalletId
+    });
+  }, [wallets, orderedCards, orderedAccounts, selectedWalletId]);
 
   const typeOptionsForCard = [
     { id: 'expense', name: 'Despesa', icon: 'TrendingDown', color: '#f43f5e' },
@@ -844,16 +892,16 @@ export const Import: React.FC<ImportProps> = ({ setActiveTab }) => {
               <h3 className="text-2xl font-black mb-8 text-center">Para onde vamos importar?</h3>
 
               <div className="space-y-6">
-                {wallets.filter(w => w.isActive && w.type === 'credit_card').length > 0 && (
+                {creditCardsList.length > 0 && (
                   <div>
                     <h4 className="text-xs font-black uppercase tracking-widest text-muted-foreground mb-4 pl-1">Cartões de Crédito</h4>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {wallets.filter(w => w.isActive && w.type === 'credit_card').map(wallet => (
+                      {creditCardsList.map(wallet => (
                         <button
                           key={wallet.id}
                           onClick={() => setSelectedWalletId(wallet.id)}
                           className={cn(
-                            "p-6 rounded-2xl border-2 transition-all text-left flex flex-col gap-4 group relative overflow-hidden",
+                            "p-6 rounded-2xl border-2 transition-all text-left flex items-center gap-4 group relative overflow-hidden",
                             selectedWalletId === wallet.id
                               ? "border-primary bg-primary/5 shadow-lg"
                               : "border-muted hover:border-primary/30 hover:bg-accent/50"
@@ -870,7 +918,7 @@ export const Import: React.FC<ImportProps> = ({ setActiveTab }) => {
                             )}
                           </div>
                           <div>
-                            <p className="font-black text-sm truncate">(CARTÃO) {wallet.name}</p>
+                            <p className="font-black text-sm truncate">{wallet.name}</p>
                             <p className="text-xs text-muted-foreground uppercase tracking-wider mt-1">Cartão</p>
                           </div>
                           {selectedWalletId === wallet.id && (
@@ -884,11 +932,11 @@ export const Import: React.FC<ImportProps> = ({ setActiveTab }) => {
                   </div>
                 )}
 
-                {wallets.filter(w => w.isActive && w.type !== 'credit_card').length > 0 && (
+                {checkingWalletsList.length > 0 && (
                   <div>
-                    <h4 className="text-xs font-black uppercase tracking-widest text-muted-foreground mb-4 pl-1">Carteiras e Bancos</h4>
+                    <h4 className="text-xs font-black uppercase tracking-widest text-muted-foreground mb-4 pl-1">Conta Corrente</h4>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {wallets.filter(w => w.isActive && w.type !== 'credit_card').map(wallet => (
+                      {checkingWalletsList.map(wallet => (
                         <button
                           key={wallet.id}
                           onClick={() => setSelectedWalletId(wallet.id)}
@@ -901,9 +949,7 @@ export const Import: React.FC<ImportProps> = ({ setActiveTab }) => {
                         >
                           <div className={cn(
                             "w-12 h-12 rounded-full flex items-center justify-center transition-colors overflow-hidden",
-                            selectedWalletId === wallet.id ? "bg-primary text-white" : "bg-muted group-hover:bg-primary/20 text-muted-foreground group-hover:text-primary",
-                            wallet.icon === 'bank' ? 'bg-indigo-500/10 text-indigo-500 group-hover:bg-indigo-500 group-hover:text-white' :
-                              wallet.icon === 'piggy' ? 'bg-pink-500/10 text-pink-500 group-hover:bg-pink-500 group-hover:text-white' : ''
+                            selectedWalletId === wallet.id ? "bg-primary text-white" : "bg-indigo-500/10 text-indigo-500 group-hover:bg-indigo-500 group-hover:text-white"
                           )}>
                             {wallet.logoUrl ? (
                               <img src={wallet.logoUrl} alt={wallet.name} className="w-full h-full object-cover" />
@@ -913,7 +959,87 @@ export const Import: React.FC<ImportProps> = ({ setActiveTab }) => {
                           </div>
                           <div>
                             <p className="font-black text-sm truncate">{wallet.name}</p>
-                            <p className="text-xs text-muted-foreground uppercase tracking-wider mt-1">Carteira</p>
+                            <p className="text-xs text-muted-foreground uppercase tracking-wider mt-1">Conta Corrente</p>
+                          </div>
+                          {selectedWalletId === wallet.id && (
+                            <div className="absolute top-4 right-4 bg-primary text-white p-1 rounded-full">
+                              <Check size={12} />
+                            </div>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {savingsWalletsList.length > 0 && (
+                  <div>
+                    <h4 className="text-xs font-black uppercase tracking-widest text-muted-foreground mb-4 pl-1">Cofrinhos</h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {savingsWalletsList.map(wallet => (
+                        <button
+                          key={wallet.id}
+                          onClick={() => setSelectedWalletId(wallet.id)}
+                          className={cn(
+                            "p-6 rounded-2xl border-2 transition-all text-left flex flex-col gap-4 group relative overflow-hidden",
+                            selectedWalletId === wallet.id
+                              ? "border-primary bg-primary/5 shadow-lg"
+                              : "border-muted hover:border-primary/30 hover:bg-accent/50"
+                          )}
+                        >
+                          <div className={cn(
+                            "w-12 h-12 rounded-full flex items-center justify-center transition-colors overflow-hidden",
+                            selectedWalletId === wallet.id ? "bg-primary text-white" : "bg-pink-500/10 text-pink-500 group-hover:bg-pink-500 group-hover:text-white"
+                          )}>
+                            {wallet.logoUrl ? (
+                              <img src={wallet.logoUrl} alt={wallet.name} className="w-full h-full object-cover" />
+                            ) : (
+                              <WalletIcon size={24} />
+                            )}
+                          </div>
+                          <div>
+                            <p className="font-black text-sm truncate">{wallet.name}</p>
+                            <p className="text-xs text-muted-foreground uppercase tracking-wider mt-1">Cofrinho</p>
+                          </div>
+                          {selectedWalletId === wallet.id && (
+                            <div className="absolute top-4 right-4 bg-primary text-white p-1 rounded-full">
+                              <Check size={12} />
+                            </div>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {wishlistWalletsList.length > 0 && (
+                  <div>
+                    <h4 className="text-xs font-black uppercase tracking-widest text-muted-foreground mb-4 pl-1">Desejos</h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {wishlistWalletsList.map(wallet => (
+                        <button
+                          key={wallet.id}
+                          onClick={() => setSelectedWalletId(wallet.id)}
+                          className={cn(
+                            "p-6 rounded-2xl border-2 transition-all text-left flex flex-col gap-4 group relative overflow-hidden",
+                            selectedWalletId === wallet.id
+                              ? "border-primary bg-primary/5 shadow-lg"
+                              : "border-muted hover:border-primary/30 hover:bg-accent/50"
+                          )}
+                        >
+                          <div className={cn(
+                            "w-12 h-12 rounded-full flex items-center justify-center transition-colors overflow-hidden",
+                            selectedWalletId === wallet.id ? "bg-primary text-white" : "bg-purple-500/10 text-purple-500 group-hover:bg-purple-500 group-hover:text-white"
+                          )}>
+                            {wallet.logoUrl ? (
+                              <img src={wallet.logoUrl} alt={wallet.name} className="w-full h-full object-cover" />
+                            ) : (
+                              <WalletIcon size={24} />
+                            )}
+                          </div>
+                          <div>
+                            <p className="font-black text-sm truncate">{wallet.name}</p>
+                            <p className="text-xs text-muted-foreground uppercase tracking-wider mt-1">Desejo</p>
                           </div>
                           {selectedWalletId === wallet.id && (
                             <div className="absolute top-4 right-4 bg-primary text-white p-1 rounded-full">

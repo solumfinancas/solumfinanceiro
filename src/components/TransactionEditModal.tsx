@@ -2,8 +2,9 @@ import React from 'react';
 import { X, ThumbsUp, ThumbsDown, Check, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Transaction, Wallet, Category } from '../types';
-import { cn, getInvoicePeriod } from '../lib/utils';
+import { cn, getInvoicePeriod, buildOrganizedWalletOptions } from '../lib/utils';
 import { CustomSelect, SelectOption } from './ui/CustomSelect';
+import { useFinance } from '../FinanceContext';
 
 interface TransactionEditModalProps {
   isOpen: boolean;
@@ -22,6 +23,7 @@ export const TransactionEditModal: React.FC<TransactionEditModalProps> = ({
   wallets,
   categories
 }) => {
+  const { orderedCards, orderedAccounts } = useFinance();
   const [editingTx, setEditingTx] = React.useState<Transaction | null>(null);
 
   React.useEffect(() => {
@@ -74,29 +76,12 @@ export const TransactionEditModal: React.FC<TransactionEditModalProps> = ({
 
   const walletOptions = React.useMemo(() => {
     if (!editingTx) return [];
-    const filteredId = editingTx.walletId;
-    const filteredWallets = wallets.filter(w => {
-      const isActive = w.isActive !== false || w.id === filteredId;
-      const isCreditCard = w.type === 'credit_card';
-      if (editingTx.type === 'income') return isActive && !isCreditCard;
-      if (editingTx.type === 'transfer' || editingTx.type === 'provision') return isActive && !isCreditCard;
-      return isActive;
+    const isSpecialType = ['income', 'transfer', 'provision'].includes(editingTx.type || '');
+    return buildOrganizedWalletOptions(wallets, orderedCards, orderedAccounts, {
+      selectedWalletId: editingTx.walletId,
+      isSpecialType
     });
-
-    const banks = filteredWallets.filter(w => w.type !== 'credit_card');
-    const cards = filteredWallets.filter(w => w.type === 'credit_card');
-
-    const result: SelectOption[] = [];
-    if (cards.length > 0) {
-      result.push({ id: 'header-cards', name: 'Cartões de Crédito', isHeader: true });
-      cards.forEach(w => result.push({ id: w.id, name: `(CARTÃO) ${w.name}`, logoUrl: w.logoUrl, type: w.type }));
-    }
-    if (banks.length > 0) {
-      result.push({ id: 'header-banks', name: 'Bancos', isHeader: true });
-      banks.forEach(w => result.push({ id: w.id, name: w.name, logoUrl: w.logoUrl, type: w.type }));
-    }
-    return result;
-  }, [wallets, editingTx.walletId, editingTx.type]);
+  }, [wallets, editingTx?.walletId, editingTx?.type, orderedCards, orderedAccounts]);
 
   const categoryOptions = React.useMemo(() => {
     if (!editingTx) return [];
@@ -124,16 +109,12 @@ export const TransactionEditModal: React.FC<TransactionEditModalProps> = ({
 
   const targetWalletOptions = React.useMemo(() => {
     if (!editingTx) return [];
-    return wallets
-      .filter(w => (w.isActive !== false || w.id === editingTx.toWalletId) && w.id !== editingTx.walletId && ((editingTx.type !== 'transfer' && editingTx.type !== 'provision') || w.type !== 'credit_card'))
-      .sort((a, b) => (a.type === b.type ? 0 : a.type === 'credit_card' ? -1 : 1))
-      .map(w => ({
-        id: w.id,
-        name: w.type === 'credit_card' ? `(CARTÃO) ${w.name}` : w.name,
-        logoUrl: w.logoUrl,
-        type: w.type
-      }));
-  }, [wallets, editingTx?.walletId, editingTx?.toWalletId, editingTx?.type]);
+    return buildOrganizedWalletOptions(wallets, orderedCards, orderedAccounts, {
+      excludeCreditCards: editingTx.type === 'transfer' || editingTx.type === 'provision',
+      excludeWalletId: editingTx.walletId,
+      includeInactiveId: editingTx.toWalletId
+    });
+  }, [wallets, editingTx?.walletId, editingTx?.toWalletId, editingTx?.type, orderedCards, orderedAccounts]);
 
   return (
     <div className="fixed inset-0 z-[160] flex items-center justify-center p-4">

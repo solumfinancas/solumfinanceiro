@@ -1,6 +1,7 @@
 import {type ClassValue, clsx} from 'clsx';
 import {twMerge} from 'tailwind-merge';
-import { Transaction, Category } from '../types';
+import { Transaction, Category, Wallet } from '../types';
+import { SelectOption } from '../components/ui/CustomSelect';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -279,4 +280,122 @@ export function parseDateWithoutTimezone(dateStr: string): Date {
   const [year, month, day] = cleanDate.split('-').map(Number);
   if (isNaN(year) || isNaN(month) || isNaN(day)) return new Date();
   return new Date(year, month - 1, day);
+}
+
+export interface OrganizedWalletOptionsConfig {
+  selectedWalletId?: string;
+  excludeCreditCards?: boolean;
+  excludeWalletId?: string;
+  includeInactiveId?: string;
+  isEstorno?: boolean;
+  isSpecialType?: boolean;
+}
+
+export function buildOrganizedWalletOptions(
+  wallets: Wallet[],
+  orderedCards: string[] = [],
+  orderedAccounts: string[] = [],
+  config?: OrganizedWalletOptionsConfig
+): SelectOption[] {
+  const result: SelectOption[] = [];
+
+  // 1. CARTÕES DE CRÉDITO
+  if (!config?.excludeCreditCards) {
+    const cards = wallets.filter(w => {
+      if (w.type !== 'credit_card') return false;
+      if (config?.excludeWalletId && w.id === config.excludeWalletId) return false;
+      const isSelected = w.id === config?.selectedWalletId || w.id === config?.includeInactiveId;
+      if (config?.isSpecialType && !config?.isEstorno && !isSelected) return false;
+      return isSelected || (w.isActive !== false && !w.isDeleted);
+    });
+
+    if (cards.length > 0) {
+      cards.sort((a, b) => {
+        const idxA = orderedCards.indexOf(a.id);
+        const idxB = orderedCards.indexOf(b.id);
+        if (idxA === -1 && idxB === -1) return 0;
+        if (idxA === -1) return 1;
+        if (idxB === -1) return -1;
+        return idxA - idxB;
+      });
+
+      result.push({ id: 'header-cards', name: 'CARTÕES DE CRÉDITO', isHeader: true });
+      cards.forEach(w => result.push({
+        id: w.id,
+        name: `(CARTÃO) ${w.name}`,
+        logoUrl: w.logoUrl,
+        icon: w.icon || 'CreditCard',
+        color: w.color,
+        type: w.type
+      }));
+    }
+  }
+
+  // Helper de filtragem e ordenação para contas
+  const filterAndSortAccounts = (cat: 'checking' | 'savings' | 'wishlist') => {
+    const list = wallets.filter(w => {
+      if (w.type === 'credit_card') return false;
+      if (config?.excludeWalletId && w.id === config.excludeWalletId) return false;
+      const isSelected = w.id === config?.selectedWalletId || w.id === config?.includeInactiveId;
+      if (!isSelected && (w.isActive === false || w.isDeleted)) return false;
+
+      const wCat = w.walletCategory || (w.type === 'banco_savings' ? 'savings' : w.type === 'banco_wishlist' ? 'wishlist' : 'checking');
+      return wCat === cat;
+    });
+
+    list.sort((a, b) => {
+      const idxA = orderedAccounts.indexOf(a.id);
+      const idxB = orderedAccounts.indexOf(b.id);
+      if (idxA === -1 && idxB === -1) return 0;
+      if (idxA === -1) return 1;
+      if (idxB === -1) return -1;
+      return idxA - idxB;
+    });
+
+    return list;
+  };
+
+  // 2. CONTA CORRENTE
+  const checkingAccounts = filterAndSortAccounts('checking');
+  if (checkingAccounts.length > 0) {
+    result.push({ id: 'header-checking', name: 'CONTA CORRENTE', isHeader: true });
+    checkingAccounts.forEach(w => result.push({
+      id: w.id,
+      name: w.name,
+      logoUrl: w.logoUrl,
+      icon: w.icon || 'Wallet',
+      color: w.color,
+      type: w.type
+    }));
+  }
+
+  // 3. COFRINHOS
+  const savingsAccounts = filterAndSortAccounts('savings');
+  if (savingsAccounts.length > 0) {
+    result.push({ id: 'header-savings', name: 'COFRINHOS', isHeader: true });
+    savingsAccounts.forEach(w => result.push({
+      id: w.id,
+      name: w.name,
+      logoUrl: w.logoUrl,
+      icon: w.icon || 'Wallet',
+      color: w.color,
+      type: w.type
+    }));
+  }
+
+  // 4. DESEJOS
+  const wishlistAccounts = filterAndSortAccounts('wishlist');
+  if (wishlistAccounts.length > 0) {
+    result.push({ id: 'header-wishlist', name: 'DESEJOS', isHeader: true });
+    wishlistAccounts.forEach(w => result.push({
+      id: w.id,
+      name: w.name,
+      logoUrl: w.logoUrl,
+      icon: w.icon || 'Wallet',
+      color: w.color,
+      type: w.type
+    }));
+  }
+
+  return result;
 }

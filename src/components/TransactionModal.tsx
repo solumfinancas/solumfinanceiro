@@ -14,7 +14,7 @@ import {
   TrendingDown,
   PlusCircle
 } from 'lucide-react';
-import { formatCurrency, cn, checkBudgetThreshold, getCategorySpend, getInvoicePeriod, getTodayDateString } from '../lib/utils';
+import { formatCurrency, cn, checkBudgetThreshold, getCategorySpend, getInvoicePeriod, getTodayDateString, buildOrganizedWalletOptions } from '../lib/utils';
 import { CustomSelect, SelectOption } from './ui/CustomSelect';
 import { Transaction, TransactionType } from '../types';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -276,58 +276,12 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
 
   const walletOptions = useMemo(() => {
     const isSpecialType = ['income', 'transfer', 'provision'].includes(newTx.type || '') || isInvoicePayment;
-
-    const banks = wallets.filter(w => w.type !== 'credit_card' && ((w.isActive !== false && !w.isDeleted) || w.id === newTx.walletId));
-    const cards = wallets.filter(w => w.type === 'credit_card' && (
-      w.id === newTx.walletId ||
-      (!isSpecialType || isEstorno) && w.isActive !== false && !w.isDeleted
-    ));
-
-    const result: SelectOption[] = [];
-    if (cards.length > 0) {
-      result.push({ id: 'header-cards', name: 'Cartões de Crédito', isHeader: true });
-      
-      const sortedCards = [...cards].sort((a, b) => {
-        const indexA = orderedCards.indexOf(a.id);
-        const indexB = orderedCards.indexOf(b.id);
-        if (indexA === -1 && indexB === -1) return 0;
-        if (indexA === -1) return 1;
-        if (indexB === -1) return -1;
-        return indexA - indexB;
-      });
-
-      sortedCards.forEach(w => result.push({
-        id: w.id,
-        name: `(CARTÃO) ${w.name}`,
-        logoUrl: w.logoUrl,
-        icon: w.icon || 'CreditCard',
-        color: w.color,
-        type: w.type
-      }));
-    }
-    if (banks.length > 0) {
-      result.push({ id: 'header-banks', name: 'Bancos', isHeader: true });
-      
-      const sortedBanks = [...banks].sort((a, b) => {
-        const indexA = orderedAccounts.indexOf(a.id);
-        const indexB = orderedAccounts.indexOf(b.id);
-        if (indexA === -1 && indexB === -1) return 0;
-        if (indexA === -1) return 1;
-        if (indexB === -1) return -1;
-        return indexA - indexB;
-      });
-
-      sortedBanks.forEach(w => result.push({
-        id: w.id,
-        name: w.name,
-        logoUrl: w.logoUrl,
-        icon: w.icon || 'Wallet',
-        color: w.color,
-        type: w.type
-      }));
-    }
-    return result;
-  }, [wallets, newTx.walletId, newTx.type, isEstorno, orderedCards, orderedAccounts]);
+    return buildOrganizedWalletOptions(wallets, orderedCards, orderedAccounts, {
+      selectedWalletId: newTx.walletId,
+      isEstorno,
+      isSpecialType
+    });
+  }, [wallets, newTx.walletId, newTx.type, isInvoicePayment, isEstorno, orderedCards, orderedAccounts]);
 
   const categoryOptions = useMemo(() => {
     const isIncome = newTx.type === 'income';
@@ -401,25 +355,12 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
 
 
   const targetWalletOptions = useMemo(() =>
-    wallets
-      .filter(w => w.id !== newTx.walletId && w.type !== 'credit_card' && ((w.isActive !== false && !w.isDeleted) || w.id === newTx.toWalletId))
-      .sort((a, b) => {
-        const indexA = orderedAccounts.indexOf(a.id);
-        const indexB = orderedAccounts.indexOf(b.id);
-        if (indexA === -1 && indexB === -1) return 0;
-        if (indexA === -1) return 1;
-        if (indexB === -1) return -1;
-        return indexA - indexB;
-      })
-      .map(w => ({
-        id: w.id,
-        name: w.type === 'credit_card' ? `(CARTÃO) ${w.name}` : w.name,
-        logoUrl: w.logoUrl,
-        icon: w.icon || 'Wallet',
-        color: w.color,
-        type: w.type
-      }))
-    , [wallets, newTx.walletId, newTx.toWalletId, orderedAccounts]);
+    buildOrganizedWalletOptions(wallets, orderedCards, orderedAccounts, {
+      excludeCreditCards: true,
+      excludeWalletId: newTx.walletId,
+      includeInactiveId: newTx.toWalletId
+    })
+    , [wallets, newTx.walletId, newTx.toWalletId, orderedCards, orderedAccounts]);
 
   useEffect(() => {
     if (!isOpen) return;

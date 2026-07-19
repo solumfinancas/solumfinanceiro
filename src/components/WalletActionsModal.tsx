@@ -3,7 +3,7 @@ import { X, History as HistoryIcon, Edit3, Power, PowerOff, ChevronRight, Wallet
 import { motion, AnimatePresence } from 'framer-motion';
 import { useModal } from '../contexts/ModalContext';
 import { Wallet, Transaction } from '../types';
-import { cn, formatCurrency, getInvoicePeriod, getInvoiceAmount, getInvoicePayments, formatDate, getOpenInvoicePeriod } from '../lib/utils';
+import { cn, formatCurrency, getInvoicePeriod, getInvoiceAmount, getInvoicePayments, formatDate, getOpenInvoicePeriod, buildOrganizedWalletOptions } from '../lib/utils';
 import { useFinance } from '../FinanceContext';
 import { Trash2, AlertTriangle, ArrowRight, ArrowDownCircle, ArrowUpCircle } from 'lucide-react';
 import { CustomSelect } from './ui/CustomSelect';
@@ -33,7 +33,7 @@ export const WalletActionsModal: React.FC<WalletActionsModalProps> = ({
   const { 
     addTransaction, updateTransaction, deleteTransaction, 
     wallets = [], transactions = [], categories = [],
-    orderedAccounts 
+    orderedCards = [], orderedAccounts = [] 
   } = useFinance();
   const { showConfirm, showAlert } = useModal();
   const [view, setView] = React.useState<'actions' | 'history' | 'history-detail' | 'future-history'>('actions');
@@ -1276,17 +1276,7 @@ export const WalletActionsModal: React.FC<WalletActionsModalProps> = ({
                    <div className="space-y-2">
                       <label className="text-[10px] font-black uppercase text-white/40 ml-2">Conta de Origem</label>
                       <CustomSelect 
-                        options={(() => {
-                          const filtered = wallets.filter(w => w.type !== 'credit_card' && w.isActive !== false);
-                          return [...filtered].sort((a, b) => {
-                            const indexA = (orderedAccounts || []).indexOf(a.id);
-                            const indexB = (orderedAccounts || []).indexOf(b.id);
-                            if (indexA === -1 && indexB === -1) return 0;
-                            if (indexA === -1) return 1;
-                            if (indexB === -1) return -1;
-                            return indexA - indexB;
-                          }).map(w => ({ id: w.id, name: w.name, logoUrl: w.logoUrl, type: w.type }));
-                        })()}
+                        options={buildOrganizedWalletOptions(wallets, orderedCards, orderedAccounts, { excludeCreditCards: true })}
                         value={payWalletId}
                         onChange={(val) => setPayWalletId(val)}
                         placeholder="Selecionar conta"
