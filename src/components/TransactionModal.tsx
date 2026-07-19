@@ -11,7 +11,8 @@ import {
   Plus,
   AlertCircle,
   TrendingUp,
-  TrendingDown
+  TrendingDown,
+  PlusCircle
 } from 'lucide-react';
 import { formatCurrency, cn, checkBudgetThreshold, getCategorySpend, getInvoicePeriod, getTodayDateString } from '../lib/utils';
 import { CustomSelect, SelectOption } from './ui/CustomSelect';
@@ -62,10 +63,21 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   });
 
   const [triedSubmit, setTriedSubmit] = useState(false);
+  const [keepOpenAfterSave, setKeepOpenAfterSave] = useState(false);
+  const budgetTimerRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  const clearBudgetTimer = () => {
+    if (budgetTimerRef.current) {
+      clearTimeout(budgetTimerRef.current);
+      budgetTimerRef.current = null;
+    }
+  };
 
   const isInvoicePayment = !!newTx.description?.toLowerCase().includes('pagamento de fatura');
 
   useEffect(() => {
+    clearBudgetTimer();
+    setBudgetAlert(null);
     if (editingTransaction) {
       setNewTx(editingTransaction);
       setHasRecurrence(!!editingTransaction.groupId);
@@ -80,6 +92,10 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       });
       setHasRecurrence(false);
     }
+
+    return () => {
+      clearBudgetTimer();
+    };
   }, [editingTransaction, initialType, isOpen]);
 
   const handleAmountChange = (value: string) => {
@@ -190,14 +206,26 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
               amount: newTotal,
               limit: category.limit
             });
-            setTimeout(() => { setBudgetAlert(null); onClose(); resetForm(); }, 6000);
+            clearBudgetTimer();
+            budgetTimerRef.current = setTimeout(() => { 
+              setBudgetAlert(null); 
+              if (!keepOpenAfterSave) {
+                onClose();
+              }
+              resetForm(); 
+            }, 6000);
             return;
           }
         }
       }
 
-      onClose();
-      resetForm();
+      if (keepOpenAfterSave) {
+        showAlert('Sucesso', 'Lançamento salvo com sucesso! Formulário pronto para o próximo lançamento.', 'success');
+        resetForm();
+      } else {
+        onClose();
+        resetForm();
+      }
 
     } catch (error) {
       console.error('Erro ao salvar lançamento:', error);
@@ -440,12 +468,16 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
             >
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-2xl font-bold">{isInvoicePayment ? 'Editar Pagamento de Fatura' : (editingTransaction ? 'Editar Lançamento' : 'Novo Lançamento')}</h2>
-                <button onClick={onClose} className="p-2 hover:bg-muted rounded-full transition-colors">
+                <button 
+                  onClick={() => { clearBudgetTimer(); setBudgetAlert(null); onClose(); }} 
+                  className="p-2 hover:bg-muted rounded-full transition-colors"
+                >
                   <X size={20} />
                 </button>
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-4">
+                <fieldset disabled={isSubmitting || !!budgetAlert} className={cn("space-y-4 border-0 p-0 m-0", (isSubmitting || !!budgetAlert) && "opacity-75 pointer-events-none")}>
                 {isEstorno && (
                   <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl flex items-center gap-3 animate-in fade-in slide-in-from-top-2 mb-2">
                     <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-600">
@@ -830,24 +862,62 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                   </div>
                 )}
 
-                <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t shrink-0">
-                  <button
-                    type="button"
-                    onClick={onClose}
-                    className="w-full sm:flex-1 shrink-0 px-4 h-14 sm:h-12 rounded-xl font-black uppercase text-xs tracking-widest border border-border hover:bg-muted transition-all active:scale-95 shadow-sm flex items-center justify-center"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className={cn(
-                      "w-full sm:flex-1 shrink-0 px-4 h-14 sm:h-12 rounded-xl font-black uppercase text-xs tracking-widest bg-primary text-white shadow-lg shadow-primary/20 transition-all flex items-center justify-center",
-                      isSubmitting ? "opacity-50 cursor-not-allowed" : "hover:scale-[1.02] active:scale-[0.98]"
-                    )}
-                  >
-                    {isSubmitting ? 'Processando...' : 'Salvar'}
-                  </button>
+                </fieldset>
+
+                <div className="flex flex-col gap-3 pt-4 border-t shrink-0">
+                  {!editingTransaction && (
+                    <button
+                      type="button"
+                      disabled={isSubmitting || !!budgetAlert}
+                      onClick={() => setKeepOpenAfterSave(prev => !prev)}
+                      className={cn(
+                        "w-full px-4 py-3 rounded-2xl border text-[10px] font-black uppercase tracking-wider transition-all flex items-center justify-between shadow-sm active:scale-[0.99]",
+                        keepOpenAfterSave
+                          ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-500 shadow-emerald-500/10"
+                          : "bg-muted/30 border-border/60 text-muted-foreground hover:border-border hover:bg-muted/60"
+                      )}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={cn(
+                          "w-7 h-7 rounded-xl flex items-center justify-center transition-all shadow-inner",
+                          keepOpenAfterSave ? "bg-emerald-500 text-white shadow-emerald-500/30" : "bg-muted border border-border/50 text-muted-foreground"
+                        )}>
+                          <PlusCircle size={15} />
+                        </div>
+                        <div className="flex flex-col items-start text-left">
+                          <span className="leading-tight text-[10px] font-black uppercase tracking-wider">Lançamentos Seguidos</span>
+                          <span className="text-[8.5px] font-bold opacity-70 normal-case tracking-normal">Manter formulário aberto após salvar</span>
+                        </div>
+                      </div>
+
+                      <div className={cn(
+                        "px-2.5 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest border transition-all",
+                        keepOpenAfterSave ? "bg-emerald-500 text-white border-emerald-400 shadow-sm" : "bg-muted/80 border-border text-muted-foreground/60"
+                      )}>
+                        {keepOpenAfterSave ? 'Ativado' : 'Desativado'}
+                      </div>
+                    </button>
+                  )}
+
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <button
+                      type="button"
+                      onClick={() => { clearBudgetTimer(); setBudgetAlert(null); onClose(); }}
+                      className="w-full sm:flex-1 shrink-0 px-4 h-14 sm:h-12 rounded-xl font-black uppercase text-xs tracking-widest border border-border hover:bg-muted transition-all active:scale-95 shadow-sm flex items-center justify-center"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isSubmitting || !!budgetAlert}
+                      className={cn(
+                        "w-full sm:flex-1 shrink-0 px-4 h-14 sm:h-12 rounded-xl font-black uppercase text-xs tracking-widest bg-primary text-white shadow-lg shadow-primary/20 transition-all flex items-center justify-center",
+                        (isSubmitting || !!budgetAlert) ? "opacity-50 cursor-not-allowed" : "hover:scale-[1.02] active:scale-[0.98]"
+                      )}
+                    >
+                      {isSubmitting ? 'Processando...' : (keepOpenAfterSave ? 'Salvar e Próximo' : 'Salvar')}
+                    </button>
+                  </div>
                 </div>
               </form>
 
@@ -866,7 +936,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                       <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg", budgetAlert.threshold === '100' ? "bg-rose-500 text-white" : "bg-amber-500 text-white")}>
                         {budgetAlert.threshold === '100' ? <AlertTriangle size={24} /> : <BellRing size={24} />}
                       </div>
-                      <button onClick={() => { setBudgetAlert(null); onClose(); resetForm(); }} className="p-2 hover:bg-black/5 rounded-xl transition-colors">
+                      <button onClick={() => { clearBudgetTimer(); setBudgetAlert(null); if (!keepOpenAfterSave) onClose(); resetForm(); }} className="p-2 hover:bg-black/5 rounded-xl transition-colors">
                         <X size={18} />
                       </button>
                     </div>
@@ -877,7 +947,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                       </h2>
                       <p className="text-xs font-bold opacity-80 mt-1">A categoria {budgetAlert.categoryName} atingiu {budgetAlert.percent}% do limite mensal.</p>
                     </div>
-                    <button onClick={() => { setBudgetAlert(null); onClose(); resetForm(); }} className={cn("w-full py-3 rounded-xl font-black uppercase text-[10px] tracking-widest text-white shadow-lg transition-transform active:scale-95", budgetAlert.threshold === '100' ? "bg-rose-500 shadow-rose-500/20" : "bg-amber-500 shadow-amber-500/20")}>Entendido</button>
+                    <button onClick={() => { clearBudgetTimer(); setBudgetAlert(null); if (!keepOpenAfterSave) onClose(); resetForm(); }} className={cn("w-full py-3 rounded-xl font-black uppercase text-[10px] tracking-widest text-white shadow-lg transition-transform active:scale-95", budgetAlert.threshold === '100' ? "bg-rose-500 shadow-rose-500/20" : "bg-amber-500 shadow-amber-500/20")}>Entendido</button>
                   </motion.div>
                 )}
               </AnimatePresence>
