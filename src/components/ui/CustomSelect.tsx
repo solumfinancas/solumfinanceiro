@@ -45,6 +45,13 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
   const [buttonRect, setButtonRect] = useState<DOMRect | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  const isDesktop = useMemo(() => {
+    if (typeof window === 'undefined') return false;
+    const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    return !hasTouch && window.innerWidth >= 1024;
+  }, []);
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 640);
@@ -52,6 +59,18 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
+
+  useEffect(() => {
+    if (isOpen && searchable) {
+      setSearchTerm('');
+      if (isDesktop) {
+        const timer = setTimeout(() => {
+          searchInputRef.current?.focus();
+        }, 50);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [isOpen, isDesktop, searchable]);
 
   const dropdownStyle = useMemo(() => {
     if (!buttonRect) return {};
@@ -185,6 +204,7 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/40" size={16} />
                   <input
+                    ref={searchInputRef}
                     type="text"
                     placeholder={searchPlaceholder}
                     className="w-full pl-10 pr-4 py-2.5 bg-background/50 border border-border/20 rounded-xl text-xs outline-none focus:ring-1 ring-primary/20 transition-all font-bold"
