@@ -283,12 +283,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 }}
                 title={isCollapsed ? item.label : undefined}
                 className={cn(
-                  "w-full flex items-center rounded-xl text-sm font-medium transition-all group",
-                  isCollapsed ? "justify-center p-3" : "gap-3 px-4 py-3",
+                  "w-full flex items-center rounded-xl text-sm font-medium transition-all group duration-200 cursor-pointer",
+                  isCollapsed ? "justify-center p-3 hover:scale-105" : "gap-3 px-4 py-3 hover:bg-accent/40 hover:translate-x-1",
                   isDisabled 
                     ? "opacity-40 cursor-not-allowed text-muted-foreground" 
                     : activeTab === item.id
-                      ? "bg-primary/10 text-primary"
+                      ? "bg-primary/8 text-primary font-semibold"
                       : "text-muted-foreground hover:bg-accent hover:text-foreground"
                 )}
               >
@@ -296,12 +296,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   <Lock size={20} className="text-muted-foreground/60" />
                 ) : (
                   <item.icon size={20} className={cn(
-                    "transition-colors",
+                    "transition-colors duration-200",
                     activeTab === item.id ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
                   )} />
                 )}
                 {!isCollapsed && (
-                  <span className={cn(isDisabled && "line-through text-muted-foreground/60")}>
+                  <span className={cn("transition-colors duration-200", isDisabled && "line-through text-muted-foreground/60")}>
                     {item.label}
                   </span>
                 )}
@@ -311,7 +311,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 {!isCollapsed && !isDisabled && activeTab === item.id && (
                   <motion.div
                     layoutId="active-pill"
-                    className="ml-auto w-1.5 h-1.5 rounded-full bg-primary"
+                    className="ml-auto w-1 h-3.5 rounded-full bg-primary"
                   />
                 )}
               </button>
@@ -324,8 +324,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
               onClick={onExitManagement}
               title={isCollapsed ? "Sair do Portal de Gestão" : undefined}
               className={cn(
-                "w-full flex items-center rounded-xl text-sm font-medium transition-all group",
-                isCollapsed ? "justify-center p-3" : "gap-3 px-4 py-3",
+                "w-full flex items-center rounded-xl text-sm font-medium transition-all group duration-200 cursor-pointer",
+                isCollapsed ? "justify-center p-3 hover:scale-105" : "gap-3 px-4 py-3 hover:bg-accent/40 hover:translate-x-1",
                 isEducatorExpired 
                   ? "opacity-40 cursor-not-allowed text-muted-foreground" 
                   : "text-muted-foreground hover:bg-accent hover:text-foreground"

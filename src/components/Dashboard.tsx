@@ -679,208 +679,208 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, setTxFilter,
 
          {/* 1. Header & Quick Summary */}
          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 bg-card p-8 rounded-[2.5rem] border border-border shadow-sm flex flex-col justify-between relative overflow-hidden">
+            <div className="lg:col-span-2 bg-card p-8 rounded-3xl border border-border shadow-premium flex flex-col justify-between relative overflow-hidden">
                <div className="absolute -top-24 -right-24 w-64 h-64 bg-primary/5 rounded-full blur-3xl opacity-50" />
 
                <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-6">
                   <div className="flex-1">
-                     <h1 className="text-4xl font-black tracking-tighter uppercase mb-1">{greeting}, {userName}!</h1>
+                     <h1 className="text-3xl font-extrabold tracking-tight mb-1">{greeting}, {userName}!</h1>
                      <div className="flex flex-col gap-1 text-[10px] font-black text-muted-foreground uppercase opacity-60">
                         <span className="flex items-center gap-1"><Clock size={12} /> Última atualização: {lastUpdate ? lastUpdate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Nenhuma'}</span>
                         <span className="flex items-center gap-1"><Calendar size={12} /> Último acesso: {lastAccess ? lastAccess.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Nenhuma'}</span>
-                     </div>
-                  </div>
+                      </div>
+                   </div>
 
-                  {/* Engagement Mood (Right Side) */}
-                  <div className="flex items-center gap-4 bg-muted/30 p-4 rounded-3xl border border-border/50 min-w-[240px]">
-                     <span className="text-4xl">{engagementStatus.emoji}</span>
-                     <div className="flex flex-col">
-                        <span className="text-xs font-black uppercase tracking-tighter">{engagementStatus.message}</span>
-                        <span className="text-[10px] font-bold text-muted-foreground uppercase leading-tight">{engagementStatus.sub}</span>
-                     </div>
-                  </div>
-               </div>
+                   {/* Engagement Mood (Right Side) */}
+                   <div className="flex items-center gap-4 bg-muted/20 p-4 rounded-2xl border border-border/40 min-w-[240px]">
+                      <span className="text-4xl">{engagementStatus.emoji}</span>
+                      <div className="flex flex-col">
+                         <span className="text-xs font-black uppercase tracking-tighter">{engagementStatus.message}</span>
+                         <span className="text-[10px] font-bold text-muted-foreground uppercase leading-tight">{engagementStatus.sub}</span>
+                      </div>
+                   </div>
+                </div>
 
-               {/* Monthly Budget Vision */}
-               <div className="mt-8 p-6 bg-muted/20 border border-border/40 rounded-[2rem] flex flex-col gap-8 shadow-inner">
-                  <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-border/40 pb-6 gap-6">
-                     <div className="flex flex-col gap-1">
-                        <span className="text-[10px] font-black uppercase tracking-widest opacity-40 italic">Orçamento Mensal</span>
-                        <div className="flex flex-wrap items-center gap-3">
-                           <span className="text-sm font-black uppercase text-primary shrink-0">{budgetVision.monthName}</span>
-                           <div className="flex items-center gap-2">
-                              <button
-                                 type="button"
-                                 onClick={() => setBudgetOffset(prev => Math.max(0, prev - 1))}
-                                 disabled={budgetOffset === 0}
-                                 className="p-2 hover:bg-muted bg-muted/30 rounded-xl transition-all disabled:opacity-30 border border-border/20 shadow-sm"
-                                 title="Mês Anterior"
-                              >
-                                 <ChevronLeft size={18} />
-                              </button>
+                {/* Monthly Budget Vision */}
+                <div className="mt-8 p-6 bg-muted/10 border border-border/30 rounded-2xl flex flex-col gap-8">
+                   <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-border/20 pb-6 gap-6">
+                      <div className="flex flex-col gap-1">
+                         <span className="text-[10px] font-black uppercase tracking-widest opacity-40 italic">Orçamento Mensal</span>
+                         <div className="flex flex-wrap items-center gap-3">
+                            <span className="text-sm font-black uppercase text-primary shrink-0">{budgetVision.monthName}</span>
+                            <div className="flex items-center gap-2">
+                               <button
+                                  type="button"
+                                  onClick={() => setBudgetOffset(prev => Math.max(0, prev - 1))}
+                                  disabled={budgetOffset === 0}
+                                  className="p-2 hover:bg-muted bg-muted/30 rounded-xl transition-all disabled:opacity-30 border border-border/20 shadow-sm cursor-pointer"
+                                  title="Mês Anterior"
+                               >
+                                  <ChevronLeft size={18} />
+                               </button>
 
-                              <button
-                                 type="button"
-                                 onClick={() => setBudgetOffset(0)}
-                                 className={cn(
-                                    "px-3 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border shadow-sm",
-                                    budgetOffset === 0
-                                       ? "bg-primary text-white border-primary"
-                                       : "bg-muted/30 text-muted-foreground border-border/20 hover:bg-muted"
-                                 )}
-                              >
-                                 Hoje
-                              </button>
+                               <button
+                                  type="button"
+                                  onClick={() => setBudgetOffset(0)}
+                                  className={cn(
+                                     "px-3 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border shadow-sm cursor-pointer",
+                                     budgetOffset === 0
+                                        ? "bg-primary text-white border-primary"
+                                        : "bg-muted/30 text-muted-foreground border-border/20 hover:bg-muted"
+                                  )}
+                               >
+                                  Hoje
+                               </button>
 
-                              <button
-                                 type="button"
-                                 onClick={() => setBudgetOffset(prev => Math.min(11, prev + 1))}
-                                 disabled={budgetOffset === 11}
-                                 className="p-2 hover:bg-muted bg-muted/30 rounded-xl transition-all disabled:opacity-30 border border-border/20 shadow-sm"
-                                 title="Próximo Mês"
-                              >
-                                 <ChevronRight size={18} />
-                              </button>
-                           </div>
-                        </div>
-                     </div>
-                     <div className="text-left md:text-right border-t md:border-t-0 border-border/10 pt-4 md:pt-0">
-                        <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 block mb-1">Total que vai precisar</span>
-                        <span className="text-2xl md:text-3xl font-black tracking-tighter text-primary">
-                           {formatCurrency(budgetVision.totalNeeded)}
-                        </span>
-                     </div>
-                  </div>
+                               <button
+                                  type="button"
+                                  onClick={() => setBudgetOffset(prev => Math.min(11, prev + 1))}
+                                  disabled={budgetOffset === 11}
+                                  className="p-2 hover:bg-muted bg-muted/30 rounded-xl transition-all disabled:opacity-30 border border-border/20 shadow-sm cursor-pointer"
+                                  title="Próximo Mês"
+                               >
+                                  <ChevronRight size={18} />
+                               </button>
+                            </div>
+                         </div>
+                      </div>
+                      <div className="text-left md:text-right border-t md:border-t-0 border-border/10 pt-4 md:pt-0">
+                         <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 block mb-1">Total que vai precisar</span>
+                         <span className="text-2xl md:text-3xl font-black tracking-tighter text-primary">
+                            {formatCurrency(budgetVision.totalNeeded)}
+                         </span>
+                      </div>
+                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center md:text-left relative pt-8">
-                     {/* Indicador de Comprometimento Total */}
-                     <div className="absolute -top-1 left-0 flex items-center gap-2">
-                        <span className="text-[8px] font-black uppercase tracking-[0.2em] text-muted-foreground opacity-40">Comprometido Total:</span>
-                        <div className="px-2 py-0.5 rounded-md bg-muted/50 border border-border/10 text-[9px] font-bold text-muted-foreground/80">
-                           {formatCurrency(budgetVision.necRec + budgetVision.unnecRec)}
-                        </div>
-                     </div>
+                   <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center md:text-left relative pt-8">
+                      {/* Indicador de Comprometimento Total */}
+                      <div className="absolute -top-1 left-0 flex items-center gap-2">
+                         <span className="text-[8px] font-black uppercase tracking-[0.2em] text-muted-foreground opacity-40">Comprometido Total:</span>
+                         <div className="px-2 py-0.5 rounded-md bg-muted/50 border border-border/10 text-[9px] font-bold text-muted-foreground/80">
+                            {formatCurrency(budgetVision.necRec + budgetVision.unnecRec)}
+                         </div>
+                      </div>
 
-                     <div className="space-y-1">
-                        <span className="text-[9px] font-black uppercase text-muted-foreground/60 tracking-wider flex items-center justify-center md:justify-start gap-1">
-                           <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Nec. Recorrentes
-                        </span>
-                        <p className="text-lg font-black">{formatCurrency(budgetVision.necRec)}</p>
-                        <p className="text-[8px] font-bold text-muted-foreground uppercase opacity-40">Não pode ser guardado para realizar</p>
-                     </div>
+                      <div className="space-y-1">
+                         <span className="text-[9px] font-black uppercase text-muted-foreground/60 tracking-wider flex items-center justify-center md:justify-start gap-1">
+                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Nec. Recorrentes
+                         </span>
+                         <p className="text-lg font-black">{formatCurrency(budgetVision.necRec)}</p>
+                         <p className="text-[8px] font-bold text-muted-foreground uppercase opacity-40">Não pode ser guardado para realizar</p>
+                      </div>
 
-                     <div className="space-y-1">
-                        <span className="text-[9px] font-black uppercase text-muted-foreground/60 tracking-wider flex items-center justify-center md:justify-start gap-1">
-                           <div className="w-1.5 h-1.5 rounded-full bg-orange-500" /> Desnec. Recorrentes
-                        </span>
-                        <p className="text-lg font-black">{formatCurrency(budgetVision.unnecRec)}</p>
-                        <p className="text-[8px] font-bold text-muted-foreground uppercase opacity-40">Deveria ter sido planejado para realizar</p>
-                     </div>
+                      <div className="space-y-1">
+                         <span className="text-[9px] font-black uppercase text-muted-foreground/60 tracking-wider flex items-center justify-center md:justify-start gap-1">
+                            <div className="w-1.5 h-1.5 rounded-full bg-orange-500" /> Desnec. Recorrentes
+                         </span>
+                         <p className="text-lg font-black">{formatCurrency(budgetVision.unnecRec)}</p>
+                         <p className="text-[8px] font-bold text-muted-foreground uppercase opacity-40">Deveria ter sido planejado para realizar</p>
+                      </div>
 
-                     <div className="space-y-1">
-                        <span className="text-[9px] font-black uppercase text-muted-foreground/60 tracking-wider flex items-center justify-center md:justify-start gap-1">
-                           <div className="w-1.5 h-1.5 rounded-full bg-blue-500" /> Estimados do Mês
-                        </span>
-                        <p className={cn("text-lg font-black transition-all", !includeCategoryLimits && "opacity-20")}>
-                           {formatCurrency(budgetVision.estimated)}
-                        </p>
-                        <p className={cn(
-                           "text-[8px] font-bold uppercase transition-all",
-                           !includeCategoryLimits ? "text-amber-500 animate-pulse" : "text-muted-foreground opacity-40"
-                        )}>
-                           {!includeCategoryLimits ? "Inativo (Ativar nas categorias)" : "Deve considerar o comprometido com recorrentes"}
-                        </p>
+                      <div className="space-y-1">
+                         <span className="text-[9px] font-black uppercase text-muted-foreground/60 tracking-wider flex items-center justify-center md:justify-start gap-1">
+                            <div className="w-1.5 h-1.5 rounded-full bg-blue-500" /> Estimados do Mês
+                         </span>
+                         <p className={cn("text-lg font-black transition-all", !includeCategoryLimits && "opacity-20")}>
+                            {formatCurrency(budgetVision.estimated)}
+                         </p>
+                         <p className={cn(
+                            "text-[8px] font-bold uppercase transition-all",
+                            !includeCategoryLimits ? "text-amber-500 animate-pulse" : "text-muted-foreground opacity-40"
+                         )}>
+                            {!includeCategoryLimits ? "Inativo (Ativar nas categorias)" : "Deve considerar o comprometido com recorrentes"}
+                         </p>
 
-                        {includeCategoryLimits && budgetVision.recurrentWithoutLimit > 0 && (
-                           <div className="flex items-center gap-1.5 py-1 px-2 bg-orange-500/5 border border-orange-500/10 rounded-lg w-fit mt-2">
-                              <div className="w-1 h-1 rounded-full bg-orange-500 animate-pulse shrink-0" />
-                              <span className="text-[7px] font-black uppercase text-orange-600 tracking-tighter leading-none">
-                                 {formatCurrency(budgetVision.recurrentWithoutLimit)} comprometido sem meta de gasto definida
-                              </span>
-                           </div>
-                        )}
-                     </div>
+                         {includeCategoryLimits && budgetVision.recurrentWithoutLimit > 0 && (
+                            <div className="flex items-center gap-1.5 py-1 px-2 bg-orange-500/5 border border-orange-500/10 rounded-lg w-fit mt-2">
+                               <div className="w-1 h-1 rounded-full bg-orange-500 animate-pulse shrink-0" />
+                               <span className="text-[7px] font-black uppercase text-orange-600 tracking-tighter leading-none">
+                                  {formatCurrency(budgetVision.recurrentWithoutLimit)} comprometido sem meta de gasto definida
+                               </span>
+                            </div>
+                         )}
+                      </div>
 
-                  </div>
-               </div>
+                   </div>
+                </div>
 
-               <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mt-12">
-                  <div className="space-y-1">
-                     <span className="text-[10px] font-black uppercase tracking-widest text-emerald-500 flex items-center gap-1">
-                        <TrendingUp size={12} /> Entradas
-                     </span>
-                     <p className="text-[clamp(1rem,2vw,1.5rem)] font-black whitespace-nowrap">{formatCurrency(monthlyIncome)}</p>
-                     <p className="text-[9px] font-bold text-muted-foreground uppercase italic opacity-60">Recebidas este mês</p>
-                  </div>
-                  <div className="space-y-1">
-                     <span className="text-[10px] font-black uppercase tracking-widest text-rose-500 flex items-center gap-1">
-                        <TrendingDown size={12} /> Saídas
-                     </span>
-                     <p className="text-[clamp(1rem,2vw,1.5rem)] font-black whitespace-nowrap">{formatCurrency(monthlyExpenses)}</p>
-                     <p className="text-[9px] font-bold text-muted-foreground uppercase italic opacity-60">Somente Pagas</p>
-                  </div>
-                  <div className="space-y-1 min-w-0">
-                     <span className="text-[10px] font-black uppercase tracking-widest text-blue-500 flex items-center gap-1">
-                        <WalletIcon size={12} /> Saldo em Contas
-                     </span>
-                     <p className={cn("text-[clamp(1rem,2vw,1.5rem)] font-black whitespace-nowrap", totalBankBalance < -0.01 && "text-rose-500")} title={formatCurrency(totalBankBalance)}>{formatCurrency(totalBankBalance)}</p>
-                     <p className="text-[9px] font-bold text-muted-foreground uppercase italic opacity-60">Soma das Contas</p>
-                  </div>
-                  <div className="space-y-1 min-w-0 pr-4">
-                     <span className="text-[10px] font-black uppercase tracking-widest text-[#820ad1] flex items-center gap-1">
-                        <CreditCard size={12} /> Limite Utilizável
-                     </span>
-                     <p className="text-[clamp(1rem,2vw,1.5rem)] font-black whitespace-nowrap" title={formatCurrency(totalAvailableCredit)}>{formatCurrency(totalAvailableCredit)}</p>
-                     <p className="text-[9px] font-bold text-muted-foreground uppercase italic opacity-60">Cartões Ativos</p>
-                  </div>
-               </div>
-            </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8">
+                   <div className="bg-muted/10 border border-border/30 p-4 rounded-2xl hover:bg-muted/20 transition-all flex flex-col justify-between">
+                      <span className="text-[9px] font-black uppercase tracking-wider text-emerald-500 flex items-center gap-1.5">
+                         <div className="p-1 rounded-md bg-emerald-500/10 text-emerald-500"><TrendingUp size={12} /></div> Entradas
+                      </span>
+                      <p className="text-xl font-extrabold whitespace-nowrap mt-2">{formatCurrency(monthlyIncome)}</p>
+                      <p className="text-[8px] font-bold text-muted-foreground uppercase opacity-60 mt-1">Recebidas este mês</p>
+                   </div>
+                   <div className="bg-muted/10 border border-border/30 p-4 rounded-2xl hover:bg-muted/20 transition-all flex flex-col justify-between">
+                      <span className="text-[9px] font-black uppercase tracking-wider text-rose-500 flex items-center gap-1.5">
+                         <div className="p-1 rounded-md bg-rose-500/10 text-rose-500"><TrendingDown size={12} /></div> Saídas
+                      </span>
+                      <p className="text-xl font-extrabold whitespace-nowrap mt-2">{formatCurrency(monthlyExpenses)}</p>
+                      <p className="text-[8px] font-bold text-muted-foreground uppercase opacity-60 mt-1">Somente Pagas</p>
+                   </div>
+                   <div className="bg-muted/10 border border-border/30 p-4 rounded-2xl hover:bg-muted/20 transition-all flex flex-col justify-between min-w-0">
+                      <span className="text-[9px] font-black uppercase tracking-wider text-blue-500 flex items-center gap-1.5">
+                         <div className="p-1 rounded-md bg-blue-500/10 text-blue-500"><WalletIcon size={12} /></div> Saldo em Contas
+                      </span>
+                      <p className={cn("text-xl font-extrabold whitespace-nowrap mt-2", totalBankBalance < -0.01 && "text-rose-500")} title={formatCurrency(totalBankBalance)}>{formatCurrency(totalBankBalance)}</p>
+                      <p className="text-[8px] font-bold text-muted-foreground uppercase opacity-60 mt-1">Soma das Contas</p>
+                   </div>
+                   <div className="bg-muted/10 border border-border/30 p-4 rounded-2xl hover:bg-muted/20 transition-all flex flex-col justify-between min-w-0 pr-2">
+                      <span className="text-[9px] font-black uppercase tracking-wider text-[#820ad1] flex items-center gap-1.5">
+                         <div className="p-1 rounded-md bg-purple-500/10 text-purple-500"><CreditCard size={12} /></div> Limite Utilizável
+                      </span>
+                      <p className="text-xl font-extrabold whitespace-nowrap mt-2" title={formatCurrency(totalAvailableCredit)}>{formatCurrency(totalAvailableCredit)}</p>
+                      <p className="text-[8px] font-bold text-muted-foreground uppercase opacity-60 mt-1">Cartões Ativos</p>
+                   </div>
+                </div>
+             </div>
 
-            {/* Quick Access Row (6 Buttons in Grid) */}
-            <div className="bg-muted/30 p-8 rounded-[2.5rem] border border-border/50 flex flex-col h-full">
-               <div className="mb-6">
-                  <h3 className="text-xl font-black uppercase tracking-tighter">Acesso Rápido</h3>
-                  <p className="text-[10px] font-bold text-muted-foreground uppercase opacity-60">Realize novos lançamentos ou importe extratos bancários</p>
-               </div>
-               <div className="grid grid-cols-2 gap-3 flex-1">
-                  <button onClick={() => openNewTx('expense')} className="group p-4 bg-rose-500 text-white rounded-3xl flex flex-col items-center justify-center gap-2 hover:scale-[1.03] transition-all shadow-lg shadow-rose-500/20 active:scale-95">
-                     <ArrowDownRight size={20} className="group-hover:rotate-45 transition-transform" />
-                     <span className="text-[10px] font-black uppercase tracking-widest">Despesa</span>
-                  </button>
-                  <button onClick={() => openNewTx('income')} className="group p-4 bg-emerald-500 text-white rounded-3xl flex flex-col items-center justify-center gap-2 hover:scale-[1.03] transition-all shadow-lg shadow-emerald-500/20 active:scale-95">
-                     <ArrowUpRight size={20} className="group-hover:rotate-45 transition-transform" />
-                     <span className="text-[10px] font-black uppercase tracking-widest">Receita</span>
-                  </button>
-                  <button onClick={() => openNewTx('transfer')} className="group p-4 bg-blue-500 text-white rounded-3xl flex flex-col items-center justify-center gap-2 hover:scale-[1.03] transition-all shadow-lg shadow-blue-500/20 active:scale-95">
-                     <ArrowRightLeft size={20} />
-                     <span className="text-[10px] font-black uppercase tracking-widest">Transf.</span>
-                  </button>
-                  <button onClick={() => openNewTx('provision')} className="group p-4 bg-orange-500 text-white rounded-3xl flex flex-col items-center justify-center gap-2 hover:scale-[1.03] transition-all shadow-lg shadow-orange-500/20 active:scale-95">
-                     <Plus size={20} />
-                     <span className="text-[10px] font-black uppercase tracking-widest">Provisão</span>
-                  </button>
-                  <button onClick={() => openNewTx('planned')} className="group p-4 bg-yellow-500 text-white rounded-3xl flex flex-col items-center justify-center gap-2 hover:scale-[1.03] transition-all shadow-lg shadow-yellow-500/20 active:scale-95">
-                     <CalendarDays size={20} />
-                     <span className="text-[10px] font-black uppercase tracking-widest text-center">Planejado</span>
-                  </button>
-                  <button onClick={() => setActiveTab('import')} className="group p-4 bg-card border border-border shadow-sm text-foreground rounded-3xl flex flex-col items-center justify-center gap-2 hover:border-primary transition-all hover:bg-primary/5 active:scale-95">
-                     <FileDown size={20} className="text-orange-600" />
-                     <span className="text-[10px] font-black uppercase tracking-widest text-center">Importar</span>
-                  </button>
-               </div>
-            </div>
-         </div>
+             {/* Quick Access Row (6 Buttons in Grid) */}
+             <div className="bg-muted/20 p-8 rounded-3xl border border-border/50 flex flex-col h-full justify-between">
+                <div className="mb-6">
+                   <h3 className="text-xl font-extrabold tracking-tight">Acesso Rápido</h3>
+                   <p className="text-[10px] font-bold text-muted-foreground uppercase opacity-60">Realize novos lançamentos ou importe extratos bancários</p>
+                </div>
+                <div className="grid grid-cols-2 gap-3 flex-1">
+                   <button onClick={() => openNewTx('expense')} className="group p-4 bg-rose-500 text-white rounded-2xl flex flex-col items-center justify-center gap-2 hover:scale-[1.03] transition-all shadow-lg shadow-rose-500/10 active:scale-95 cursor-pointer">
+                      <ArrowDownRight size={20} className="group-hover:rotate-45 transition-transform" />
+                      <span className="text-[10px] font-black uppercase tracking-widest">Despesa</span>
+                   </button>
+                   <button onClick={() => openNewTx('income')} className="group p-4 bg-emerald-500 text-white rounded-2xl flex flex-col items-center justify-center gap-2 hover:scale-[1.03] transition-all shadow-lg shadow-emerald-500/10 active:scale-95 cursor-pointer">
+                      <ArrowUpRight size={20} className="group-hover:rotate-45 transition-transform" />
+                      <span className="text-[10px] font-black uppercase tracking-widest">Receita</span>
+                   </button>
+                   <button onClick={() => openNewTx('transfer')} className="group p-4 bg-blue-500 text-white rounded-2xl flex flex-col items-center justify-center gap-2 hover:scale-[1.03] transition-all shadow-lg shadow-blue-500/10 active:scale-95 cursor-pointer">
+                      <ArrowRightLeft size={20} />
+                      <span className="text-[10px] font-black uppercase tracking-widest">Transf.</span>
+                   </button>
+                   <button onClick={() => openNewTx('provision')} className="group p-4 bg-orange-500 text-white rounded-2xl flex flex-col items-center justify-center gap-2 hover:scale-[1.03] transition-all shadow-lg shadow-orange-500/10 active:scale-95 cursor-pointer">
+                      <Plus size={20} />
+                      <span className="text-[10px] font-black uppercase tracking-widest">Provisão</span>
+                   </button>
+                   <button onClick={() => openNewTx('planned')} className="group p-4 bg-yellow-500 text-white rounded-2xl flex flex-col items-center justify-center gap-2 hover:scale-[1.03] transition-all shadow-lg shadow-yellow-500/10 active:scale-95 cursor-pointer">
+                      <CalendarDays size={20} />
+                      <span className="text-[10px] font-black uppercase tracking-widest text-center">Planejado</span>
+                   </button>
+                   <button onClick={() => setActiveTab('import')} className="group p-4 bg-card border border-border shadow-premium text-foreground rounded-2xl flex flex-col items-center justify-center gap-2 hover:border-primary transition-all hover:bg-primary/5 active:scale-95 cursor-pointer">
+                      <FileDown size={20} className="text-orange-600" />
+                      <span className="text-[10px] font-black uppercase tracking-widest text-center">Importar</span>
+                   </button>
+                </div>
+             </div>
+          </div>
 
          {/* 2. Middle Row: Cards Section */}
          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 
             {/* Faturas Card */}
-            <div className="bg-card p-6 rounded-[2rem] border border-border flex flex-col gap-4 shadow-sm">
+            <div className="bg-card bg-gradient-to-br from-card to-primary/[0.015] dark:to-primary/[0.01] p-6 rounded-2xl border border-border flex flex-col gap-4 shadow-premium">
                <div className="flex items-center justify-between">
                   <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
                      <CreditCard size={14} className="text-primary" /> Faturas do Mês
                   </h3>
-                  <button onClick={() => setActiveTab('wallets')} className="p-2 hover:bg-muted rounded-xl transition-all"><ChevronRight size={16} /></button>
+                  <button onClick={() => setActiveTab('wallets')} className="p-2 hover:bg-muted rounded-xl transition-all cursor-pointer"><ChevronRight size={16} /></button>
                </div>
 
                <div className="space-y-3 flex-1">
@@ -906,11 +906,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, setTxFilter,
                   )}
                </div>
 
-               <button onClick={() => setActiveTab('wallets')} className="w-full py-3 bg-muted/50 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-primary/10 hover:text-primary transition-all">Gerenciar Cartões</button>
+               <button onClick={() => setActiveTab('wallets')} className="w-full py-3 bg-muted/50 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-primary/10 hover:text-primary transition-all cursor-pointer">Gerenciar Cartões</button>
             </div>
 
             {/* Valores a Pagar */}
-            <div className="bg-card p-6 rounded-[2rem] border border-border flex flex-col gap-4 shadow-sm">
+            <div className="bg-card bg-gradient-to-br from-card to-rose-500/[0.015] dark:to-rose-500/[0.01] p-6 rounded-2xl border border-border flex flex-col gap-4 shadow-premium">
                <div className="flex items-center justify-between">
                   <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
                      <TrendingDown size={14} className="text-rose-500" /> Valores a Pagar
@@ -938,12 +938,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, setTxFilter,
                      <span className="text-[10px] font-black uppercase text-muted-foreground">Total Pendente</span>
                      <span className="text-lg font-black text-rose-600">{formatCurrency(pendingToPay.total)}</span>
                   </div>
-                  <button onClick={() => setPendingModalType('payable')} className="w-full py-3 bg-rose-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-600 transition-all shadow-lg shadow-rose-500/10">Ver Todos</button>
+                  <button onClick={() => setPendingModalType('payable')} className="w-full py-3 bg-rose-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-600 transition-all shadow-lg shadow-rose-500/10 cursor-pointer">Ver Todos</button>
                </div>
             </div>
 
             {/* Valores a Receber */}
-            <div className="bg-card p-6 rounded-[2rem] border border-border flex flex-col gap-4 shadow-sm">
+            <div className="bg-card bg-gradient-to-br from-card to-emerald-500/[0.015] dark:to-emerald-500/[0.01] p-6 rounded-2xl border border-border flex flex-col gap-4 shadow-premium">
                <div className="flex items-center justify-between">
                   <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
                      <TrendingUp size={14} className="text-emerald-500" /> Valores a Receber
@@ -971,7 +971,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, setTxFilter,
                      <span className="text-[10px] font-black uppercase text-muted-foreground">Total a Receber</span>
                      <span className="text-lg font-black text-emerald-600">{formatCurrency(pendingToReceive.total)}</span>
                   </div>
-                  <button onClick={() => setPendingModalType('receivable')} className="w-full py-3 bg-emerald-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-500/10">Ver Todos</button>
+                  <button onClick={() => setPendingModalType('receivable')} className="w-full py-3 bg-emerald-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-500/10 cursor-pointer">Ver Todos</button>
                </div>
             </div>
          </div>
@@ -979,17 +979,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, setTxFilter,
          {/* 3. Category & Budget Analysis Section */}
          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-            <div className="bg-card p-8 rounded-[2.5rem] border border-border shadow-sm flex flex-col gap-6">
+            <div className="bg-card bg-gradient-to-br from-card to-secondary/[0.02] dark:to-secondary/[0.01] p-6 md:p-8 rounded-3xl border border-border shadow-premium flex flex-col gap-6">
                <div className="flex items-center justify-between">
                   <div>
-                     <h3 className="text-lg font-black uppercase tracking-tighter flex items-center gap-2">
-                        <PieIcon size={20} className="text-primary" /> Maiores Gastos
+                     <h3 className="text-lg font-extrabold tracking-tight flex items-center gap-2">
+                        <div className="p-1.5 rounded-lg bg-primary/10 text-primary"><PieIcon size={16} /></div> Maiores Gastos
                      </h3>
                      <p className="text-[10px] font-bold text-muted-foreground uppercase leading-tight mt-1 max-w-[200px]">
-                        {reportPeriod === 1 ? 'Seguindo mês selecionado nos relatórios' : 'Seguindo o mês atual (filtro de relatório não é único mês)'}
+                        {reportPeriod === 1 ? 'Seguindo mês selecionado nos relatórios' : 'Seguindo o mês atual'}
                      </p>
                   </div>
-                  <button onClick={() => setActiveTab('categories')} className="text-[10px] font-black uppercase tracking-widest text-primary hover:underline">Ver Categorias</button>
+                  <button onClick={() => setActiveTab('categories')} className="text-[10px] font-black uppercase tracking-widest text-primary hover:underline cursor-pointer">Ver Categorias</button>
                </div>
 
                <div className="min-h-[240px] w-full flex flex-col md:flex-row items-center gap-6 md:gap-0">
@@ -1060,11 +1060,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, setTxFilter,
             </div>
 
             {/* Limite de Gastos */}
-            <div className="bg-card p-8 rounded-[2.5rem] border border-border shadow-sm flex flex-col gap-6">
+            <div className="bg-card bg-gradient-to-br from-card to-primary/[0.01] dark:to-primary/[0.005] p-6 md:p-8 rounded-3xl border border-border shadow-premium flex flex-col gap-6">
                <div className="flex items-center justify-between">
                   <div>
-                     <h3 className="text-lg font-black uppercase tracking-tighter flex items-center gap-2">
-                        <Target size={20} className="text-primary" /> Limite de Gastos
+                     <h3 className="text-lg font-extrabold tracking-tight flex items-center gap-2">
+                        <div className="p-1.5 rounded-lg bg-primary/10 text-primary"><Target size={16} /></div> Limite de Gastos
                      </h3>
                      <p className="text-[10px] font-bold text-muted-foreground uppercase leading-tight mt-1">
                         {reportPeriod === 1 ? 'Seguindo mês selecionado nos relatórios' : 'Seguindo o mês atual'}

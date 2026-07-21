@@ -29,15 +29,15 @@
 
 @layer base {
   :root {
-    --background: #ffffff;
-    --foreground: #020617;
+    --background: #f8fafc; /* Slate 50 - Cinza-azul muito suave */
+    --foreground: #020617; /* Slate 950 */
     --card: #ffffff;
     --card-foreground: #020617;
     --popover: #ffffff;
     --popover-foreground: #020617;
     --primary: #D97706;
     --primary-foreground: #ffffff;
-    --secondary: #f1f5f9;
+    --secondary: #f1f5f9; /* Slate 100 */
     --secondary-foreground: #0f172a;
     --muted: #f1f5f9;
     --muted-foreground: #64748b;
@@ -45,18 +45,18 @@
     --accent-foreground: #0f172a;
     --destructive: #ef4444;
     --destructive-foreground: #f8fafc;
-    --border: #e2e8f0;
-    --input: #e2e8f0;
+    --border: #f1f5f9; /* Slate 100 - Bordas ultra suaves */
+    --input: #f1f5f9;
     --ring: #020617;
-    --radius: 0.5rem;
+    --radius: 0.75rem; /* 12px - Cantos arredondados mais elegantes */
   }
 
   .dark {
-    --background: #0f172a;
+    --background: #0b0f19; /* Azul-cinza escuro profundo premium */
     --foreground: #f8fafc;
-    --card: #1e293b;
+    --card: #131b2e; /* Card escuro refinado */
     --card-foreground: #f8fafc;
-    --popover: #1e293b;
+    --popover: #131b2e;
     --popover-foreground: #f8fafc;
     --primary: #D97706;
     --primary-foreground: #020617;
@@ -82,19 +82,102 @@
     background-color: var(--background);
     color: var(--foreground);
     font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Estilização base global para Inputs e Controles de Formulário SaaS Premium */
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="number"],
+  input[type="date"],
+  input[type="time"],
+  input[type="tel"],
+  input[type="url"],
+  select,
+  textarea {
+    height: 2.75rem !important; /* h-11 */
+    padding-left: 1rem;
+    padding-right: 1rem;
+    border-radius: 0.75rem !important; /* rounded-xl */
+    border: 1px solid var(--border) !important;
+    background-color: var(--card) !important;
+    color: var(--foreground) !important;
+    font-size: 0.875rem !important; /* text-sm */
+    font-weight: 500 !important;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    outline: none !important;
+  }
+
+  .dark input[type="text"],
+  .dark input[type="email"],
+  .dark input[type="password"],
+  .dark input[type="number"],
+  .dark input[type="date"],
+  .dark input[type="time"],
+  .dark input[type="tel"],
+  .dark input[type="url"],
+  .dark select,
+  .dark textarea {
+    border: 1px solid rgba(255, 255, 255, 0.05) !important;
+    background-color: rgba(30, 41, 59, 0.3) !important;
+  }
+
+  input[type="text"]:focus,
+  input[type="email"]:focus,
+  input[type="password"]:focus,
+  input[type="number"]:focus,
+  input[type="date"]:focus,
+  input[type="time"]:focus,
+  input[type="tel"]:focus,
+  input[type="url"]:focus,
+  select:focus,
+  textarea:focus {
+    border-color: var(--primary) !important;
+    box-shadow: 0 0 0 4px rgba(217, 119, 6, 0.1) !important; /* primary/10 */
+    background-color: var(--card) !important;
+  }
+
+  .dark input[type="text"]:focus,
+  .dark input[type="email"]:focus,
+  .dark input[type="password"]:focus,
+  .dark input[type="number"]:focus,
+  .dark input[type="date"]:focus,
+  .dark input[type="time"]:focus,
+  .dark input[type="tel"]:focus,
+  .dark input[type="url"]:focus,
+  .dark select:focus,
+  .dark textarea:focus {
+    border-color: var(--primary) !important;
+    box-shadow: 0 0 0 4px rgba(217, 119, 6, 0.15) !important;
+    background-color: rgba(30, 41, 59, 0.5) !important;
+  }
+
+  textarea {
+    height: auto !important;
+    padding-top: 0.75rem !important;
+    padding-bottom: 0.75rem !important;
   }
 }
 
-/* Modal Backdrop Premium */
-.backdrop-premium {
-  background-color: rgba(2, 6, 23, 0.85);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-}
+/* Classes utilitárias premium globais */
+@layer utilities {
+  .shadow-premium {
+    box-shadow: 0 4px 20px -2px rgba(2, 6, 23, 0.03), 0 2px 8px -1px rgba(2, 6, 23, 0.02);
+  }
+  
+  .dark .shadow-premium {
+    box-shadow: 0 4px 30px -2px rgba(0, 0, 0, 0.3), 0 2px 12px -1px rgba(0, 0, 0, 0.2);
+  }
 
-.modal-portal-root {
-  position: relative;
-  z-index: 9999;
+  .border-premium {
+    border: 1px solid rgba(226, 232, 240, 0.5);
+  }
+  
+  .dark .border-premium {
+    border: 1px solid rgba(255, 255, 255, 0.03);
+  }
 }
 
 /* Prevent iOS zoom on focus */

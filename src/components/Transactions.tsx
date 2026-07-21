@@ -562,11 +562,11 @@ export const Transactions: React.FC<TransactionsProps> = ({
                       if (selectedIds.includes(t.id)) return "";
                       if (isInvoicePayment) return "";
                       
-                      if (t.type === 'income') return 'bg-green-500/10';
-                      if (t.type === 'expense') return 'bg-red-500/10';
-                      if (t.type === 'transfer') return 'bg-blue-500/10';
-                      if (t.type === 'provision') return 'bg-orange-500/10';
-                      if (t.type === 'planned') return 'bg-yellow-500/10';
+                      if (t.type === 'income') return 'bg-emerald-500/[0.03]';
+                      if (t.type === 'expense') return 'bg-rose-500/[0.03]';
+                      if (t.type === 'transfer') return 'bg-blue-500/[0.03]';
+                      if (t.type === 'provision') return 'bg-orange-500/[0.03]';
+                      if (t.type === 'planned') return 'bg-yellow-500/[0.03]';
                       return "";
                     })()
                   )}

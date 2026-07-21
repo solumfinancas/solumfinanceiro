@@ -637,11 +637,11 @@ export const ManagementPortal: React.FC<ManagementPortalProps> = ({ activeTab = 
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
-          <div className="flex items-center gap-2 mb-2">
-            <Shield className="text-primary" size={20} />
-            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-primary">Portal de Gestão</span>
+          <div className="flex items-center gap-2 mb-1">
+            <div className="p-1 rounded-md bg-primary/10 text-primary flex items-center justify-center"><Shield size={14} /></div>
+            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary">Portal de Gestão</span>
           </div>
-          <h1 className="text-4xl font-black uppercase tracking-tighter text-slate-900 dark:text-white">
+          <h1 className="text-3xl font-extrabold tracking-tight text-foreground">
             {profile?.role === 'educator' ? 'Meus Clientes' : 'Controle de Acessos'}
           </h1>
         </div>
@@ -649,14 +649,14 @@ export const ManagementPortal: React.FC<ManagementPortalProps> = ({ activeTab = 
           <button onClick={() => {
             setCreateSource('management');
             setShowCreateModal(true);
-          }} className="bg-primary hover:scale-[1.02] active:scale-95 text-white px-6 py-3 rounded-2xl flex items-center gap-3 transition-all group shadow-lg shadow-primary/20">
+          }} className="bg-primary hover:scale-[1.02] active:scale-95 text-white px-6 py-3 rounded-2xl flex items-center gap-3 transition-all group shadow-lg shadow-primary/20 cursor-pointer">
             <UserPlus size={18} className="group-hover:rotate-12 transition-transform" />
             <span className="text-[10px] font-black uppercase tracking-widest">Criar Perfil</span>
           </button>
         )}
       </div>
 
-      <div className="bg-card backdrop-blur-xl border border-border rounded-[2.5rem] p-6 flex flex-col xl:flex-row gap-6 shadow-xl shadow-slate-200/10 dark:shadow-none">
+      <div className="bg-card border border-border rounded-3xl p-6 flex flex-col xl:flex-row gap-6 shadow-premium">
         <div className="relative flex-1 group">
           <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
           <input 
@@ -681,7 +681,7 @@ export const ManagementPortal: React.FC<ManagementPortalProps> = ({ activeTab = 
                 key={filter}
                 onClick={() => setActiveFilter(filter as any)}
                 className={cn(
-                  "px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest border transition-all",
+                  "px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest border transition-all cursor-pointer",
                   activeFilter === filter 
                     ? "bg-primary border-primary text-white shadow-lg shadow-primary/20" 
                     : "bg-muted/50 border-border text-muted-foreground hover:border-primary/30"
@@ -697,12 +697,12 @@ export const ManagementPortal: React.FC<ManagementPortalProps> = ({ activeTab = 
       {/* Resumo Global */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
         {[
-          { label: 'Total de Usuários', value: profiles.length, icon: Users, color: 'text-primary', bg: 'bg-primary/5' },
-          { label: 'Perfis Ativos', value: profiles.filter(p => !isUserSuspended(p)).length, icon: UserCheck, color: 'text-emerald-500', bg: 'bg-emerald-500/5' },
-          { label: 'Perfis Suspensos', value: profiles.filter(p => isUserSuspended(p)).length, icon: UserX, color: 'text-rose-500', bg: 'bg-rose-500/5' },
+          { label: 'Total de Usuários', value: profiles.length, icon: Users, color: 'text-primary', bg: 'bg-primary/8' },
+          { label: 'Perfis Ativos', value: profiles.filter(p => !isUserSuspended(p)).length, icon: UserCheck, color: 'text-emerald-500', bg: 'bg-emerald-500/8' },
+          { label: 'Perfis Suspensos', value: profiles.filter(p => isUserSuspended(p)).length, icon: UserX, color: 'text-rose-500', bg: 'bg-rose-500/8' },
         ].map((stat, i) => (
-          <div key={i} className="bg-card border border-border rounded-3xl p-6 flex items-center gap-4 shadow-sm">
-            <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center", stat.bg, stat.color)}>
+          <div key={i} className="bg-card border border-border/50 rounded-2xl p-6 flex items-center gap-4 shadow-premium hover:bg-muted/5 transition-all">
+            <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center", stat.bg, stat.color)}>
               <stat.icon size={22} />
             </div>
             <div>

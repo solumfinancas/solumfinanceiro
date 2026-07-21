@@ -715,72 +715,69 @@ export const Debts: React.FC = () => {
         <>
           {/* Summary Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div className="relative group overflow-hidden bg-card border border-border rounded-[2.5rem] p-8 shadow-xl shadow-slate-200/40 dark:shadow-none flex flex-col justify-center">
+            <div className="relative group overflow-hidden bg-card border border-border rounded-2xl p-6 shadow-premium flex flex-col justify-between min-h-[130px]">
               <div className="absolute top-0 right-0 w-32 h-32 bg-rose-500/5 rounded-full blur-3xl -mr-16 -mt-16 transition-all group-hover:scale-110" />
-              <div className="relative flex items-center justify-between">
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-rose-500 mb-2">Saldo Devedor Total</p>
-                  <h2 className="text-3xl font-black tracking-tighter text-foreground">
-                    {formatCurrency(debtSummary.total)}
-                  </h2>
+              <div className="relative flex items-start justify-between gap-2 w-full">
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-rose-500 leading-tight mt-1">Saldo Devedor Total</p>
+                <div className="w-10 h-10 rounded-xl bg-rose-500/10 flex items-center justify-center text-rose-500 shadow-inner shrink-0">
+                  <TrendingDown size={20} />
                 </div>
-                <div className="w-12 h-12 rounded-2xl bg-rose-500/10 flex items-center justify-center text-rose-500 shadow-inner">
-                  <TrendingDown size={24} />
-                </div>
+              </div>
+              <div className="relative mt-4 w-full">
+                <h2 className="text-2xl sm:text-3xl font-black tracking-tighter text-foreground break-all" title={formatCurrency(debtSummary.total)}>
+                  {formatCurrency(debtSummary.total)}
+                </h2>
               </div>
             </div>
 
-            <div className="relative group overflow-hidden bg-card border border-border rounded-[2.5rem] p-8 shadow-xl shadow-slate-200/40 dark:shadow-none flex flex-col justify-center">
+            <div className="relative group overflow-hidden bg-card border border-border rounded-2xl p-6 shadow-premium flex flex-col justify-between min-h-[130px]">
               <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 rounded-full blur-3xl -mr-16 -mt-16 transition-all group-hover:scale-110" />
-              <div className="relative flex items-center justify-between">
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-500 mb-2">Parcelas do Mês (ATUALIZADO)</p>
-                  <h2 className="text-3xl font-black tracking-tighter text-foreground">
-                    {formatCurrency(debtSummary.monthly)}
-                  </h2>
+              <div className="relative flex items-start justify-between gap-2 w-full">
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-500 leading-tight mt-1">Parcelas do Mês</p>
+                <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-500 shadow-inner shrink-0">
+                  <Calculator size={20} />
                 </div>
-                <div className="w-12 h-12 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-500 shadow-inner">
-                  <Calculator size={24} />
-                </div>
+              </div>
+              <div className="relative mt-4 w-full">
+                <h2 className="text-2xl sm:text-3xl font-black tracking-tighter text-foreground break-all" title={formatCurrency(debtSummary.monthly)}>
+                  {formatCurrency(debtSummary.monthly)}
+                </h2>
               </div>
             </div>
 
-            <div className="relative group overflow-hidden bg-card border border-border rounded-[2.5rem] p-8 shadow-xl shadow-slate-200/40 dark:shadow-none flex flex-col justify-center">
+            <div className="relative group overflow-hidden bg-card border border-border rounded-2xl p-6 shadow-premium flex flex-col justify-between min-h-[130px]">
               <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 rounded-full blur-3xl -mr-16 -mt-16 transition-all group-hover:scale-110" />
-              <div className="relative flex items-center justify-between">
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-500 mb-2">Pago no Mês</p>
-                  <h2 className="text-3xl font-black tracking-tighter text-foreground">
-                    {formatCurrency(debtSummary.paid)}
-                  </h2>
+              <div className="relative flex items-start justify-between gap-2 w-full">
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-500 leading-tight mt-1">Pago no Mês</p>
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-500 shadow-inner shrink-0">
+                  <TrendingDown size={20} className="rotate-180" />
                 </div>
-                <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-500 shadow-inner">
-                  <div className="relative">
-                    <TrendingDown size={24} className="rotate-180" />
-                    <div className="absolute inset-0 bg-emerald-500 blur-md opacity-20" />
-                  </div>
-                </div>
+              </div>
+              <div className="relative mt-4 w-full">
+                <h2 className="text-2xl sm:text-3xl font-black tracking-tighter text-foreground break-all" title={formatCurrency(debtSummary.paid)}>
+                  {formatCurrency(debtSummary.paid)}
+                </h2>
               </div>
             </div>
 
-            <div className="relative group overflow-hidden bg-card border border-border rounded-[2.5rem] p-8 shadow-xl shadow-slate-200/40 dark:shadow-none flex flex-col justify-center">
+            <div className="relative group overflow-hidden bg-card border border-border rounded-2xl p-6 shadow-premium flex flex-col justify-between min-h-[130px]">
               <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 rounded-full blur-3xl -mr-16 -mt-16 transition-all group-hover:scale-110" />
-              <div className="relative flex items-center justify-between">
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-500 mb-2">Dívidas Ativas</p>
-                  <h2 className="text-3xl font-black tracking-tighter text-foreground">
-                    {debtSummary.count} <span className="text-sm font-bold text-muted-foreground uppercase ml-2 tracking-widest">Contratos</span>
-                  </h2>
-                  {debtSummary.pending > 0 && (
-                    <p className="text-[9px] font-bold text-amber-500 uppercase tracking-widest mt-1 flex items-center gap-1 animate-pulse">
-                      <AlertCircle size={10} />
-                      {debtSummary.pending} Atualização{debtSummary.pending > 1 ? 'ões' : 'ª'} Pendente{debtSummary.pending > 1 ? 's' : ''}
-                    </p>
-                  )}
+              <div className="relative flex items-start justify-between gap-2 w-full">
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-500 leading-tight mt-1">Dívidas Ativas</p>
+                <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-500 shadow-inner shrink-0">
+                  <Layout size={20} />
                 </div>
-                <div className="w-12 h-12 rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-500 shadow-inner">
-                  <Layout size={24} />
-                </div>
+              </div>
+              <div className="relative mt-4 w-full">
+                <h2 className="text-2xl sm:text-3xl font-black tracking-tighter text-foreground break-all">
+                  {debtSummary.count} <span className="text-xs font-bold text-muted-foreground uppercase ml-1 tracking-widest">Contratos</span>
+                </h2>
+                {debtSummary.pending > 0 && (
+                  <p className="text-[9px] font-bold text-amber-500 uppercase tracking-widest mt-1 flex items-center gap-1 animate-pulse">
+                    <AlertCircle size={10} />
+                    {debtSummary.pending} pendente{debtSummary.pending > 1 ? 's' : ''}
+                  </p>
+                )}
               </div>
             </div>
           </div>
