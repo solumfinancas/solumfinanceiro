@@ -1704,7 +1704,7 @@ export const Meetings: React.FC = () => {
           <button
             onClick={handlePrint}
             title="Imprimir Relatório"
-            className="bg-card hover:bg-muted text-muted-foreground hover:text-foreground border border-border p-4 rounded-2xl flex items-center justify-center transition-all hover:scale-[1.02] active:scale-95 shadow-sm shrink-0"
+            className="hidden lg:flex bg-card hover:bg-muted text-muted-foreground hover:text-foreground border border-border p-4 rounded-2xl items-center justify-center transition-all hover:scale-[1.02] active:scale-95 shadow-sm shrink-0"
           >
             <Printer size={18} />
           </button>

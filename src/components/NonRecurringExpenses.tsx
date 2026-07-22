@@ -808,7 +808,7 @@ export const NonRecurringExpenses: React.FC<NonRecurringExpensesProps> = ({
             <button
               onClick={handlePrint}
               title="Imprimir Relatório"
-              className="flex items-center justify-center p-4 h-12 w-12 rounded-2xl bg-card hover:bg-muted border border-border hover:scale-105 transition-all shadow-sm text-muted-foreground hover:text-foreground active:scale-95 shrink-0"
+              className="hidden lg:flex items-center justify-center p-4 h-12 w-12 rounded-2xl bg-card hover:bg-muted border border-border hover:scale-105 transition-all shadow-sm text-muted-foreground hover:text-foreground active:scale-95 shrink-0"
             >
               <Printer size={18} />
             </button>

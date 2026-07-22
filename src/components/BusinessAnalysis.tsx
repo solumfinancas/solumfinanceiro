@@ -814,7 +814,7 @@ export const BusinessAnalysis: React.FC = () => {
           <button
             onClick={handlePrint}
             title="Imprimir Relatório"
-            className="flex items-center justify-center p-3 h-11 w-11 rounded-xl bg-card hover:bg-muted border border-border hover:scale-105 transition-all shadow-sm text-muted-foreground hover:text-foreground active:scale-95 shrink-0"
+            className="hidden lg:flex items-center justify-center p-3 h-11 w-11 rounded-xl bg-card hover:bg-muted border border-border hover:scale-105 transition-all shadow-sm text-muted-foreground hover:text-foreground active:scale-95 shrink-0"
           >
             <Printer size={16} />
           </button>
