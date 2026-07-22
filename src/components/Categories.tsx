@@ -548,7 +548,19 @@ export const Categories: React.FC = () => {
     .filter(c => c.type === 'expense')
     .reduce((acc, c) => acc + getCategorySpend(c.id), 0);
 
-  const totalNeededGlobal = totalLimitGlobal + categoryMetrics.recurrentWithoutLimit;
+  const totalRecurrentProvisionsGlobal = useMemo(() => {
+    return transactions.filter(t => {
+      if (t.type !== 'provision') return false;
+      if (!t.groupId && !t.isContinuous) return false;
+      
+      const d = new Date(t.date + 'T12:00:00Z');
+      const mMatch = filterMonth === 'all' || (d.getUTCMonth() + 1) === filterMonth;
+      const yMatch = d.getUTCFullYear() === filterYear;
+      return mMatch && yMatch;
+    }).reduce((acc, t) => acc + t.amount, 0);
+  }, [transactions, filterMonth, filterYear]);
+
+  const totalNeededGlobal = totalLimitGlobal + categoryMetrics.recurrentWithoutLimit + totalRecurrentProvisionsGlobal;
   const remainingToSpendGlobal = totalLimitGlobal - totalSpendGlobal;
   const globalProgressPercent = totalLimitGlobal > 0 ? (totalSpendGlobal / totalLimitGlobal) * 100 : 0;
 
@@ -1103,8 +1115,13 @@ export const Categories: React.FC = () => {
                       <div className="space-y-1">
                         <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground opacity-60">Total que vai precisar</h2>
                         <div className="text-5xl font-black tracking-tighter text-foreground drop-shadow-sm">
-                          {formatCurrency(totalLimitGlobal + categoryMetrics.recurrentWithoutLimit)}
+                          {formatCurrency(totalLimitGlobal + categoryMetrics.recurrentWithoutLimit + totalRecurrentProvisionsGlobal)}
                         </div>
+                        {totalRecurrentProvisionsGlobal > 0 && (
+                          <span className="text-[9px] font-black text-indigo-500 dark:text-indigo-400 uppercase tracking-widest block pt-1">
+                            Sendo {formatCurrency(totalRecurrentProvisionsGlobal)} em provisões recorrentes
+                          </span>
+                        )}
                       </div>
 
                       <div className="flex flex-col gap-3">

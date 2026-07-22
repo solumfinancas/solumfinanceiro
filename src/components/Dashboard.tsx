@@ -154,7 +154,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, setTxFilter,
          const isCreditCard = wallet?.type === 'credit_card';
 
          const d = new Date(t.date + 'T12:00:00Z');
-         const isRelevantType = ['expense', 'provision'].includes(t.type);
+         const isRelevantType = t.type === 'expense';
          return isRelevantType && (d.getUTCMonth() + 1) === tMonth && d.getUTCFullYear() === tYear;
       });
 
@@ -202,10 +202,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, setTxFilter,
          })
          .reduce((sum, t) => sum + t.amount, 0);
 
+      // Provisões Recorrentes do Mês
+      const recurrentProvisionsInMonth = transactions.filter(t => {
+         const d = new Date(t.date + 'T12:00:00Z');
+         const isRecurrentProvision = t.type === 'provision' && !!(t.groupId || t.isContinuous);
+         return isRecurrentProvision && (d.getUTCMonth() + 1) === tMonth && d.getUTCFullYear() === tYear;
+      });
+      const recurrentProvisionsAmount = recurrentProvisionsInMonth.reduce((sum, t) => sum + t.amount, 0);
+
       // Total que vai precisar
       // Se includeCategoryLimits for true, usamos o estimado + recorrentes sem meta (necessidade real)
       // Se for false, usamos o comprometido total (recorrentes cadastradas)
-      const totalNeeded = includeCategoryLimits ? (estimated + recurrentWithoutLimit) : (necRec + unnecRec);
+      const totalNeeded = (includeCategoryLimits ? (estimated + recurrentWithoutLimit) : (necRec + unnecRec)) + recurrentProvisionsAmount;
 
       return {
          monthName: targetDate.toLocaleString('pt-BR', { month: 'long', year: 'numeric' }),
@@ -214,7 +222,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, setTxFilter,
          estimated,
          recurrentWithoutLimit,
          cardsToPay,
-         totalNeeded
+         totalNeeded,
+         recurrentProvisionsAmount
       };
    }, [transactions, categories, wallets, budgetOffset, includeCategoryLimits]);
 
@@ -749,6 +758,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, setTxFilter,
                          <span className="text-2xl md:text-3xl font-black tracking-tighter text-primary">
                             {formatCurrency(budgetVision.totalNeeded)}
                          </span>
+                         {budgetVision.recurrentProvisionsAmount > 0 && (
+                            <span className="text-[8px] font-black text-indigo-500 dark:text-indigo-400 uppercase tracking-wider block mt-1">
+                               Sendo {formatCurrency(budgetVision.recurrentProvisionsAmount)} em provisões recorrentes
+                            </span>
+                         )}
                       </div>
                    </div>
 
