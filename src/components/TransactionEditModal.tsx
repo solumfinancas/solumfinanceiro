@@ -29,9 +29,14 @@ export const TransactionEditModal: React.FC<TransactionEditModalProps> = ({
   React.useEffect(() => {
     if (isOpen && transaction) {
       setEditingTx({ ...transaction });
+      document.body.style.overflow = 'hidden';
     } else if (!isOpen) {
       setEditingTx(null);
+      document.body.style.overflow = '';
     }
+    return () => {
+      document.body.style.overflow = '';
+    };
   }, [isOpen, transaction]);
 
   // Auto-select invoice when credit card is chosen or date changed
@@ -123,7 +128,7 @@ export const TransactionEditModal: React.FC<TransactionEditModalProps> = ({
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         onClick={onClose}
-        className="absolute inset-0 bg-black/80 backdrop-blur-md"
+        className="absolute inset-0 backdrop-premium"
       />
       <motion.div
         initial={{ scale: 0.95, opacity: 0, y: 20 }}

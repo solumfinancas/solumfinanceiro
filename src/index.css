@@ -251,6 +251,13 @@
   transform: scale(0.95);
   background: #92400e;
 }
+/* Backdrop Premium para Modais */
+.backdrop-premium {
+  background-color: rgba(15, 23, 42, 0.4) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  transition: all 0.3s ease;
+}
 
 
 /* Estilos para impressão de relatórios em PDF */

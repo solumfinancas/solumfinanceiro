@@ -104,6 +104,17 @@ export const WalletModal: React.FC<WalletModalProps> = ({ isOpen, onClose, type,
   const [customCardLevel, setCustomCardLevel] = React.useState('');
 
   React.useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isOpen]);
+
+  React.useEffect(() => {
     if (isOpen && editingWallet) {
       setStep('details');
       setFormData({

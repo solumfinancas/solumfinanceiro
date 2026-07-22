@@ -339,7 +339,7 @@ export function buildOrganizedWalletOptions(
       const isSelected = w.id === config?.selectedWalletId || w.id === config?.includeInactiveId;
       if (!isSelected && (w.isActive === false || w.isDeleted)) return false;
 
-      const wCat = w.walletCategory || (w.type === 'banco_savings' ? 'savings' : w.type === 'banco_wishlist' ? 'wishlist' : 'checking');
+      const wCat = w.walletCategory || ((w.type as string) === 'banco_savings' ? 'savings' : (w.type as string) === 'banco_wishlist' ? 'wishlist' : 'checking');
       return wCat === cat;
     });
 

@@ -155,7 +155,14 @@ export const CategoryModal: React.FC<CategoryModalProps> = ({
     <Portal>
       <AnimatePresence>
         {isOpen && (
-          <div className="fixed inset-0 z-[9999] overflow-y-auto backdrop-premium flex justify-center items-start p-4 sm:p-6 md:p-8" onClick={onClose}>
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6 md:p-8">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={onClose}
+              className="absolute inset-0 backdrop-premium"
+            />
             <motion.div 
               initial={{ scale: 0.95, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}

@@ -54,6 +54,17 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showRecurrenceAlert, setShowRecurrenceAlert] = useState<number | null>(null);
 
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isOpen]);
+
   const [newTx, setNewTx] = useState<Partial<Transaction>>({
     type: initialType,
     date: getTodayDateString(),

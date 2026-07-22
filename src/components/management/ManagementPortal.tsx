@@ -34,6 +34,7 @@ import { FinanceTab } from './tabs/FinanceTab';
 import { ClientsTab } from './tabs/ClientsTab';
 import { RegisterServiceModal } from '../RegisterServiceModal';
 import { TasksTab } from './tabs/TasksTab';
+import { Portal } from '../ui/Portal';
 import { MeetingsTab } from './tabs/MeetingsTab';
 import { ReferralsTab } from './tabs/EmptyTabs';
 import { SimulatorsTab } from './tabs/SimulatorsTab';
@@ -139,6 +140,19 @@ export const ManagementPortal: React.FC<ManagementPortalProps> = ({ activeTab = 
   const [planStartDate, setPlanStartDate] = useState<string>('');
   const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'annually'>('monthly');
   const [isSavingPlan, setIsSavingPlan] = useState(false);
+
+  // Lock background scroll when any modal is open
+  useEffect(() => {
+    const isAnyModalOpen = !!(targetUserForSpace || userToManage || showCreateModal || userToEditRole || educatorToLink || userToEditLimits || userToEditPlan);
+    if (isAnyModalOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [targetUserForSpace, userToManage, showCreateModal, userToEditRole, educatorToLink, userToEditLimits, userToEditPlan]);
 
   useEffect(() => {
     if (userToEditPlan) {
@@ -1020,82 +1034,86 @@ export const ManagementPortal: React.FC<ManagementPortalProps> = ({ activeTab = 
       {/* Modal Seleção de Espaço */}
       <AnimatePresence>
         {targetUserForSpace && !showActivationModal && (
-          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setTargetUserForSpace(null)} className="absolute inset-0 bg-slate-950/80 backdrop-blur-md" />
-            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="relative w-full max-w-md bg-slate-900 border border-white/10 rounded-[2.5rem] p-8 shadow-2xl">
-               <h2 className="text-xl font-black text-white uppercase tracking-tighter mb-8 text-center">Gerenciar de {targetUserForSpace.full_name}</h2>
-               <div className="grid grid-cols-1 gap-4">
-                 <button 
-                   onClick={() => confirmImpersonation('personal')}
-                   className={cn(
-                     "w-full h-24 rounded-3xl transition-all flex flex-col items-center justify-center gap-2 group border relative overflow-hidden",
-                     targetUserForSpace.user_metadata?.initialized_spaces?.includes('personal') ? "bg-slate-950 border-white/5" : "bg-primary/5 border-primary/20"
-                   )}
-                 >
-                   <Users className={targetUserForSpace.user_metadata?.initialized_spaces?.includes('personal') ? "text-slate-500" : "text-primary"} size={24} />
-                   <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                     {targetUserForSpace.user_metadata?.initialized_spaces?.includes('personal') ? 'Conta Pessoal' : 'Ativar Espaço Pessoal'}
-                   </span>
-                 </button>
-                 <button 
-                   onClick={() => confirmImpersonation('business')}
-                   className={cn(
-                     "w-full h-24 rounded-3xl transition-all flex flex-col items-center justify-center gap-2 group border relative overflow-hidden",
-                     targetUserForSpace.user_metadata?.initialized_spaces?.includes('business') ? "bg-slate-950 border-white/5" : "bg-emerald-500/5 border-emerald-500/20"
-                   )}
-                 >
-                   <LayoutDashboard className={targetUserForSpace.user_metadata?.initialized_spaces?.includes('business') ? "text-slate-500" : "text-emerald-500"} size={24} />
-                   <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                      {targetUserForSpace.user_metadata?.initialized_spaces?.includes('business') ? 'Conta Empresarial' : 'Ativar Espaço Empresarial'}
-                   </span>
-                 </button>
-               </div>
-            </motion.div>
-          </div>
+          <Portal>
+            <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setTargetUserForSpace(null)} className="absolute inset-0 backdrop-premium" />
+              <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="relative w-full max-w-md bg-slate-900 border border-white/10 rounded-[2.5rem] p-8 shadow-2xl">
+                 <h2 className="text-xl font-black text-white uppercase tracking-tighter mb-8 text-center">Gerenciar de {targetUserForSpace.full_name}</h2>
+                 <div className="grid grid-cols-1 gap-4">
+                   <button 
+                     onClick={() => confirmImpersonation('personal')}
+                     className={cn(
+                       "w-full h-24 rounded-3xl transition-all flex flex-col items-center justify-center gap-2 group border relative overflow-hidden",
+                       targetUserForSpace.user_metadata?.initialized_spaces?.includes('personal') ? "bg-slate-950 border-white/5" : "bg-primary/5 border-primary/20"
+                     )}
+                   >
+                     <Users className={targetUserForSpace.user_metadata?.initialized_spaces?.includes('personal') ? "text-slate-500" : "text-primary"} size={24} />
+                     <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                       {targetUserForSpace.user_metadata?.initialized_spaces?.includes('personal') ? 'Conta Pessoal' : 'Ativar Espaço Pessoal'}
+                     </span>
+                   </button>
+                   <button 
+                     onClick={() => confirmImpersonation('business')}
+                     className={cn(
+                       "w-full h-24 rounded-3xl transition-all flex flex-col items-center justify-center gap-2 group border relative overflow-hidden",
+                       targetUserForSpace.user_metadata?.initialized_spaces?.includes('business') ? "bg-slate-950 border-white/5" : "bg-emerald-500/5 border-emerald-500/20"
+                     )}
+                   >
+                     <LayoutDashboard className={targetUserForSpace.user_metadata?.initialized_spaces?.includes('business') ? "text-slate-500" : "text-emerald-500"} size={24} />
+                     <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                        {targetUserForSpace.user_metadata?.initialized_spaces?.includes('business') ? 'Conta Empresarial' : 'Ativar Espaço Empresarial'}
+                     </span>
+                   </button>
+                 </div>
+              </motion.div>
+            </div>
+          </Portal>
         )}
       </AnimatePresence>
 
       {/* Modais de Confirmação de Ação */}
       <AnimatePresence>
         {userToManage && (
-          <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => { setUserToManage(null); setSuspensionReason(''); }} className="absolute inset-0 bg-slate-950/90 backdrop-blur-md" />
-            <motion.div 
-              initial={{ scale: 0.9, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className={cn(
-                "relative w-full max-w-md border rounded-[2.5rem] p-8 shadow-2xl overflow-hidden bg-slate-900 border-white/10",
-                userToManage.action === 'delete' && "border-rose-500/20 shadow-rose-500/10"
-              )}
-            >
-               <div className={cn("absolute -top-24 -right-24 w-48 h-48 blur-[80px] rounded-full opacity-20", userToManage.action === 'delete' ? "bg-rose-500" : "bg-amber-500")} />
-               <div className="relative z-10 flex flex-col items-center text-center">
-                 <div className={cn("w-20 h-20 rounded-3xl flex items-center justify-center mb-6 border shadow-xl transition-all", userToManage.action === 'delete' ? "bg-rose-500/20 border-rose-500/30 text-rose-500 rotate-3" : "bg-amber-500/20 border-amber-500/30 text-amber-500")}>
-                   {userToManage.action === 'delete' ? <Trash2 size={32} /> : <Shield className="animate-pulse" size={32} />}
+          <Portal>
+            <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => { setUserToManage(null); setSuspensionReason(''); }} className="absolute inset-0 backdrop-premium" />
+              <motion.div 
+                initial={{ scale: 0.9, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                className={cn(
+                  "relative w-full max-w-md border rounded-[2.5rem] p-8 shadow-2xl overflow-hidden bg-slate-900 border-white/10",
+                  userToManage.action === 'delete' && "border-rose-500/20 shadow-rose-500/10"
+                )}
+              >
+                 <div className={cn("absolute -top-24 -right-24 w-48 h-48 blur-[80px] rounded-full opacity-20", userToManage.action === 'delete' ? "bg-rose-500" : "bg-amber-500")} />
+                 <div className="relative z-10 flex flex-col items-center text-center">
+                   <div className={cn("w-20 h-20 rounded-3xl flex items-center justify-center mb-6 border shadow-xl transition-all", userToManage.action === 'delete' ? "bg-rose-500/20 border-rose-500/30 text-rose-500 rotate-3" : "bg-amber-500/20 border-amber-500/30 text-amber-500")}>
+                     {userToManage.action === 'delete' ? <Trash2 size={32} /> : <Shield className="animate-pulse" size={32} />}
+                   </div>
+                   <h2 className="text-2xl font-black text-white uppercase tracking-tighter mb-2">{userToManage.action === 'delete' ? 'Exclusão Permanente' : userToManage.profile.user_metadata?.is_suspended ? 'Reativar Conta' : 'Suspender Conta'}</h2>
+                   <p className="text-slate-400 text-sm font-medium mb-6">
+                     {userToManage.action === 'delete' ? (<>Deseja excluir permanentemente <span className="text-white font-bold">{userToManage.profile.full_name}</span>? <br/><br/> <span className="text-rose-400 font-bold uppercase tracking-widest text-[10px]">CUIDADO: Dados financeiros serão removidos.</span></>) : (userToManage.profile.user_metadata?.is_suspended ? 'Deseja reativar o acesso?' : 'Deseja suspender o acesso?')}
+                   </p>
+  
+                   {userToManage.action === 'suspend' && !userToManage.profile.user_metadata?.is_suspended && (
+                      <div className="w-full space-y-2 mb-8 text-left">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-4">Motivo da Suspensão</label>
+                        <textarea
+                          value={suspensionReason}
+                          onChange={(e) => setSuspensionReason(e.target.value)}
+                          placeholder="Ex: Falta de pagamento, Quebra de contrato..."
+                          className="w-full bg-slate-950 border border-white/5 rounded-2xl p-4 text-sm text-white outline-none focus:border-primary/50 transition-all resize-none h-24 shadow-inner"
+                        />
+                      </div>
+                    )}
+  
+                   <div className="grid grid-cols-2 gap-4 w-full">
+                     <button onClick={() => { setUserToManage(null); setSuspensionReason(''); }} className="h-14 bg-slate-800 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest">Cancelar</button>
+                     <button onClick={handleAction} className={cn("h-14 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg", userToManage.action === 'delete' ? "bg-rose-600 hover:bg-rose-500" : "bg-primary hover:bg-orange-500")}>Confirmar</button>
+                   </div>
                  </div>
-                 <h2 className="text-2xl font-black text-white uppercase tracking-tighter mb-2">{userToManage.action === 'delete' ? 'Exclusão Permanente' : userToManage.profile.user_metadata?.is_suspended ? 'Reativar Conta' : 'Suspender Conta'}</h2>
-                 <p className="text-slate-400 text-sm font-medium mb-6">
-                   {userToManage.action === 'delete' ? (<>Deseja excluir permanentemente <span className="text-white font-bold">{userToManage.profile.full_name}</span>? <br/><br/> <span className="text-rose-400 font-bold uppercase tracking-widest text-[10px]">CUIDADO: Dados financeiros serão removidos.</span></>) : (userToManage.profile.user_metadata?.is_suspended ? 'Deseja reativar o acesso?' : 'Deseja suspender o acesso?')}
-                 </p>
-
-                 {userToManage.action === 'suspend' && !userToManage.profile.user_metadata?.is_suspended && (
-                    <div className="w-full space-y-2 mb-8 text-left">
-                      <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-4">Motivo da Suspensão</label>
-                      <textarea
-                        value={suspensionReason}
-                        onChange={(e) => setSuspensionReason(e.target.value)}
-                        placeholder="Ex: Falta de pagamento, Quebra de contrato..."
-                        className="w-full bg-slate-950 border border-white/5 rounded-2xl p-4 text-sm text-white outline-none focus:border-primary/50 transition-all resize-none h-24 shadow-inner"
-                      />
-                    </div>
-                  )}
-
-                 <div className="grid grid-cols-2 gap-4 w-full">
-                   <button onClick={() => { setUserToManage(null); setSuspensionReason(''); }} className="h-14 bg-slate-800 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest">Cancelar</button>
-                   <button onClick={handleAction} className={cn("h-14 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg", userToManage.action === 'delete' ? "bg-rose-600 hover:bg-rose-500" : "bg-primary hover:bg-orange-500")}>Confirmar</button>
-                 </div>
-               </div>
-            </motion.div>
-          </div>
+              </motion.div>
+            </div>
+          </Portal>
         )}
       </AnimatePresence>
 
@@ -1115,9 +1133,10 @@ export const ManagementPortal: React.FC<ManagementPortalProps> = ({ activeTab = 
       {/* Modal Criar Perfil */}
       <AnimatePresence>
         {showCreateModal && (
-          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowCreateModal(false)} className="absolute inset-0 bg-slate-950/80 backdrop-blur-md" />
-            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="relative w-full max-w-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-[2.5rem] p-8 shadow-2xl">
+          <Portal>
+            <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowCreateModal(false)} className="absolute inset-0 backdrop-premium" />
+              <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="relative w-full max-w-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-[2.5rem] p-8 shadow-2xl max-h-[90vh] overflow-y-auto custom-scrollbar">
                <button 
                  onClick={() => setShowCreateModal(false)}
                  className="absolute top-8 right-8 w-10 h-10 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-white/10 transition-all z-10"
@@ -1257,123 +1276,128 @@ export const ManagementPortal: React.FC<ManagementPortalProps> = ({ activeTab = 
                   )}
 
                   <button disabled={creatingUser} type="submit" className="w-full h-14 bg-primary text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all mt-4">{creatingUser ? 'Criando...' : 'Próxima Etapa'}</button>
-               </form>
-            </motion.div>
-          </div>
+                </form>
+             </motion.div>
+            </div>
+          </Portal>
         )}
       </AnimatePresence>
 
       {/* Modal Alterar Cargo */}
       <AnimatePresence>
         {userToEditRole && (
-          <div className="fixed inset-0 z-[75] flex items-center justify-center p-4">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setUserToEditRole(null)} className="absolute inset-0 bg-slate-950/80 backdrop-blur-md" />
-            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="relative w-full max-w-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-[2.5rem] p-8 shadow-2xl">
-               <h2 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tighter mb-2">Alterar Cargo</h2>
-               <p className="text-slate-500 dark:text-slate-400 text-sm mb-8">Novo nível para <span className="text-slate-900 dark:text-white font-bold">{userToEditRole.full_name}</span></p>
-               <div className="grid grid-cols-2 gap-3 mb-8">
-                  {[
-                    { id: 'user', name: 'Usuário', icon: Users, desc: 'Acesso padrão', color: 'slate' },
-                    { id: 'educator', name: 'Educador', icon: GraduationCap, desc: 'Mentor', color: 'emerald' },
-                    { id: 'secretary', name: 'Secretário', icon: BookOpen, desc: 'Auxílio', color: 'purple' },
-                    { id: 'admin', name: 'Admin', icon: Shield, desc: 'Completo', color: 'blue' }
-                  ].filter(r => roleRank(profile?.role as UserRole) > roleRank(r.id as UserRole)).map((role) => (
-                    <button key={role.id} onClick={() => handleUpdateRole(userToEditRole.id, role.id as UserRole)} className={cn("p-4 rounded-2xl border-2 transition-all flex flex-col gap-2 group relative overflow-hidden", userToEditRole.role === role.id ? "bg-primary/10 border-primary" : "bg-slate-50/50 dark:bg-slate-950/50 border-slate-200 dark:border-white/5")}>
-                       <div className={cn("w-8 h-8 rounded-xl flex items-center justify-center transition-colors", userToEditRole.role === role.id ? "bg-primary text-white" : "bg-slate-200 dark:bg-slate-900 text-slate-500")}>
-                         <role.icon size={16} />
-                       </div>
-                       <div className="text-left">
-                         <p className="text-[10px] font-black uppercase tracking-wider text-slate-900 dark:text-white">{role.name}</p>
-                         <p className="text-[8px] font-bold text-slate-500 dark:text-slate-600 uppercase mt-0.5">{role.desc}</p>
-                       </div>
-                    </button>
-                  ))}
-               </div>
-               <button onClick={() => setUserToEditRole(null)} className="w-full h-14 bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">Cancelar</button>
-            </motion.div>
-          </div>
+          <Portal>
+            <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setUserToEditRole(null)} className="absolute inset-0 backdrop-premium" />
+              <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="relative w-full max-w-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-[2.5rem] p-8 shadow-2xl">
+                 <h2 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tighter mb-2">Alterar Cargo</h2>
+                 <p className="text-slate-500 dark:text-slate-400 text-sm mb-8">Novo nível para <span className="text-slate-900 dark:text-white font-bold">{userToEditRole.full_name}</span></p>
+                 <div className="grid grid-cols-2 gap-3 mb-8">
+                    {[
+                      { id: 'user', name: 'Usuário', icon: Users, desc: 'Acesso padrão', color: 'slate' },
+                      { id: 'educator', name: 'Educador', icon: GraduationCap, desc: 'Mentor', color: 'emerald' },
+                      { id: 'secretary', name: 'Secretário', icon: BookOpen, desc: 'Auxílio', color: 'purple' },
+                      { id: 'admin', name: 'Admin', icon: Shield, desc: 'Completo', color: 'blue' }
+                    ].filter(r => roleRank(profile?.role as UserRole) > roleRank(r.id as UserRole)).map((role) => (
+                      <button key={role.id} onClick={() => handleUpdateRole(userToEditRole.id, role.id as UserRole)} className={cn("p-4 rounded-2xl border-2 transition-all flex flex-col gap-2 group relative overflow-hidden", userToEditRole.role === role.id ? "bg-primary/10 border-primary" : "bg-slate-50/50 dark:bg-slate-950/50 border-slate-200 dark:border-white/5")}>
+                         <div className={cn("w-8 h-8 rounded-xl flex items-center justify-center transition-colors", userToEditRole.role === role.id ? "bg-primary text-white" : "bg-slate-200 dark:bg-slate-900 text-slate-500")}>
+                           <role.icon size={16} />
+                         </div>
+                         <div className="text-left">
+                           <p className="text-[10px] font-black uppercase tracking-wider text-slate-900 dark:text-white">{role.name}</p>
+                           <p className="text-[8px] font-bold text-slate-500 dark:text-slate-600 uppercase mt-0.5">{role.desc}</p>
+                         </div>
+                      </button>
+                    ))}
+                 </div>
+                 <button onClick={() => setUserToEditRole(null)} className="w-full h-14 bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">Cancelar</button>
+              </motion.div>
+            </div>
+          </Portal>
         )}
       </AnimatePresence>
 
       {/* Modal Vincular Usuários (Educador) */}
       <AnimatePresence>
         {educatorToLink && (
-          <div className="fixed inset-0 z-[75] flex items-center justify-center p-4">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setEducatorToLink(null)} className="absolute inset-0 bg-slate-950/80 backdrop-blur-md" />
-            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="relative w-full max-w-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-[2.5rem] p-8 shadow-2xl flex flex-col max-h-[85vh]">
-               <div className="flex items-center gap-4 mb-8">
-                 <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center", linkMode === 'educator_to_clients' ? "bg-emerald-500/20 text-emerald-500" : "bg-primary/20 text-primary")}><UserPlus size={24} /></div>
-                 <div>
-                   <h2 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">
-                     {linkMode === 'educator_to_clients' ? 'Vincular Clientes' : 'Vincular Educador'}
-                   </h2>
-                   <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mt-1">
-                     {linkMode === 'educator_to_clients' ? `Educador: ${educatorToLink?.full_name}` : `Cliente: ${educatorToLink?.full_name}`}
-                   </p>
+          <Portal>
+            <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setEducatorToLink(null)} className="absolute inset-0 backdrop-premium" />
+              <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="relative w-full max-w-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-[2.5rem] p-8 shadow-2xl flex flex-col max-h-[85vh]">
+                 <div className="flex items-center gap-4 mb-8">
+                   <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center", linkMode === 'educator_to_clients' ? "bg-emerald-500/20 text-emerald-500" : "bg-primary/20 text-primary")}><UserPlus size={24} /></div>
+                   <div>
+                     <h2 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">
+                       {linkMode === 'educator_to_clients' ? 'Vincular Clientes' : 'Vincular Educador'}
+                     </h2>
+                     <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mt-1">
+                       {linkMode === 'educator_to_clients' ? `Educador: ${educatorToLink?.full_name}` : `Cliente: ${educatorToLink?.full_name}`}
+                     </p>
+                   </div>
                  </div>
-               </div>
-               <div className="flex-1 overflow-y-auto pr-2 space-y-3 mb-8 custom-scrollbar">
-                  {availableUsers
-                    .map((u) => (
-                    <button key={u.id} onClick={() => {
-                      if (linkMode === 'client_to_educator') {
-                        // Radio button behavior: only one selection allowed
-                        setSelectedClients([u.id]);
-                      } else {
-                        // Multiple selection for clients
-                        const exists = selectedClients.includes(u.id);
-                        if (exists) setSelectedClients(prev => prev.filter(id => id !== u.id));
-                        else setSelectedClients(prev => [...prev, u.id]);
-                      }
-                    }} className={cn("w-full p-4 rounded-[1.5rem] border transition-all flex items-center justify-between group", selectedClients.includes(u.id) ? "bg-primary/10 border-primary text-slate-900 dark:text-white" : "bg-white dark:bg-slate-950/50 border-slate-200 dark:border-white/5 text-slate-500 dark:text-slate-400")}>
-                      <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-900 flex items-center justify-center text-[11px] font-black">{getInitials(u.full_name)}</div>
-                        <div className="text-left">
-                          <p className="text-sm font-black uppercase tracking-tight leading-none mb-1">{u.full_name}</p>
-                          <div className="flex items-center gap-2">
-                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{u.email}</p>
-                             <div className="w-1 h-1 rounded-full bg-slate-500" />
-                             <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">{getRoleLabel(u.role)}</span>
+                 <div className="flex-1 overflow-y-auto pr-2 space-y-3 mb-8 custom-scrollbar">
+                    {availableUsers
+                      .map((u) => (
+                      <button key={u.id} onClick={() => {
+                        if (linkMode === 'client_to_educator') {
+                          // Radio button behavior: only one selection allowed
+                          setSelectedClients([u.id]);
+                        } else {
+                          // Multiple selection for clients
+                          const exists = selectedClients.includes(u.id);
+                          if (exists) setSelectedClients(prev => prev.filter(id => id !== u.id));
+                          else setSelectedClients(prev => [...prev, u.id]);
+                        }
+                      }} className={cn("w-full p-4 rounded-[1.5rem] border transition-all flex items-center justify-between group", selectedClients.includes(u.id) ? "bg-primary/10 border-primary text-slate-900 dark:text-white" : "bg-white dark:bg-slate-950/50 border-slate-200 dark:border-white/5 text-slate-500 dark:text-slate-400")}>
+                        <div className="flex items-center gap-4">
+                          <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-900 flex items-center justify-center text-[11px] font-black">{getInitials(u.full_name)}</div>
+                          <div className="text-left">
+                            <p className="text-sm font-black uppercase tracking-tight leading-none mb-1">{u.full_name}</p>
+                            <div className="flex items-center gap-2">
+                               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{u.email}</p>
+                               <div className="w-1 h-1 rounded-full bg-slate-500" />
+                               <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">{getRoleLabel(u.role)}</span>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                      <div className={cn("w-6 h-6 rounded-lg border flex items-center justify-center transition-all", selectedClients.includes(u.id) ? "bg-primary border-primary text-white" : "border-slate-200 dark:border-white/10 text-transparent")}><Check size={14} strokeWidth={3} /></div>
-                    </button>
-                  ))}
-               </div>
-               <div className="grid grid-cols-2 gap-4 mt-auto pt-4 border-t border-slate-100 dark:border-white/5">
-                 <button onClick={() => setEducatorToLink(null)} className="h-14 bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white rounded-2xl text-[10px] font-black uppercase tracking-widest">Sair</button>
-                 <button 
-                   disabled={linkingUsers || (educatorToLink === null)} 
-                   onClick={async () => {
-                     if (!educatorToLink) return;
-                     setLinkingUsers(true);
-                     try {
-                       if (linkMode === 'educator_to_clients') {
-                         await handleLinkUsers(educatorToLink.id, selectedClients);
-                       } else {
-                         await supabase.from('educator_clients').delete().eq('client_id', educatorToLink.id);
-                         if (selectedClients.length > 0) {
-                           const inserts = selectedClients.map(eid => ({ educator_id: eid, client_id: educatorToLink.id }));
-                           await supabase.from('educator_clients').insert(inserts);
+                        <div className={cn("w-6 h-6 rounded-lg border flex items-center justify-center transition-all", selectedClients.includes(u.id) ? "bg-primary border-primary text-white" : "border-slate-200 dark:border-white/10 text-transparent")}><Check size={14} strokeWidth={3} /></div>
+                      </button>
+                    ))}
+                 </div>
+                 <div className="grid grid-cols-2 gap-4 mt-auto pt-4 border-t border-slate-100 dark:border-white/5">
+                   <button onClick={() => setEducatorToLink(null)} className="h-14 bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white rounded-2xl text-[10px] font-black uppercase tracking-widest">Sair</button>
+                   <button 
+                     disabled={linkingUsers || (educatorToLink === null)} 
+                     onClick={async () => {
+                       if (!educatorToLink) return;
+                       setLinkingUsers(true);
+                       try {
+                         if (linkMode === 'educator_to_clients') {
+                           await handleLinkUsers(educatorToLink.id, selectedClients);
+                         } else {
+                           await supabase.from('educator_clients').delete().eq('client_id', educatorToLink.id);
+                           if (selectedClients.length > 0) {
+                             const inserts = selectedClients.map(eid => ({ educator_id: eid, client_id: educatorToLink.id }));
+                             await supabase.from('educator_clients').insert(inserts);
+                           }
+                           showAlert('Sucesso', 'Vínculos atualizados!', 'success');
+                           setEducatorToLink(null);
                          }
-                         showAlert('Sucesso', 'Vínculos atualizados!', 'success');
-                         setEducatorToLink(null);
+                         fetchData();
+                       } catch (err: any) {
+                         showAlert('Erro', err.message, 'danger');
+                       } finally {
+                         setLinkingUsers(false);
                        }
-                       fetchData();
-                     } catch (err: any) {
-                       showAlert('Erro', err.message, 'danger');
-                     } finally {
-                       setLinkingUsers(false);
-                     }
-                   }} 
-                   className="h-14 bg-primary text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-primary/20 disabled:opacity-50"
-                 >
-                   {linkingUsers ? 'Gravando...' : `Salvar (${selectedClients.length})`}
-                 </button>
-               </div>
-            </motion.div>
-          </div>
+                     }} 
+                     className="h-14 bg-primary text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-primary/20 disabled:opacity-50"
+                   >
+                     {linkingUsers ? 'Gravando...' : `Salvar (${selectedClients.length})`}
+                   </button>
+                 </div>
+              </motion.div>
+            </div>
+          </Portal>
         )}
       </AnimatePresence>
       
@@ -1393,274 +1417,278 @@ export const ManagementPortal: React.FC<ManagementPortalProps> = ({ activeTab = 
       {/* Modal Ajustar Limites de IA */}
       <AnimatePresence>
         {userToEditLimits && (
-          <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
-            <motion.div 
-              initial={{ opacity: 0 }} 
-              animate={{ opacity: 1 }} 
-              exit={{ opacity: 0 }} 
-              onClick={() => setUserToEditLimits(null)} 
-              className="absolute inset-0 bg-slate-950/80 backdrop-blur-md" 
-            />
-            <motion.div 
-              initial={{ scale: 0.9, opacity: 0, y: 20 }} 
-              animate={{ scale: 1, opacity: 1, y: 0 }} 
-              exit={{ scale: 0.9, opacity: 0, y: 20 }} 
-              className="relative w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-[2.5rem] p-8 md:p-10 shadow-2xl z-10"
-            >
-              <button 
-                onClick={() => setUserToEditLimits(null)}
-                className="absolute top-6 right-6 w-10 h-10 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-white/10 transition-all"
+          <Portal>
+            <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+              <motion.div 
+                initial={{ opacity: 0 }} 
+                animate={{ opacity: 1 }} 
+                exit={{ opacity: 0 }} 
+                onClick={() => setUserToEditLimits(null)} 
+                className="absolute inset-0 backdrop-premium" 
+              />
+              <motion.div 
+                initial={{ scale: 0.9, opacity: 0, y: 20 }} 
+                animate={{ scale: 1, opacity: 1, y: 0 }} 
+                exit={{ scale: 0.9, opacity: 0, y: 20 }} 
+                className="relative w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-[2.5rem] p-8 md:p-10 shadow-2xl z-10"
               >
-                <X size={20} />
-              </button>
-
-              <div className="space-y-1 mb-8">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="text-primary" size={20} />
-                  <span className="text-[10px] font-black uppercase tracking-[0.3em] text-primary">Ajuste de Recursos</span>
-                </div>
-                <h2 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">Limites de IA</h2>
-                <p className="text-slate-500 dark:text-slate-400 text-[10px] font-bold uppercase tracking-widest leading-relaxed">
-                  Gerencie o limite de importações por IA de <span className="text-slate-900 dark:text-white font-bold">{userToEditLimits.full_name}</span>.
-                </p>
-              </div>
-
-              <div className="space-y-6 mb-8">
-                {/* Espaço Pessoal */}
-                <div className="bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-white/5 rounded-3xl p-6 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-blue-500">
-                      <User size={16} />
-                      <span className="text-[10px] font-black uppercase tracking-widest">Espaço Pessoal</span>
-                    </div>
-                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">
-                      Uso atual: {userToEditLimits.personal_imports_count || 0}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between gap-4">
-                    <span className="text-xs font-bold text-slate-500">Limite Mensal:</span>
-                    <div className="flex items-center gap-3">
-                      <button 
-                        type="button"
-                        onClick={() => setPersonalLimitInput(p => Math.max(0, p - 1))}
-                        className="w-10 h-10 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 flex items-center justify-center font-bold text-lg hover:border-primary/50 transition-all select-none active:scale-95"
-                      >
-                        -
-                      </button>
-                      <span className="w-12 text-center font-black text-lg text-slate-900 dark:text-white select-none">
-                        {personalLimitInput}
-                      </span>
-                      <button 
-                        type="button"
-                        onClick={() => setPersonalLimitInput(p => p + 1)}
-                        className="w-10 h-10 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 flex items-center justify-center font-bold text-lg hover:border-primary/50 transition-all select-none active:scale-95"
-                      >
-                        +
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Espaço Empresarial */}
-                <div className="bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-white/5 rounded-3xl p-6 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-slate-900 dark:text-white">
-                      <Building2 size={16} />
-                      <span className="text-[10px] font-black uppercase tracking-widest">Espaço Empresarial</span>
-                    </div>
-                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">
-                      Uso atual: {userToEditLimits.business_imports_count || 0}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between gap-4">
-                    <span className="text-xs font-bold text-slate-500">Limite Mensal:</span>
-                    <div className="flex items-center gap-3">
-                      <button 
-                        type="button"
-                        onClick={() => setBusinessLimitInput(p => Math.max(0, p - 1))}
-                        className="w-10 h-10 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 flex items-center justify-center font-bold text-lg hover:border-primary/50 transition-all select-none active:scale-95"
-                      >
-                        -
-                      </button>
-                      <span className="w-12 text-center font-black text-lg text-slate-900 dark:text-white select-none">
-                        {businessLimitInput}
-                      </span>
-                      <button 
-                        type="button"
-                        onClick={() => setBusinessLimitInput(p => p + 1)}
-                        className="w-10 h-10 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 flex items-center justify-center font-bold text-lg hover:border-primary/50 transition-all select-none active:scale-95"
-                      >
-                        +
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
                 <button 
-                  type="button"
-                  onClick={() => setUserToEditLimits(null)} 
-                  className="h-14 bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                  onClick={() => setUserToEditLimits(null)}
+                  className="absolute top-6 right-6 w-10 h-10 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-white/10 transition-all"
                 >
-                  Cancelar
+                  <X size={20} />
                 </button>
-                <button 
-                  type="button"
-                  disabled={isSavingLimits}
-                  onClick={handleSaveLimits} 
-                  className="h-14 bg-primary text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50"
-                >
-                  {isSavingLimits ? 'Gravando...' : 'Salvar'}
-                </button>
-              </div>
-            </motion.div>
-          </div>
+  
+                <div className="space-y-1 mb-8">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="text-primary" size={20} />
+                    <span className="text-[10px] font-black uppercase tracking-[0.3em] text-primary">Ajuste de Recursos</span>
+                  </div>
+                  <h2 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">Limites de IA</h2>
+                  <p className="text-slate-500 dark:text-slate-400 text-[10px] font-bold uppercase tracking-widest leading-relaxed">
+                    Gerencie o limite de importações por IA de <span className="text-slate-900 dark:text-white font-bold">{userToEditLimits.full_name}</span>.
+                  </p>
+                </div>
+  
+                <div className="space-y-6 mb-8">
+                  {/* Espaço Pessoal */}
+                  <div className="bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-white/5 rounded-3xl p-6 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-blue-500">
+                        <User size={16} />
+                        <span className="text-[10px] font-black uppercase tracking-widest">Espaço Pessoal</span>
+                      </div>
+                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">
+                        Uso atual: {userToEditLimits.personal_imports_count || 0}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between gap-4">
+                      <span className="text-xs font-bold text-slate-500">Limite Mensal:</span>
+                      <div className="flex items-center gap-3">
+                        <button 
+                          type="button"
+                          onClick={() => setPersonalLimitInput(p => Math.max(0, p - 1))}
+                          className="w-10 h-10 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 flex items-center justify-center font-bold text-lg hover:border-primary/50 transition-all select-none active:scale-95"
+                        >
+                          -
+                        </button>
+                        <span className="w-12 text-center font-black text-lg text-slate-900 dark:text-white select-none">
+                          {personalLimitInput}
+                        </span>
+                        <button 
+                          type="button"
+                          onClick={() => setPersonalLimitInput(p => p + 1)}
+                          className="w-10 h-10 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 flex items-center justify-center font-bold text-lg hover:border-primary/50 transition-all select-none active:scale-95"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+  
+                  {/* Espaço Empresarial */}
+                  <div className="bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-white/5 rounded-3xl p-6 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-slate-900 dark:text-white">
+                        <Building2 size={16} />
+                        <span className="text-[10px] font-black uppercase tracking-widest">Espaço Empresarial</span>
+                      </div>
+                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">
+                        Uso atual: {userToEditLimits.business_imports_count || 0}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between gap-4">
+                      <span className="text-xs font-bold text-slate-500">Limite Mensal:</span>
+                      <div className="flex items-center gap-3">
+                        <button 
+                          type="button"
+                          onClick={() => setBusinessLimitInput(p => Math.max(0, p - 1))}
+                          className="w-10 h-10 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 flex items-center justify-center font-bold text-lg hover:border-primary/50 transition-all select-none active:scale-95"
+                        >
+                          -
+                        </button>
+                        <span className="w-12 text-center font-black text-lg text-slate-900 dark:text-white select-none">
+                          {businessLimitInput}
+                        </span>
+                        <button 
+                          type="button"
+                          onClick={() => setBusinessLimitInput(p => p + 1)}
+                          className="w-10 h-10 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 flex items-center justify-center font-bold text-lg hover:border-primary/50 transition-all select-none active:scale-95"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+  
+                <div className="grid grid-cols-2 gap-4">
+                  <button 
+                    type="button"
+                    onClick={() => setUserToEditLimits(null)} 
+                    className="h-14 bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                  <button 
+                    type="button"
+                    disabled={isSavingLimits}
+                    onClick={handleSaveLimits} 
+                    className="h-14 bg-primary text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50"
+                  >
+                    {isSavingLimits ? 'Gravando...' : 'Salvar'}
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          </Portal>
         )}
       </AnimatePresence>
 
       {/* Modal Gestão de Plano do Educador */}
       <AnimatePresence>
         {userToEditPlan && (
-          <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
-            <motion.div 
-              initial={{ opacity: 0 }} 
-              animate={{ opacity: 1 }} 
-              exit={{ opacity: 0 }} 
-              onClick={() => setUserToEditPlan(null)} 
-              className="absolute inset-0 bg-slate-950/80 backdrop-blur-md" 
-            />
-            <motion.div 
-              initial={{ scale: 0.9, opacity: 0, y: 20 }} 
-              animate={{ scale: 1, opacity: 1, y: 0 }} 
-              exit={{ scale: 0.9, opacity: 0, y: 20 }} 
-              className="relative w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-[2.5rem] p-8 md:p-10 shadow-2xl z-10"
-            >
-              <button 
-                onClick={() => setUserToEditPlan(null)}
-                className="absolute top-6 right-6 w-10 h-10 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-white/10 transition-all"
+          <Portal>
+            <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+              <motion.div 
+                initial={{ opacity: 0 }} 
+                animate={{ opacity: 1 }} 
+                exit={{ opacity: 0 }} 
+                onClick={() => setUserToEditPlan(null)} 
+                className="absolute inset-0 backdrop-premium" 
+              />
+              <motion.div 
+                initial={{ scale: 0.9, opacity: 0, y: 20 }} 
+                animate={{ scale: 1, opacity: 1, y: 0 }} 
+                exit={{ scale: 0.9, opacity: 0, y: 20 }} 
+                className="relative w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-[2.5rem] p-8 md:p-10 shadow-2xl z-10 max-h-[90vh] overflow-y-auto custom-scrollbar"
               >
-                <X size={20} />
-              </button>
-
-              <div className="space-y-1 mb-8">
-                <div className="flex items-center gap-2">
-                  <CreditCard className="text-primary" size={20} />
-                  <span className="text-[10px] font-black uppercase tracking-[0.3em] text-primary">Gestão de Conta</span>
-                </div>
-                <h2 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">Plano & Vigência</h2>
-                <p className="text-slate-500 dark:text-slate-400 text-[10px] font-bold uppercase tracking-widest leading-relaxed">
-                  Gerencie as credenciais de assinatura de <span className="text-slate-900 dark:text-white font-bold">{userToEditPlan.full_name}</span>.
-                </p>
-              </div>
-
-              <div className="space-y-6 mb-8">
-                {/* Seleção do Plano */}
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-4 block">Selecione o Plano</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {[
-                      { id: 'trial', name: 'Trial' },
-                      { id: 'starter', name: 'Starter' },
-                      { id: 'pro', name: 'Pro' },
-                      { id: 'business', name: 'Business' }
-                    ].map(p => (
-                      <button
-                        key={p.id}
-                        type="button"
-                        onClick={() => setSelectedPlan(p.id)}
-                        className={cn(
-                          "py-3 rounded-xl border-2 text-[10px] font-black uppercase tracking-wider transition-all",
-                          selectedPlan === p.id
-                            ? "bg-primary/10 border-primary text-primary"
-                            : "bg-slate-50 dark:bg-slate-950/50 border-slate-200 dark:border-white/5 text-slate-500"
-                        )}
-                      >
-                        {p.name}
-                      </button>
-                    ))}
+                <button 
+                  onClick={() => setUserToEditPlan(null)}
+                  className="absolute top-6 right-6 w-10 h-10 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-white/10 transition-all"
+                >
+                  <X size={20} />
+                </button>
+  
+                <div className="space-y-1 mb-8">
+                  <div className="flex items-center gap-2">
+                    <CreditCard className="text-primary" size={20} />
+                    <span className="text-[10px] font-black uppercase tracking-[0.3em] text-primary">Gestão de Conta</span>
                   </div>
+                  <h2 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">Plano & Vigência</h2>
+                  <p className="text-slate-500 dark:text-slate-400 text-[10px] font-bold uppercase tracking-widest leading-relaxed">
+                    Gerencie as credenciais de assinatura de <span className="text-slate-900 dark:text-white font-bold">{userToEditPlan.full_name}</span>.
+                  </p>
                 </div>
-
-                {/* Vigência Inicial */}
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-4 block">Data de Vigência Inicial</label>
-                  <input
-                    type="date"
-                    value={planStartDate}
-                    onChange={e => setPlanStartDate(e.target.value)}
-                    className="w-full bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-white/5 rounded-2xl h-14 px-6 text-sm text-slate-900 dark:text-white outline-none focus:border-primary/50 transition-all"
-                  />
-                </div>
-
-                {/* Ciclo de Faturamento (se não for Trial) */}
-                {selectedPlan !== 'trial' && (
+  
+                <div className="space-y-6 mb-8">
+                  {/* Seleção do Plano */}
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-4 block">Ciclo de Faturamento</label>
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-4 block">Selecione o Plano</label>
                     <div className="grid grid-cols-2 gap-2">
                       {[
-                        { id: 'monthly', name: 'Mensal (30 dias)' },
-                        { id: 'annually', name: 'Anual (365 dias)' }
-                      ].map(cycle => (
+                        { id: 'trial', name: 'Trial' },
+                        { id: 'starter', name: 'Starter' },
+                        { id: 'pro', name: 'Pro' },
+                        { id: 'business', name: 'Business' }
+                      ].map(p => (
                         <button
-                          key={cycle.id}
+                          key={p.id}
                           type="button"
-                          onClick={() => setBillingPeriod(cycle.id as any)}
+                          onClick={() => setSelectedPlan(p.id)}
                           className={cn(
                             "py-3 rounded-xl border-2 text-[10px] font-black uppercase tracking-wider transition-all",
-                            billingPeriod === cycle.id
+                            selectedPlan === p.id
                               ? "bg-primary/10 border-primary text-primary"
                               : "bg-slate-50 dark:bg-slate-950/50 border-slate-200 dark:border-white/5 text-slate-500"
                           )}
                         >
-                          {cycle.name}
+                          {p.name}
                         </button>
                       ))}
                     </div>
                   </div>
-                )}
-
-                {/* Memento Dinâmico */}
-                <div className="bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-white/5 rounded-3xl p-5">
-                  <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block mb-2">Memento de Vigência</span>
-                  <p className="text-xs font-bold text-slate-700 dark:text-slate-300 leading-relaxed">
-                    {(() => {
-                      if (!planStartDate) return 'Selecione uma data inicial.';
-                      const start = parseInputDate(planStartDate);
-                      const end = new Date(start);
-                      
-                      if (selectedPlan === 'trial') {
-                        end.setDate(start.getDate() + 30);
-                        return `Plano Trial possui 30 dias de uso. Com início em ${start.toLocaleDateString('pt-BR')}, o plano irá expirar em ${end.toLocaleDateString('pt-BR')}.`;
-                      }
-                      
-                      const days = billingPeriod === 'monthly' ? 30 : 365;
-                      end.setDate(start.getDate() + days);
-                      return `Plano ${selectedPlan.toUpperCase()} ${billingPeriod === 'monthly' ? 'Mensal' : 'Anual'} possui ${days} dias de vigência. Com início em ${start.toLocaleDateString('pt-BR')}, o plano irá expirar em ${end.toLocaleDateString('pt-BR')}.`;
-                    })()}
-                  </p>
+  
+                  {/* Vigência Inicial */}
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-4 block">Data de Vigência Inicial</label>
+                    <input
+                      type="date"
+                      value={planStartDate}
+                      onChange={e => setPlanStartDate(e.target.value)}
+                      className="w-full bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-white/5 rounded-2xl h-14 px-6 text-sm text-slate-900 dark:text-white outline-none focus:border-primary/50 transition-all"
+                    />
+                  </div>
+  
+                  {/* Ciclo de Faturamento (se não for Trial) */}
+                  {selectedPlan !== 'trial' && (
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-4 block">Ciclo de Faturamento</label>
+                      <div className="grid grid-cols-2 gap-2">
+                        {[
+                          { id: 'monthly', name: 'Mensal (30 dias)' },
+                          { id: 'annually', name: 'Anual (365 dias)' }
+                        ].map(cycle => (
+                          <button
+                            key={cycle.id}
+                            type="button"
+                            onClick={() => setBillingPeriod(cycle.id as any)}
+                            className={cn(
+                              "py-3 rounded-xl border-2 text-[10px] font-black uppercase tracking-wider transition-all",
+                              billingPeriod === cycle.id
+                                ? "bg-primary/10 border-primary text-primary"
+                                : "bg-slate-50 dark:bg-slate-950/50 border-slate-200 dark:border-white/5 text-slate-500"
+                            )}
+                          >
+                            {cycle.name}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+  
+                  {/* Memento Dinâmico */}
+                  <div className="bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-white/5 rounded-3xl p-5">
+                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block mb-2">Memento de Vigência</span>
+                    <p className="text-xs font-bold text-slate-700 dark:text-slate-300 leading-relaxed">
+                      {(() => {
+                        if (!planStartDate) return 'Selecione uma data inicial.';
+                        const start = parseInputDate(planStartDate);
+                        const end = new Date(start);
+                        
+                        if (selectedPlan === 'trial') {
+                          end.setDate(start.getDate() + 30);
+                          return `Plano Trial possui 30 dias de uso. Com início em ${start.toLocaleDateString('pt-BR')}, o plano irá expirar em ${end.toLocaleDateString('pt-BR')}.`;
+                        }
+                        
+                        const days = billingPeriod === 'monthly' ? 30 : 365;
+                        end.setDate(start.getDate() + days);
+                        return `Plano ${selectedPlan.toUpperCase()} ${billingPeriod === 'monthly' ? 'Mensal' : 'Anual'} possui ${days} dias de vigência. Com início em ${start.toLocaleDateString('pt-BR')}, o plano irá expirar em ${end.toLocaleDateString('pt-BR')}.`;
+                      })()}
+                    </p>
+                  </div>
                 </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <button 
-                  type="button"
-                  onClick={() => setUserToEditPlan(null)} 
-                  className="h-14 bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
-                >
-                  Cancelar
-                </button>
-                <button 
-                  type="button"
-                  disabled={isSavingPlan}
-                  onClick={handleSavePlan} 
-                  className="h-14 bg-primary text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50"
-                >
-                  {isSavingPlan ? 'Gravando...' : 'Salvar'}
-                </button>
-              </div>
-            </motion.div>
-          </div>
+  
+                <div className="grid grid-cols-2 gap-4">
+                  <button 
+                    type="button"
+                    onClick={() => setUserToEditPlan(null)} 
+                    className="h-14 bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                  <button 
+                    type="button"
+                    disabled={isSavingPlan}
+                    onClick={handleSavePlan} 
+                    className="h-14 bg-primary text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50"
+                  >
+                    {isSavingPlan ? 'Gravando...' : 'Salvar'}
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          </Portal>
         )}
       </AnimatePresence>
     </>

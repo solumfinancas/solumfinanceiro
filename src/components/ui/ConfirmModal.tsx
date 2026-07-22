@@ -36,7 +36,12 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
   React.useEffect(() => {
     if (!isOpen) {
       setValidationInput('');
+    } else {
+      document.body.style.overflow = 'hidden';
     }
+    return () => {
+      document.body.style.overflow = '';
+    };
   }, [isOpen]);
 
   if (!isOpen) return null;
