@@ -102,7 +102,10 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [rawWallets, setRawWallets] = useState<Wallet[]>([]);
   const [activeSpace, setActiveSpace] = useState<'personal' | 'business'>('personal');
   const [isSpaceInitialized, setIsSpaceInitialized] = useState(false);
-  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    const saved = localStorage.getItem('solum_theme');
+    return (saved === 'dark' || saved === 'light') ? saved : 'light';
+  });
   const [loading, setLoading] = useState(true);
   const [orderedCards, setOrderedCards] = useState<string[]>([]);
   const [orderedAccounts, setOrderedAccounts] = useState<string[]>([]);
@@ -717,7 +720,11 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     });
   }, [transactions, rawWallets]);
 
-  const toggleTheme = () => setTheme(prev => prev === 'light' ? 'dark' : 'light');
+  const toggleTheme = () => setTheme(prev => {
+    const next = prev === 'light' ? 'dark' : 'light';
+    localStorage.setItem('solum_theme', next);
+    return next;
+  });
 
   const addTransaction = async (tx: any) => {
     if (!user) return;
