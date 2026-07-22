@@ -877,7 +877,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, setTxFilter,
                       <CalendarDays size={20} />
                       <span className="text-[10px] font-black uppercase tracking-widest text-center">Planejado</span>
                    </button>
-                   <button onClick={() => setActiveTab('import')} className="group p-4 bg-card border border-border shadow-premium text-foreground rounded-2xl flex flex-col items-center justify-center gap-2 hover:border-primary transition-all hover:bg-primary/5 active:scale-95 cursor-pointer">
+                   <button onClick={() => setActiveTab('import')} className="hidden lg:flex group p-4 bg-card border border-border shadow-premium text-foreground rounded-2xl flex-col items-center justify-center gap-2 hover:border-primary transition-all hover:bg-primary/5 active:scale-95 cursor-pointer">
                       <FileDown size={20} className="text-orange-600" />
                       <span className="text-[10px] font-black uppercase tracking-widest text-center">Importar</span>
                    </button>

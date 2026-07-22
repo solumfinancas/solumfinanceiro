@@ -284,6 +284,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 title={isCollapsed ? item.label : undefined}
                 className={cn(
                   "w-full flex items-center rounded-xl text-sm font-medium transition-all group duration-200 cursor-pointer",
+                  item.id === 'import' && "hidden lg:flex",
                   isCollapsed ? "justify-center p-3 hover:scale-105" : "gap-3 px-4 py-3 hover:bg-accent/40 hover:translate-x-1",
                   isDisabled 
                     ? "opacity-40 cursor-not-allowed text-muted-foreground" 

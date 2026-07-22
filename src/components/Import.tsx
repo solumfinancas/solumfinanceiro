@@ -20,7 +20,8 @@ import {
   Plus,
   ThumbsUp,
   Trash2,
-  Sparkles
+  Sparkles,
+  Monitor
 } from 'lucide-react';
 import { cn, formatCurrency, formatDate, getInvoicePeriod } from '../lib/utils';
 import * as XLSX from 'xlsx';
@@ -54,6 +55,17 @@ export const Import: React.FC<ImportProps> = ({ setActiveTab }) => {
   const { profile, viewingProfile, refreshProfile } = useAuth();
   const { showAlert, showConfirm } = useModal();
   const activeProfile = viewingProfile || profile;
+
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 1024);
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const [isLimitsModalOpen, setIsLimitsModalOpen] = useState(false);
   const [personalLimitInput, setPersonalLimitInput] = useState(4);
@@ -449,8 +461,8 @@ export const Import: React.FC<ImportProps> = ({ setActiveTab }) => {
         toWalletId: isReceived ? selectedWalletId : (row.toWalletId || undefined),
         invoiceMonth: row.invoiceMonth,
         invoiceYear: row.invoiceYear,
-        isPaid: row.isPaid,
-        paidDate: row.isPaid ? row.paidDate : undefined
+        isPaid: selectedWallet?.type === 'credit_card' ? true : row.isPaid,
+        paidDate: selectedWallet?.type === 'credit_card' ? undefined : (row.isPaid ? row.paidDate : undefined)
       };
     });
 
@@ -493,6 +505,7 @@ export const Import: React.FC<ImportProps> = ({ setActiveTab }) => {
   }, [wallets, orderedCards, orderedAccounts, selectedWalletId]);
 
   const typeOptionsForCard = [
+    { id: 'income', name: 'Estorno', icon: 'TrendingUp', color: '#10b981' },
     { id: 'expense', name: 'Despesa', icon: 'TrendingDown', color: '#f43f5e' },
     { id: 'planned', name: 'Planejado', icon: 'CalendarClock', color: '#8b5cf6' }
   ];
@@ -547,6 +560,26 @@ export const Import: React.FC<ImportProps> = ({ setActiveTab }) => {
     const cleanValue = val.replace(/\D/g, '');
     return Number(cleanValue) / 100;
   };
+
+  if (isMobile) {
+    return (
+      <div className="max-w-md mx-auto my-12 p-8 bg-card border rounded-[2.5rem] shadow-xl text-center space-y-6">
+        <div className="w-16 h-16 bg-primary/10 text-primary rounded-2xl flex items-center justify-center mx-auto">
+          <Monitor size={32} />
+        </div>
+        <h2 className="text-2xl font-black tracking-tight text-foreground uppercase">Recurso para Computador</h2>
+        <p className="text-muted-foreground text-sm leading-relaxed">
+          A importação de extratos bancários e planilhas exige uma tela maior para organização e revisão dos dados. Por favor, acesse este recurso através de um computador.
+        </p>
+        <button
+          onClick={() => setActiveTab && setActiveTab('dashboard')}
+          className="w-full bg-primary text-white py-3 rounded-xl font-bold hover:brightness-110 active:scale-[0.98] transition-all cursor-pointer"
+        >
+          Voltar para a Visão Geral
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-[1500px] mx-auto space-y-6 pb-20 px-4 transition-all duration-500">
@@ -1071,11 +1104,13 @@ export const Import: React.FC<ImportProps> = ({ setActiveTab }) => {
                           selectedWallet.dueDay || 15,
                           new Date(row.date + 'T12:00:00')
                         );
+                        const isIncome = row.originalSign === '+';
+                        const t: TransactionType = isIncome ? 'income' : 'expense';
                         return {
                           ...row,
                           amount: Math.abs(row.amount),
-                          type: 'expense',
-                          suggestedType: 'planned',
+                          type: t,
+                          suggestedType: t,
                           invoiceMonth: period.due.getUTCMonth() + 1,
                           invoiceYear: period.due.getUTCFullYear()
                         };
@@ -1167,7 +1202,9 @@ export const Import: React.FC<ImportProps> = ({ setActiveTab }) => {
                       <th className="px-6 py-5 w-[160px]">Valor</th>
                       <th className="px-6 py-5 w-[220px]">Tipo</th>
                       <th className="px-6 py-5 w-[450px]">Categoria / Detalhes</th>
-                      <th className="px-6 py-5 w-[100px] text-center">Status</th>
+                      <th className="px-6 py-5 w-[100px] text-center">
+                        {selectedWallet?.type === 'credit_card' ? 'Ações' : 'Status'}
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y border-muted/50">
@@ -1333,19 +1370,21 @@ export const Import: React.FC<ImportProps> = ({ setActiveTab }) => {
                         </td>
                         <td className="px-6 py-6 text-center align-middle h-full">
                           <div className="flex justify-center items-center gap-2">
-                            <button
-                              onClick={() => setData(prev => prev.map(r => r.id === row.id ? { ...r, isPaid: !r.isPaid } : r))}
-                              className={cn(
-                                "w-12 h-12 rounded-2xl flex flex-col items-center justify-center transition-all shadow-sm border-2 shrink-0",
-                                row.isPaid
-                                  ? "bg-emerald-500 border-emerald-600 text-white shadow-emerald-500/20"
-                                  : "bg-amber-500 border-amber-600 text-white shadow-amber-500/20"
-                              )}
-                              title={row.isPaid ? 'Pago' : 'Pendente'}
-                            >
-                              {row.isPaid ? <ThumbsUp size={20} fill="currentColor" /> : <ThumbsUp size={20} className="rotate-180" />}
-                              <span className="text-[7px] font-black uppercase mt-0.5">{row.isPaid ? 'Conf.' : 'Pend.'}</span>
-                            </button>
+                            {selectedWallet?.type !== 'credit_card' && (
+                              <button
+                                onClick={() => setData(prev => prev.map(r => r.id === row.id ? { ...r, isPaid: !r.isPaid } : r))}
+                                className={cn(
+                                  "w-12 h-12 rounded-2xl flex flex-col items-center justify-center transition-all shadow-sm border-2 shrink-0",
+                                  row.isPaid
+                                    ? "bg-emerald-500 border-emerald-600 text-white shadow-emerald-500/20"
+                                    : "bg-amber-500 border-amber-600 text-white shadow-amber-500/20"
+                                )}
+                                title={row.isPaid ? 'Pago' : 'Pendente'}
+                              >
+                                {row.isPaid ? <ThumbsUp size={20} fill="currentColor" /> : <ThumbsUp size={20} className="rotate-180" />}
+                                <span className="text-[7px] font-black uppercase mt-0.5">{row.isPaid ? 'Conf.' : 'Pend.'}</span>
+                              </button>
+                            )}
                             <button
                               onClick={() => setData(prev => prev.filter(r => r.id !== row.id))}
                               className="w-12 h-12 rounded-2xl flex flex-col items-center justify-center transition-all shadow-sm border-2 bg-rose-500/10 border-rose-500/20 text-rose-500 hover:bg-rose-500 hover:text-white hover:border-rose-600 shrink-0"
