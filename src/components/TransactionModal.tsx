@@ -174,8 +174,8 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
 
         delete txToSave.id;
 
-        if (isCreditCard) {
-          txToSave.isPaid = true;
+
+        if (isCreditCard && wallet) {
           delete txToSave.paidDate;
           const initialPeriod = getInvoicePeriod(wallet.closingDay || 5, wallet.dueDay || 15, new Date(newTx.date! + 'T12:00:00Z'));
           const startMonth = newTx.invoiceMonth || (initialPeriod.due.getUTCMonth() + 1);

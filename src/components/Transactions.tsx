@@ -22,12 +22,15 @@ import {
   Layers,
   CheckCircle2,
   AlertCircle,
-  BellRing, 
-  Info, 
+  BellRing,
+  Info,
   XCircle,
   X,
   ArrowRight,
-  Printer
+  Printer,
+  Eye,
+  EyeOff,
+  Check
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { TransactionModal } from './TransactionModal';
@@ -135,6 +138,13 @@ export const Transactions: React.FC<TransactionsProps> = ({
       if (setInitialFilter) setInitialFilter('all');
     }
   }, [initialFilter, setInitialFilter, initialTypeFilter, setInitialTypeFilter]);
+
+  // Reset invalid type filters when in cards view
+  useEffect(() => {
+    if (viewModeContas === 'cartoes' && ['transfer', 'provision'].includes(filter)) {
+      setFilter('all');
+    }
+  }, [viewModeContas, filter]);
 
   // Reset selection when filters change to prevent ghosting/stale selections
   useEffect(() => {
@@ -354,8 +364,39 @@ export const Transactions: React.FC<TransactionsProps> = ({
     }, { paid: 0, pending: 0, total: 0 });
   }, [filteredTransactions, filter]);
 
+  const cardPeriodStats = useMemo(() => {
+    return filteredTransactions.reduce((acc, t) => {
+      let amountToAdd = t.amount;
+      if (filter === 'all') {
+        if (t.type === 'transfer') amountToAdd = 0;
+        else amountToAdd = (t.type === 'income' ? t.amount : -t.amount);
+      } else {
+        amountToAdd = (t.type === 'income' ? t.amount : -t.amount);
+      }
+
+      if (t.isPaid === true) {
+        acc.unverified += amountToAdd;
+      } else if (t.isPaid === false) {
+        acc.confirmed += amountToAdd;
+      } else {
+        acc.notConfirmed += amountToAdd;
+      }
+      acc.total += amountToAdd;
+
+      return acc;
+    }, { unverified: 0, confirmed: 0, notConfirmed: 0, total: 0 });
+  }, [filteredTransactions, filter]);
+
   const pendingTransactions = useMemo(() => filteredTransactions.filter(t => t.isPaid === false), [filteredTransactions]);
   const paidTransactions = useMemo(() => filteredTransactions.filter(t => t.isPaid !== false), [filteredTransactions]);
+  const installmentTransactions = useMemo(() => 
+    filteredTransactions.filter(t => t.recurrenceNumber && t.recurrenceNumber.total > 1), 
+    [filteredTransactions]
+  );
+  const singleAndCycleTransactions = useMemo(() => 
+    filteredTransactions.filter(t => !t.recurrenceNumber || t.recurrenceNumber.total <= 1 || t.isContinuous === true), 
+    [filteredTransactions]
+  );
 
   const toggleSelection = (id: string) => {
     setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
@@ -806,14 +847,61 @@ export const Transactions: React.FC<TransactionsProps> = ({
                         <RefreshCw size={8} /> Ciclo
                       </span>
                     )}
-                    {t.isPaid === false && <span className="text-[7px] font-black uppercase text-amber-500 md:hidden tracking-tighter">Pendente</span>}
+                    {t.isPaid === false && wallet?.type !== 'credit_card' && <span className="text-[7px] font-black uppercase text-amber-500 md:hidden tracking-tighter">Pendente</span>}
+                    {t.isPaid === false && wallet?.type === 'credit_card' && <span className="text-[7px] font-black uppercase text-green-500 md:hidden tracking-tighter">Consta</span>}
+                    {(t.isPaid === null || t.isPaid === undefined) && wallet?.type === 'credit_card' && <span className="text-[7px] font-black uppercase text-red-500 md:hidden tracking-tighter">Não Consta</span>}
+                    {t.isPaid === true && wallet?.type === 'credit_card' && <span className="text-[7px] font-black uppercase text-slate-400 md:hidden tracking-tighter">Não Verif.</span>}
                   </div>
                 </td>
                 <td className="px-2 sm:px-6 py-2 sm:py-4 text-center">
                   <div className="flex justify-center gap-1 sm:gap-2">
                     {(() => {
-                        const wallet = wallets.find(w => w.id === t.walletId);
-                        if (wallet?.type === 'credit_card') return null;
+                        if (wallet?.type === 'credit_card') {
+                          const handleCycle = () => {
+                            let nextPaid: boolean | null = true;
+                            if (t.isPaid === true) {
+                              nextPaid = false;
+                            } else if (t.isPaid === false) {
+                              nextPaid = null;
+                            } else {
+                              nextPaid = true;
+                            }
+                            updateTransaction(t.id, { ...t, isPaid: nextPaid as any });
+                          };
+
+                          if (t.isPaid === true) {
+                            return (
+                              <button
+                                onClick={handleCycle}
+                                className="p-1.5 sm:p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-white/5 rounded-lg transition-all"
+                                title="Aguardando conferência (Clique para marcar como consta na fatura)"
+                              >
+                                <EyeOff size={14} className="sm:w-[18px] sm:h-[18px]" />
+                              </button>
+                            );
+                          } else if (t.isPaid === false) {
+                            return (
+                              <button
+                                onClick={handleCycle}
+                                className="p-1.5 sm:p-2 text-green-500 hover:bg-green-500/10 rounded-lg transition-all"
+                                title="Consta na fatura (Clique para marcar como não consta)"
+                              >
+                                <Check size={14} className="sm:w-[18px] sm:h-[18px]" />
+                              </button>
+                            );
+                          } else {
+                            return (
+                              <button
+                                onClick={handleCycle}
+                                className="p-1.5 sm:p-2 text-red-500 hover:bg-red-500/10 rounded-lg transition-all"
+                                title="Não consta na fatura (Clique para marcar como aguardando conferência)"
+                              >
+                                <X size={14} className="sm:w-[18px] sm:h-[18px]" />
+                              </button>
+                            );
+                          }
+                        }
+
                         return (
                           <button
                             onClick={() => updateTransaction(t.id, { ...t, isPaid: t.isPaid === false ? true : false })}
@@ -821,6 +909,7 @@ export const Transactions: React.FC<TransactionsProps> = ({
                               "p-1.5 sm:p-2 rounded-lg transition-all",
                               t.isPaid === false ? "text-amber-500 hover:bg-amber-500/10" : "text-green-500 hover:bg-green-500/10"
                             )}
+                            title={t.isPaid === false ? "Marcar como Pago/Recebido" : "Marcar como Pendente"}
                           >
                             {t.isPaid === false ? <ThumbsDown size={14} className="sm:w-[18px] sm:h-[18px]" /> : <ThumbsUp size={14} className="sm:w-[18px] sm:h-[18px]" />}
                           </button>
@@ -1005,7 +1094,10 @@ export const Transactions: React.FC<TransactionsProps> = ({
         </div>
         <div className="flex items-center w-full md:w-auto">
           <div className="flex gap-1 bg-muted/40 p-1 border border-border/30 rounded-2xl overflow-x-auto w-full md:max-w-full shadow-inner scrollbar-hide">
-            {(['all', 'income', 'expense', 'transfer', 'provision', 'planned'] as const).map((f) => (
+            {(viewModeContas === 'cartoes'
+              ? (['all', 'income', 'expense', 'planned'] as const)
+              : (['all', 'income', 'expense', 'transfer', 'provision', 'planned'] as const)
+            ).map((f) => (
               <button
                 key={f}
                 onClick={() => setFilter(f)}
@@ -1021,7 +1113,7 @@ export const Transactions: React.FC<TransactionsProps> = ({
                     : "text-muted-foreground hover:bg-muted"
                 )}
               >
-                {f === 'all' ? 'Todos' : f === 'income' ? 'Receitas' : f === 'expense' ? 'Despesas' : f === 'transfer' ? 'Transf.' : f === 'provision' ? 'Provisões' : 'Planejadas'}
+                {f === 'all' ? 'Todos' : f === 'income' ? (viewModeContas === 'cartoes' ? 'Estornos' : 'Receitas') : f === 'expense' ? 'Despesas' : f === 'transfer' ? 'Transf.' : f === 'provision' ? 'Provisões' : 'Planejadas'}
               </button>
             ))}
           </div>
@@ -1030,7 +1122,6 @@ export const Transactions: React.FC<TransactionsProps> = ({
 
       <div className="flex flex-col lg:flex-row gap-4 items-center justify-between bg-card border rounded-2xl p-4 shadow-sm">
         <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
-          {viewModeContas === 'contas' && (
             <div className="flex bg-muted/50 border rounded-lg p-0.5">
               <button
                 onClick={() => setViewMode('separated')}
@@ -1053,7 +1144,6 @@ export const Transactions: React.FC<TransactionsProps> = ({
                 <List size={18} />
               </button>
             </div>
-          )}
           <div className="flex-1 sm:flex-none min-w-[140px] sm:min-w-[200px]">
             <CustomSelect 
               options={[
@@ -1123,7 +1213,36 @@ export const Transactions: React.FC<TransactionsProps> = ({
           </div>
         </div>
         <div className="text-right flex flex-col items-end gap-1">
-          {filter !== 'all' && viewModeContas === 'contas' ? (
+          {viewModeContas === 'cartoes' ? (
+            <div className="flex flex-col gap-1 items-end">
+              <div className="flex items-center gap-3">
+                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Aguardando conferência</span>
+                <span className="text-xs font-black text-slate-500">
+                  {formatCurrency(cardPeriodStats.unverified)}
+                </span>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-[10px] font-black uppercase tracking-widest text-green-500">Consta na fatura</span>
+                <span className="text-xs font-black text-green-500">
+                  {formatCurrency(cardPeriodStats.confirmed)}
+                </span>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-[10px] font-black uppercase tracking-widest text-red-500">Não consta na fatura</span>
+                <span className="text-xs font-black text-red-500">
+                  {formatCurrency(cardPeriodStats.notConfirmed)}
+                </span>
+              </div>
+              <div className="border-t border-border/50 pt-1 mt-1 flex items-center gap-3">
+                <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-60">Total do Período</span>
+                <span className={cn("text-lg font-black", 
+                  cardPeriodStats.total >= 0 ? "text-green-500" : "text-red-500"
+                )}>
+                  {formatCurrency(cardPeriodStats.total)}
+                </span>
+              </div>
+            </div>
+          ) : filter !== 'all' && viewModeContas === 'contas' ? (
             <>
               <div className="flex items-center gap-3">
                 <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-60">Liquidado</span>
@@ -1194,69 +1313,135 @@ export const Transactions: React.FC<TransactionsProps> = ({
         className="space-y-4"
       >
         {viewMode === 'separated' ? (
-          <>
-            <div>
-              <div 
-                className="flex flex-wrap items-center justify-between cursor-pointer group bg-muted/30 p-3 rounded-xl border border-transparent hover:border-border transition-all"
-                onClick={() => setShowPending(!showPending)}
-              >
-                <div className="flex items-center gap-4">
-                  <h2 className="text-lg font-bold flex items-center gap-2 text-foreground">
-                    <span className="w-3 h-3 rounded-full bg-amber-500" />
-                    Aguardando ({pendingTransactions.length})
-                  </h2>
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); handleToggleSelectionMode(); }}
-                    className={cn(
-                      "text-xs font-bold px-3 py-1 rounded-lg border transition-all",
-                      isSelectionMode ? "bg-primary/20 border-primary text-primary" : "bg-card text-muted-foreground border-border hover:text-foreground"
-                    )}
-                  >
-                    {isSelectionMode ? 'Sair da Seleção' : 'Selecionar'}
+          viewModeContas === 'cartoes' ? (
+            <>
+              <div>
+                <div 
+                  className="flex flex-wrap items-center justify-between cursor-pointer group bg-muted/30 p-3 rounded-xl border border-transparent hover:border-border transition-all"
+                  onClick={() => setShowPending(!showPending)}
+                >
+                  <div className="flex items-center gap-4">
+                    <h2 className="text-lg font-bold flex items-center gap-2 text-foreground">
+                      <span className="w-3 h-3 rounded-full bg-orange-500" />
+                      Compras Parceladas ({installmentTransactions.length})
+                    </h2>
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); handleToggleSelectionMode(); }}
+                      className={cn(
+                        "text-xs font-bold px-3 py-1 rounded-lg border transition-all",
+                        isSelectionMode ? "bg-primary/20 border-primary text-primary" : "bg-card text-muted-foreground border-border hover:text-foreground"
+                      )}
+                    >
+                      {isSelectionMode ? 'Sair da Seleção' : 'Selecionar'}
+                    </button>
+                  </div>
+                  <button className="text-sm font-bold text-primary px-4 py-1.5 rounded-lg bg-primary/10 hover:bg-primary/20 transition-colors">
+                    {showPending ? 'Ocultar lançamentos' : 'Ver lançamentos'}
                   </button>
                 </div>
-                <button className="text-sm font-bold text-primary px-4 py-1.5 rounded-lg bg-primary/10 hover:bg-primary/20 transition-colors">
-                  {showPending ? 'Ocultar lançamentos' : 'Ver lançamentos'}
-                </button>
+                {showPending && (
+                  <div className="mt-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                    {renderTable(installmentTransactions, false, false)}
+                  </div>
+                )}
               </div>
-              {showPending && (
-                <div className="mt-4 animate-in fade-in slide-in-from-top-2 duration-300">
-                  {renderTable(pendingTransactions, true, false)}
-                </div>
-              )}
-            </div>
 
-            <div>
-              <div 
-                className="flex flex-wrap items-center justify-between cursor-pointer group bg-muted/30 p-3 rounded-xl border border-transparent hover:border-border transition-all"
-                onClick={() => setShowPaid(!showPaid)}
-              >
-                <div className="flex items-center gap-4">
-                  <h2 className="text-lg font-bold flex items-center gap-2 text-muted-foreground group-hover:text-foreground transition-colors">
-                    <span className="w-3 h-3 rounded-full bg-green-500" />
-                    Liquidados: Pagos e Recebidos ({paidTransactions.length})
-                  </h2>
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); handleToggleSelectionMode(); }}
-                    className={cn(
-                      "text-xs font-bold px-3 py-1 rounded-lg border transition-all",
-                      isSelectionMode ? "bg-primary/20 border-primary text-primary" : "bg-card text-muted-foreground border-border hover:text-foreground"
-                    )}
-                  >
-                    {isSelectionMode ? 'Sair da Seleção' : 'Selecionar'}
+              <div>
+                <div 
+                  className="flex flex-wrap items-center justify-between cursor-pointer group bg-muted/30 p-3 rounded-xl border border-transparent hover:border-border transition-all"
+                  onClick={() => setShowPaid(!showPaid)}
+                >
+                  <div className="flex items-center gap-4">
+                    <h2 className="text-lg font-bold flex items-center gap-2 text-foreground">
+                      <span className="w-3 h-3 rounded-full bg-blue-500" />
+                      Compras Avulsas e Ciclos ({singleAndCycleTransactions.length})
+                    </h2>
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); handleToggleSelectionMode(); }}
+                      className={cn(
+                        "text-xs font-bold px-3 py-1 rounded-lg border transition-all",
+                        isSelectionMode ? "bg-primary/20 border-primary text-primary" : "bg-card text-muted-foreground border-border hover:text-foreground"
+                      )}
+                    >
+                      {isSelectionMode ? 'Sair da Seleção' : 'Selecionar'}
+                    </button>
+                  </div>
+                  <button className="text-sm font-bold text-primary px-4 py-1.5 rounded-lg bg-primary/10 hover:bg-primary/20 transition-colors">
+                    {showPaid ? 'Ocultar lançamentos' : 'Ver lançamentos'}
                   </button>
                 </div>
-                <button className="text-sm font-bold text-primary px-4 py-1.5 rounded-lg bg-primary/10 hover:bg-primary/20 transition-colors">
-                  {showPaid ? 'Ocultar lançamentos' : 'Ver lançamentos'}
-                </button>
+                {showPaid && (
+                  <div className="mt-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                    {renderTable(singleAndCycleTransactions, false, false)}
+                  </div>
+                )}
               </div>
-              {showPaid && (
-                <div className="mt-4 animate-in fade-in slide-in-from-top-2 duration-300">
-                  {renderTable(paidTransactions, false, false)}
+            </>
+          ) : (
+            <>
+              <div>
+                <div 
+                  className="flex flex-wrap items-center justify-between cursor-pointer group bg-muted/30 p-3 rounded-xl border border-transparent hover:border-border transition-all"
+                  onClick={() => setShowPending(!showPending)}
+                >
+                  <div className="flex items-center gap-4">
+                    <h2 className="text-lg font-bold flex items-center gap-2 text-foreground">
+                      <span className="w-3 h-3 rounded-full bg-amber-500" />
+                      Aguardando ({pendingTransactions.length})
+                    </h2>
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); handleToggleSelectionMode(); }}
+                      className={cn(
+                        "text-xs font-bold px-3 py-1 rounded-lg border transition-all",
+                        isSelectionMode ? "bg-primary/20 border-primary text-primary" : "bg-card text-muted-foreground border-border hover:text-foreground"
+                      )}
+                    >
+                      {isSelectionMode ? 'Sair da Seleção' : 'Selecionar'}
+                    </button>
+                  </div>
+                  <button className="text-sm font-bold text-primary px-4 py-1.5 rounded-lg bg-primary/10 hover:bg-primary/20 transition-colors">
+                    {showPending ? 'Ocultar lançamentos' : 'Ver lançamentos'}
+                  </button>
                 </div>
-              )}
-            </div>
-          </>
+                {showPending && (
+                  <div className="mt-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                    {renderTable(pendingTransactions, true, false)}
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <div 
+                  className="flex flex-wrap items-center justify-between cursor-pointer group bg-muted/30 p-3 rounded-xl border border-transparent hover:border-border transition-all"
+                  onClick={() => setShowPaid(!showPaid)}
+                >
+                  <div className="flex items-center gap-4">
+                    <h2 className="text-lg font-bold flex items-center gap-2 text-muted-foreground group-hover:text-foreground transition-colors">
+                      <span className="w-3 h-3 rounded-full bg-green-500" />
+                      Liquidados: Pagos e Recebidos ({paidTransactions.length})
+                    </h2>
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); handleToggleSelectionMode(); }}
+                      className={cn(
+                        "text-xs font-bold px-3 py-1 rounded-lg border transition-all",
+                        isSelectionMode ? "bg-primary/20 border-primary text-primary" : "bg-card text-muted-foreground border-border hover:text-foreground"
+                      )}
+                    >
+                      {isSelectionMode ? 'Sair da Seleção' : 'Selecionar'}
+                    </button>
+                  </div>
+                  <button className="text-sm font-bold text-primary px-4 py-1.5 rounded-lg bg-primary/10 hover:bg-primary/20 transition-colors">
+                    {showPaid ? 'Ocultar lançamentos' : 'Ver lançamentos'}
+                  </button>
+                </div>
+                {showPaid && (
+                  <div className="mt-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                    {renderTable(paidTransactions, false, false)}
+                  </div>
+                )}
+              </div>
+            </>
+          )
         ) : (
           <div>
             <div className="flex flex-wrap items-center justify-between bg-muted/30 p-3 rounded-xl border border-transparent mb-4">
@@ -1334,7 +1519,7 @@ export const Transactions: React.FC<TransactionsProps> = ({
                       setFilterMonth(now.getUTCMonth() + 1);
                       setFilterYear(now.getUTCFullYear());
                       setViewModeContas('cartoes');
-                      setViewMode('combined');
+                      setViewMode('separated');
                       setIsCardOptionsModalOpen(false);
                     }}
                     className="w-full group flex items-center justify-between p-5 bg-muted/30 hover:bg-primary/10 border border-border/50 hover:border-primary/30 rounded-2xl transition-all text-left"
@@ -1365,7 +1550,7 @@ export const Transactions: React.FC<TransactionsProps> = ({
                       setFilterMonth(nextM);
                       setFilterYear(nextY);
                       setViewModeContas('cartoes');
-                      setViewMode('combined');
+                      setViewMode('separated');
                       setIsCardOptionsModalOpen(false);
                     }}
                     className="w-full group flex items-center justify-between p-5 bg-muted/30 hover:bg-primary/10 border border-border/50 hover:border-primary/30 rounded-2xl transition-all text-left"

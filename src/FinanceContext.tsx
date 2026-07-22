@@ -732,17 +732,18 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     // Clean joined fields that shouldn't be inserted
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { id, category, wallet, created_at: _ca, ...txToInsert } = tx;
-
     const walletData = wallets.find(w => w.id === txToInsert.walletId);
     if (walletData?.type === 'credit_card') {
-      txToInsert.isPaid = true;
-
+      if (txToInsert.isPaid === undefined) {
+        txToInsert.isPaid = true;
+      }
       if (!txToInsert.invoiceMonth || !txToInsert.invoiceYear) {
         const period = getInvoicePeriod(walletData.closingDay || 5, walletData.dueDay || 15, new Date(txToInsert.date + 'T12:00:00'));
         txToInsert.invoiceMonth = period.due.getUTCMonth() + 1;
         txToInsert.invoiceYear = period.due.getUTCFullYear();
       }
     }
+
     if (txToInsert.isPaid && !txToInsert.paidDate) {
       txToInsert.paidDate = getTodayDateString();
     }
@@ -822,7 +823,9 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       const wallet = rawWallets.find(w => w.id === tx.walletId);
 
       if (wallet?.type === 'credit_card') {
-        tx.isPaid = true;
+        if (tx.isPaid === undefined) {
+          tx.isPaid = true;
+        }
         if (!tx.invoiceMonth || !tx.invoiceYear) {
           const dateToUse = new Date(tx.date + 'T12:00:00');
           const period = getInvoicePeriod(wallet.closingDay || 5, wallet.dueDay || 15, dateToUse);
@@ -830,6 +833,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
           tx.invoiceYear = period.due.getUTCFullYear();
         }
       }
+
       if (tx.isPaid && !tx.paidDate) {
         tx.paidDate = getTodayDateString();
       }
@@ -905,10 +909,12 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     if (txToUpdate.walletId || txToUpdate.date) {
       const walletId = txToUpdate.walletId || currentTx?.walletId;
       const date = txToUpdate.date || currentTx?.date;
-
       const wallet = rawWallets.find(w => w.id === walletId);
       if (wallet?.type === 'credit_card') {
-        txToUpdate.isPaid = true;
+        const isWalletChanged = txToUpdate.walletId && txToUpdate.walletId !== currentTx?.walletId;
+        if (isWalletChanged && !('isPaid' in txToUpdate)) {
+          txToUpdate.isPaid = true;
+        }
         if (!txToUpdate.invoiceMonth && date) {
           const period = getInvoicePeriod(wallet.closingDay || 5, wallet.dueDay || 15, new Date(date));
           txToUpdate.invoiceMonth = period.due.getUTCMonth() + 1;
