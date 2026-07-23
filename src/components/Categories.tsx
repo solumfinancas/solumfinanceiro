@@ -564,6 +564,23 @@ export const Categories: React.FC = () => {
   const remainingToSpendGlobal = totalLimitGlobal - totalSpendGlobal;
   const globalProgressPercent = totalLimitGlobal > 0 ? (totalSpendGlobal / totalLimitGlobal) * 100 : 0;
 
+  const availableUnderLimitGlobal = useMemo(() => {
+    return activeCats
+      .filter(c => c.type === 'expense' && !c.isDeleted)
+      .reduce((sum, c) => {
+        const effective = getCategoryEffectiveLimit(c.id);
+        if (!effective.total) return sum;
+        
+        const spend = getCategorySpend(c.id);
+        const remaining = effective.total - spend;
+        
+        if (remaining > 0) {
+          return sum + remaining;
+        }
+        return sum;
+      }, 0);
+  }, [activeCats, categories, transactions, filterMonth, filterYear, paymentFilter]);
+
   const renderCategoryList = (cats: Category[], label: string, icon: React.ReactNode, colorClass: string, isInactiveSection = false) => (
     <div className="space-y-4">
       <div className={cn("flex items-center gap-2", colorClass)}>
@@ -1187,6 +1204,17 @@ export const Categories: React.FC = () => {
                           )}
                         />
                       </div>
+                      
+                      {availableUnderLimitGlobal > 0 && (
+                        <div className="pt-3 border-t border-border/10 mt-4 flex items-center justify-between">
+                          <span className="text-[9px] font-black uppercase tracking-wider text-muted-foreground opacity-60">
+                            Disponível para utilizar (sem estouros)
+                          </span>
+                          <span className="text-sm font-black text-emerald-500">
+                            {formatCurrency(availableUnderLimitGlobal)}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </>
                 ) : (
