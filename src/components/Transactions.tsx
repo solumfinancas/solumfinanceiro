@@ -398,6 +398,31 @@ export const Transactions: React.FC<TransactionsProps> = ({
     [filteredTransactions]
   );
 
+  const selectedTransactionsSummary = useMemo(() => {
+    if (selectedIds.length === 0) return { total: 0, income: 0, expense: 0 };
+
+    return transactions
+      .filter(t => selectedIds.includes(t.id))
+      .reduce((acc, t) => {
+        const isInvoicePayment = (t.description?.toLowerCase() || '').includes('pagamento de fatura');
+        
+        let isPositive = false;
+        if (!isInvoicePayment) {
+          isPositive = t.type === 'income' || (t.toWalletId && wallets.find(w => w.id === t.toWalletId)?.type === 'credit_card');
+        }
+        
+        if (isPositive) {
+          acc.income += t.amount;
+          acc.total += t.amount;
+        } else {
+          acc.expense += t.amount;
+          acc.total -= t.amount;
+        }
+        
+        return acc;
+      }, { total: 0, income: 0, expense: 0 });
+  }, [selectedIds, transactions, wallets]);
+
   const toggleSelection = (id: string) => {
     setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
   };
@@ -1294,15 +1319,35 @@ export const Transactions: React.FC<TransactionsProps> = ({
       </div>
 
       {selectedIds.length > 0 && (
-        <div className="bg-primary/5 border-primary/20 border p-4 rounded-xl flex flex-wrap items-center justify-between gap-4 shadow-sm animate-in fade-in zoom-in-95 duration-200">
-          <span className="font-bold text-primary flex items-center gap-2">
-            <span className="bg-primary text-white w-6 h-6 flex items-center justify-center rounded-full text-xs">{selectedIds.length}</span>
-            Selecionados
-          </span>
-          <div className="flex flex-wrap items-center gap-2">
-            <button onClick={() => handleBulkStatus('paid')} className="text-xs font-bold uppercase bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition shadow-sm">Marcar como Pago/Recebido</button>
-            <button onClick={() => handleBulkStatus('pending')} className="text-xs font-bold uppercase bg-amber-500 text-white px-4 py-2 rounded-lg hover:bg-amber-600 transition shadow-sm">Marcar Aguardando</button>
-            <button onClick={handleBulkDelete} className="text-xs font-bold uppercase bg-rose-500 text-white px-4 py-2 rounded-lg hover:bg-rose-600 transition shadow-sm">Excluir</button>
+        <div className="sticky top-2 lg:top-4 z-30 bg-card/95 backdrop-blur-md border border-primary/20 p-3 sm:p-4 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 shadow-xl shadow-primary/5 transition-all">
+          <div className="flex flex-col gap-1">
+            <span className="font-bold text-primary flex items-center gap-2 text-xs sm:text-sm">
+              <span className="bg-primary text-white w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center rounded-full text-[10px] sm:text-xs shrink-0 font-black">
+                {selectedIds.length}
+              </span>
+              <span className="uppercase text-[9px] sm:text-[10px] font-black tracking-widest">Selecionados</span>
+              <span className="text-muted-foreground font-medium text-[10px] sm:text-xs">|</span>
+              <span className="text-[10px] sm:text-xs font-bold text-muted-foreground flex items-center gap-1.5">
+                Total: 
+                <span className={cn("font-black text-xs sm:text-sm", selectedTransactionsSummary.total >= 0 ? "text-emerald-500" : "text-rose-500")}>
+                  {formatCurrency(selectedTransactionsSummary.total)}
+                </span>
+              </span>
+            </span>
+            <div className="hidden sm:flex items-center gap-2 text-[10px] text-muted-foreground mt-0.5">
+              <span className="text-emerald-600 dark:text-emerald-500 font-bold">
+                {viewModeContas === 'cartoes' ? 'Estornos' : 'Receitas'}: {formatCurrency(selectedTransactionsSummary.income)}
+              </span>
+              <span className="opacity-40">|</span>
+              <span className="text-rose-600 dark:text-rose-500 font-bold">
+                Despesas: -{formatCurrency(selectedTransactionsSummary.expense)}
+              </span>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+            <button onClick={() => handleBulkStatus('paid')} className="text-[9px] sm:text-xs font-bold uppercase bg-green-500 text-white px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-xl hover:bg-green-600 transition shadow-sm cursor-pointer">Marcar Pago</button>
+            <button onClick={() => handleBulkStatus('pending')} className="text-[9px] sm:text-xs font-bold uppercase bg-amber-500 text-white px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-xl hover:bg-amber-600 transition shadow-sm cursor-pointer">Marcar Pendente</button>
+            <button onClick={handleBulkDelete} className="text-[9px] sm:text-xs font-bold uppercase bg-rose-500 text-white px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-xl hover:bg-rose-600 transition shadow-sm cursor-pointer">Excluir</button>
           </div>
         </div>
       )}
@@ -1575,12 +1620,12 @@ export const Transactions: React.FC<TransactionsProps> = ({
         )}
       </AnimatePresence>
 
-      <FloatingSearchFAB show={showSearchFAB} onAction={scrollToSearch} />
+      <FloatingSearchFAB show={showSearchFAB} onAction={scrollToSearch} hasSelection={selectedIds.length > 0} />
     </div>
   );
 };
 
-export const FloatingSearchFAB = ({ show, onAction }: { show: boolean, onAction: () => void }) => (
+export const FloatingSearchFAB = ({ show, onAction, hasSelection = false }: { show: boolean, onAction: () => void, hasSelection?: boolean }) => (
   <AnimatePresence>
     {show && (
       <motion.button
@@ -1588,7 +1633,12 @@ export const FloatingSearchFAB = ({ show, onAction }: { show: boolean, onAction:
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.5, y: -20 }}
         onClick={onAction}
-        className="fixed top-24 right-6 lg:top-8 lg:right-8 z-[110] w-12 h-12 bg-primary text-white rounded-full shadow-lg shadow-primary/40 flex items-center justify-center hover:scale-110 active:scale-95 transition-transform"
+        className={cn(
+          "fixed right-6 lg:right-8 z-[110] w-12 h-12 bg-primary text-white rounded-full shadow-lg shadow-primary/40 flex items-center justify-center hover:scale-110 active:scale-95 transition-all duration-300",
+          hasSelection 
+            ? "top-[200px] lg:top-32" 
+            : "top-24 lg:top-8"
+        )}
         title="Buscar"
       >
         <Search size={20} />
