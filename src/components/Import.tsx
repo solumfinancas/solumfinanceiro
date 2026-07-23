@@ -37,6 +37,7 @@ interface ImportRow {
   amount: number;
   type: TransactionType;
   categoryId: string;
+  suggestionSource?: 'history' | 'keywords_high' | 'keywords_low' | 'fallback' | 'manual';
   toWalletId?: string;
   invoiceMonth?: number;
   invoiceYear?: number;
@@ -46,17 +47,470 @@ interface ImportRow {
   originalSign: '-' | '+';
 }
 
+const STATIC_CATEGORIZATION_RULES: { keywords: string[]; categoryTerm: string; level: 'keywords_high' | 'keywords_low' }[] = [
+  // COMPRAS
+  {
+    keywords: ["amazon", "mercado livre", "mercadolivre", "magalu", "magazine luiza", "americanas", "casas bahia", "pontofrio", "extra", "shopee", "shein", "aliexpress", "temu", "kabum", "kalunga", "leroy", "leroy merlin", "madeira madeira", "tokstok", "tok stok", "camicado", "fast shop", "casa video", "multicoisas", "lojas cem", "drogasil", "marketplace", "ecommerce"],
+    categoryTerm: "compras",
+    level: "keywords_high"
+  },
+  {
+    keywords: ["online", "havan", "loja", "store", "compra"],
+    categoryTerm: "compras",
+    level: "keywords_low"
+  },
+  // MERCADO
+  {
+    keywords: ["atacadao", "assai", "comper", "pao de acucar", "dia", "muffato", "savegnago", "fort atacadista", "sams club", "sams"],
+    categoryTerm: "mercado",
+    level: "keywords_high"
+  },
+  {
+    keywords: ["mercado", "supermercado", "carrefour", "hortifruti", "quitanda", "feira", "sacolao", "emporio", "mercearia", "padaria", "acougue", "frigorifico"],
+    categoryTerm: "mercado",
+    level: "keywords_low"
+  },
+  // EDUCAÇÃO
+  {
+    keywords: ["udemy", "alura", "rocketseat", "origamid", "ebac", "hotmart", "estacio", "unopar", "anhanguera", "unicesumar", "faveni", "wizard", "ccaa", "cna", "fisk", "kumon", "livraria", "saraiva"],
+    categoryTerm: "educacao",
+    level: "keywords_high"
+  },
+  {
+    keywords: ["escola", "faculdade", "universidade", "curso", "curso online", "mensalidade", "leitura", "apostila", "material escolar"],
+    categoryTerm: "educacao",
+    level: "keywords_low"
+  },
+  // CUIDADOS PESSOAIS
+  {
+    keywords: ["natura", "avon", "boticario", "sephora", "mary kay"],
+    categoryTerm: "cuidados_pessoais",
+    level: "keywords_high"
+  },
+  {
+    keywords: ["salao", "barbearia", "cabeleireiro", "manicure", "pedicure", "estetica", "depilacao", "spa", "esmalteria", "beleza", "cosmeticos", "perfume", "maquiagem", "shampoo", "condicionador", "hidratante"],
+    categoryTerm: "cuidados_pessoais",
+    level: "keywords_low"
+  },
+  // ALIMENTAÇÃO
+  {
+    keywords: ["ifood", "aiqfome", "habibs", "subway", "mcdonald", "burger king", "bk", "kfc", "giraffas", "bobs", "china in box", "outback", "coco bambu"],
+    categoryTerm: "alimentacao",
+    level: "keywords_high"
+  },
+  {
+    keywords: ["delivery", "lanchonete", "lanche", "hamburguer", "hamburgueria", "pizza", "pizzaria", "esfiha", "marmita", "marmitex", "refeicao", "comida", "alimento"],
+    categoryTerm: "alimentacao",
+    level: "keywords_low"
+  },
+  // TRANSPORTE
+  {
+    keywords: ["uber", "99", "ipiranga", "shell", "petrobras", "sem parar", "conectcar", "detran"],
+    categoryTerm: "transporte",
+    level: "keywords_high"
+  },
+  {
+    keywords: ["combustivel", "gasolina", "etanol", "diesel", "posto", "br mania", "estacionamento", "zona azul", "pedagio", "oficina", "mecanica", "mecanico", "auto pecas", "borracharia", "troca de oleo"],
+    categoryTerm: "transporte",
+    level: "keywords_low"
+  },
+  // SAÚDE
+  {
+    keywords: ["droga raia", "drogasil", "pague menos", "ultrafarma", "panvel", "sao joao", "unimed", "amil", "bradesco saude", "hapvida"],
+    categoryTerm: "saude",
+    level: "keywords_high"
+  },
+  {
+    keywords: ["farmacia", "drogaria", "hospital", "clinica", "laboratorio", "exame", "consulta", "medico", "dentista", "odontologia", "psicologo", "psicologa", "psiquiatra", "fisioterapia", "vacina", "remedio", "medicamento"],
+    categoryTerm: "saude",
+    level: "keywords_low"
+  },
+  // ASSINATURAS E SERVIÇOS
+  {
+    keywords: ["netflix", "spotify", "youtube", "youtube premium", "google", "google one", "apple", "icloud", "amazon prime", "prime video", "disney", "disney plus", "disney+", "globoplay", "max", "hbo", "deezer", "microsoft", "office 365", "adobe", "canva", "chatgpt", "openai", "claude", "gemini", "notion", "evernote", "todoist", "hostinger", "registro br", "vercel", "supabase", "cloudflare", "aws", "digitalocean"],
+    categoryTerm: "assinaturas_servicos",
+    level: "keywords_high"
+  },
+  // ROUPAS
+  {
+    keywords: ["renner", "riachuelo", "cea", "c&a", "zara", "hering", "marisa", "youcom", "centauro", "nike", "adidas", "puma", "fila", "mizuno", "netshoes", "dafiti"],
+    categoryTerm: "roupas",
+    level: "keywords_high"
+  },
+  {
+    keywords: ["calcado", "calcados", "sapato", "tenis", "roupa", "roupas", "vestuario", "confeccao"],
+    categoryTerm: "roupas",
+    level: "keywords_low"
+  },
+  // MORADIA
+  {
+    keywords: ["energisa", "enel", "cemig", "copel", "cpfl", "saneago", "sabesp", "sanesul", "vivo fibra", "claro net", "oi fibra", "tim live"],
+    categoryTerm: "moradia",
+    level: "keywords_high"
+  },
+  {
+    keywords: ["aluguel", "condominio", "energia", "luz", "eletricidade", "agua", "internet", "gas", "material de construcao", "construcao", "cimento", "tinta", "reforma"],
+    categoryTerm: "moradia",
+    level: "keywords_low"
+  },
+  // TRABALHO
+  {
+    keywords: ["kalunga", "coworking", "crc"],
+    categoryTerm: "trabalho",
+    level: "keywords_high"
+  },
+  {
+    keywords: ["papelaria", "impressao", "xerox", "cartucho", "toner", "escritorio", "dominio", "certificado digital", "contador", "notebook", "monitor", "teclado", "mouse", "webcam", "licenca"],
+    categoryTerm: "trabalho",
+    level: "keywords_low"
+  },
+  // BARES E RESTAURANTES
+  {
+    keywords: ["outback", "coco bambu"],
+    categoryTerm: "bares_restaurantes",
+    level: "keywords_high"
+  },
+  {
+    keywords: ["bar", "pub", "choperia", "cervejaria", "restaurante", "churrascaria", "rodizio", "rodizio de pizza", "sushi", "temakeria", "japones", "espeteria", "boteco", "happy hour", "adega", "vinho"],
+    categoryTerm: "bares_restaurantes",
+    level: "keywords_low"
+  },
+  // LAZER E HOBBIES
+  {
+    keywords: ["cinemark", "cinepolis", "eventim", "sympla", "steam", "playstation", "xbox", "nintendo", "epic games", "kindle", "smart fit", "bluefit"],
+    categoryTerm: "lazer",
+    level: "keywords_high"
+  },
+  {
+    keywords: ["cinema", "teatro", "show", "ingresso", "livro", "academia", "pesca", "camping", "bicicleta"],
+    categoryTerm: "lazer",
+    level: "keywords_low"
+  },
+  // PRESENTES, ANIVERSÁRIOS E DOAÇÕES
+  {
+    keywords: ["cacau show", "kopenhagen"],
+    categoryTerm: "presentes_doacoes",
+    level: "keywords_high"
+  },
+  {
+    keywords: ["presente", "floricultura", "flores", "aniversario", "casamento", "doacao", "igreja", "dizimo", "vaquinha", "rifa", "presente aniversario"],
+    categoryTerm: "presentes_doacoes",
+    level: "keywords_low"
+  },
+  // DÍVIDAS E EMPRÉSTIMOS
+  {
+    keywords: ["emprestimo", "financiamento", "parcela", "consignado", "crediario", "quitacao", "pagamento emprestimo", "juros", "refinanciamento"],
+    categoryTerm: "dividas_emprestimos",
+    level: "keywords_low"
+  },
+  // FAMÍLIA E FILHOS
+  {
+    keywords: ["creche", "baba", "fralda", "brinquedo", "escola infantil", "pensao", "filho", "filha", "bebe", "infantil", "enxoval"],
+    categoryTerm: "familia_filhos",
+    level: "keywords_low"
+  },
+  // IMPOSTOS E TAXAS
+  {
+    keywords: ["ipva", "licenciamento", "darf", "gps", "simples nacional", "receita federal", "prefeitura", "sefaz", "mei"],
+    categoryTerm: "impostos_taxas",
+    level: "keywords_high"
+  },
+  {
+    keywords: ["iss", "icms", "irpf", "imposto", "taxa", "multa", "tributo"],
+    categoryTerm: "impostos_taxas",
+    level: "keywords_low"
+  },
+  // INVESTIMENTOS (Quando despesa)
+  {
+    keywords: ["tesouro direto", "xp", "rico", "clear", "btg", "inter investimentos", "nu invest", "corretora", "b3"],
+    categoryTerm: "investimentos_despesa",
+    level: "keywords_high"
+  },
+  {
+    keywords: ["cdb", "lci", "lca", "fii", "acoes", "aporte"],
+    categoryTerm: "investimentos_despesa",
+    level: "keywords_low"
+  },
+  // PETS
+  {
+    keywords: ["cobasi", "petz"],
+    categoryTerm: "pets",
+    level: "keywords_high"
+  },
+  {
+    keywords: ["petshop", "pet shop", "racao", "veterinario", "banho", "tosa", "vacina pet", "animal", "cachorro", "gato"],
+    categoryTerm: "pets",
+    level: "keywords_low"
+  },
+  // VIAGEM
+  {
+    keywords: ["booking", "airbnb", "decolar", "123 milhas", "latam", "gol", "azul"],
+    categoryTerm: "viagem",
+    level: "keywords_high"
+  },
+  {
+    keywords: ["hotel", "hospedagem", "passagem", "rodoviaria", "onibus", "viagem", "resort", "pousada"],
+    categoryTerm: "viagem",
+    level: "keywords_low"
+  },
+  // SALÁRIO (Receita)
+  {
+    keywords: ["salario", "folha", "pagamento empresa", "pro labore", "prolabore", "holerite", "adiantamento salarial"],
+    categoryTerm: "salario",
+    level: "keywords_low"
+  },
+  // OUTRAS RECEITAS (Receita)
+  {
+    keywords: ["pix recebido", "pix", "ted recebida", "doc recebido", "transferencia recebida", "deposito", "recebimento", "cliente", "venda", "reembolso", "cashback", "estorno", "bonus", "premio"],
+    categoryTerm: "outras_receitas",
+    level: "keywords_low"
+  },
+  // INVESTIMENTOS (Quando receita)
+  {
+    keywords: ["dividendo", "dividendos", "rendimento", "rendimentos", "juros", "tesouro", "cdb", "lci", "lca", "fii", "acoes", "b3", "lucro investimento"],
+    categoryTerm: "investimentos_receita",
+    level: "keywords_low"
+  },
+  // EMPRÉSTIMOS (Quando receita)
+  {
+    keywords: ["emprestimo recebido", "credito aprovado", "liberacao de credito", "financiamento aprovado", "valor emprestado"],
+    categoryTerm: "emprestimos_receita",
+    level: "keywords_low"
+  }
+];
+
 interface ImportProps {
   setActiveTab?: (tab: string) => void;
 }
 
 export const Import: React.FC<ImportProps> = ({ setActiveTab }) => {
-  const { categories, wallets, addTransactions, activeSpace, orderedCards, orderedAccounts } = useFinance();
+  const { categories, wallets, addTransactions, activeSpace, orderedCards, orderedAccounts, transactions } = useFinance();
   const { profile, viewingProfile, refreshProfile } = useAuth();
   const { showAlert, showConfirm } = useModal();
   const activeProfile = viewingProfile || profile;
 
   const [isMobile, setIsMobile] = useState(false);
+
+  const [dbPatterns, setDbPatterns] = useState<{
+    user: any[];
+    global: any[];
+  }>({ user: [], global: [] });
+
+  const loadDbPatterns = async (rows: ImportRow[]) => {
+    try {
+      const uniqueDescriptions = Array.from(new Set(rows.map(r => normalizeText(r.description))));
+      if (uniqueDescriptions.length === 0) return { user: [], global: [] };
+
+      // Carregar padrões locais do usuário
+      const { data: userPatterns, error: userError } = await supabase
+        .from('user_category_patterns')
+        .select('description_pattern, category_id, occurrences')
+        .eq('user_id', activeProfile?.id)
+        .in('description_pattern', uniqueDescriptions);
+
+      if (userError) console.error("Erro ao ler user_category_patterns:", userError);
+
+      // Carregar padrões globais
+      const { data: globalPatterns, error: globalError } = await supabase
+        .from('global_category_patterns')
+        .select('description_pattern, category_name, occurrences')
+        .in('description_pattern', uniqueDescriptions);
+
+      if (globalError) console.error("Erro ao ler global_category_patterns:", globalError);
+
+      const patterns = {
+        user: userPatterns || [],
+        global: globalPatterns || []
+      };
+      
+      setDbPatterns(patterns);
+      return patterns;
+    } catch (err) {
+      console.error("Erro no loadDbPatterns:", err);
+      return { user: [], global: [] };
+    }
+  };
+
+  const normalizeText = (text: string): string => {
+    if (!text) return "";
+    return text
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9\s]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  };
+
+  const findCategoryByHistory = (desc: string, type: TransactionType): string => {
+    const normDesc = normalizeText(desc);
+    if (!normDesc || normDesc.length < 3) return "";
+
+    const targetType = (type === 'provision' || type === 'planned') ? 'expense' : type;
+
+    const validTxs = transactions.filter(t => {
+      if (t.type !== targetType) return false;
+      if (!t.categoryId) return false;
+      const cat = categories.find(c => c.id === t.categoryId);
+      return cat && !cat.isDeleted && cat.isActive !== false;
+    });
+
+    const exactMatch = validTxs.find(t => normalizeText(t.description) === normDesc);
+    if (exactMatch) return exactMatch.categoryId;
+
+    const partialMatch = validTxs.find(t => {
+      const histNorm = normalizeText(t.description);
+      if (histNorm.length < 4) return false;
+      return normDesc.includes(histNorm) || histNorm.includes(normDesc);
+    });
+    if (partialMatch) return partialMatch.categoryId;
+
+    return "";
+  };
+
+  const findCategoryByTerm = (term: string, type: TransactionType): string => {
+    const normalizedTerm = normalizeText(term);
+
+    const alternativeTermsMap: Record<string, string[]> = {
+      compras: ["compras", "compra", "shoppings", "shopping", "outros", "loja", "vestuario", "utilidades"],
+      mercado: ["mercado", "supermercado", "alimentacao", "compras", "feira", "sacolao"],
+      educacao: ["educacao", "ensino", "curso", "faculdade", "escola", "estudos", "colegio"],
+      cuidados_pessoais: ["cuidados pessoais", "pessoais", "cuidados", "beleza", "salao", "estetica", "higiene"],
+      alimentacao: ["alimentacao", "comida", "refeicao", "restaurante", "mercado"],
+      transporte: ["transporte", "carro", "veiculo", "viagem", "locomocao", "combustivel", "posto"],
+      saude: ["saude", "farmacia", "medicina", "medico", "plano de saude", "unimed", "clinica"],
+      assinaturas_servicos: ["assinaturas", "servicos", "assinaturas e servicos", "mensalidades", "streaming", "tecnologia"],
+      roupas: ["roupas", "roupa", "vestuario", "calcados", "sapatos", "moda"],
+      moradia: ["moradia", "casa", "habitacao", "contas", "despesas fixas", "servicos", "aluguel", "condominio"],
+      trabalho: ["trabalho", "profissional", "escritorio", "coworking", "carreira", "negocios"],
+      bares_restaurantes: ["bares", "restaurantes", "bares e restaurantes", "alimentacao", "lazer", "refeicao"],
+      lazer: ["lazer", "entretenimento", "diversao", "hobbies", "viagem", "academia", "esporte"],
+      presentes_doacoes: ["presentes", "doacoes", "presentes e doacoes", "caridade", "igreja", "dizimo"],
+      dividas_emprestimos: ["dividas", "emprestimos", "dividas e emprestimos", "financiamentos", "parcelas"],
+      familia_filhos: ["familia", "filhos", "familia e filhos", "creche", "escola infantil", "filho", "filha"],
+      impostos_taxas: ["impostos", "taxas", "impostos e taxas", "tributos", "tarifas", "governo", "mei", "ipva"],
+      investimentos_despesa: ["investimentos", "investimento", "aplicacoes", "aplicacao", "poupanca", "aporte"],
+      pets: ["pets", "pet", "animal", "animais", "veterinario", "petshop", "pet shop"],
+      viagem: ["viagem", "viagens", "hospedagem", "hotel", "turismo", "passagens"],
+      salario: ["salario", "folha", "pro labore", "prolabore", "vencimentos", "remuneracao"],
+      outras_receitas: ["outras receitas", "receitas", "vendas", "venda direta", "servico", "faturamento", "recebidos", "pix recebido"],
+      investimentos_receita: ["investimentos", "investimento", "dividendos", "lucros", "rendimentos", "rendimento"],
+      emprestimos_receita: ["emprestimos", "emprestimo", "credito", "financiamento"]
+    };
+
+    const searchTerms = alternativeTermsMap[normalizedTerm] || [normalizedTerm];
+    const targetType = (type === 'provision' || type === 'planned') ? 'expense' : type;
+    const activeCategories = categories.filter(c => c.type === targetType && !c.isDeleted && c.isActive !== false);
+
+    for (const searchTerm of searchTerms) {
+      const matchedCat = activeCategories.find(c => normalizeText(c.name).includes(searchTerm));
+      if (matchedCat) return matchedCat.id;
+    }
+
+    return "";
+  };
+
+  const suggestCategory = (
+    desc: string, 
+    type: TransactionType, 
+    currentDbPatterns?: { user: any[]; global: any[] }
+  ): { categoryId: string; source?: 'history' | 'keywords_high' | 'keywords_low' | 'fallback' | 'manual' } => {
+    const historyCatId = findCategoryByHistory(desc, type);
+    if (historyCatId) {
+      return { categoryId: historyCatId, source: 'history' };
+    }
+
+    const normDesc = normalizeText(desc);
+    const targetType = (type === 'provision' || type === 'planned') ? 'expense' : type;
+    const patternsToUse = currentDbPatterns || dbPatterns;
+
+    if (patternsToUse.user && patternsToUse.user.length > 0) {
+      const userPattern = patternsToUse.user.find(p => p.description_pattern === normDesc);
+      if (userPattern && userPattern.category_id) {
+        const cat = categories.find(c => c.id === userPattern.category_id && c.type === targetType && !c.isDeleted && c.isActive !== false);
+        if (cat) {
+          return { categoryId: cat.id, source: 'history' };
+        }
+      }
+    }
+
+    if (patternsToUse.global && patternsToUse.global.length > 0) {
+      const globalMatches = patternsToUse.global.filter(p => p.description_pattern === normDesc);
+      if (globalMatches.length > 0) {
+        const bestGlobalMatch = globalMatches.sort((a, b) => b.occurrences - a.occurrences)[0];
+        if (bestGlobalMatch && bestGlobalMatch.category_name) {
+          const cat = categories.find(c => normalizeText(c.name) === normalizeText(bestGlobalMatch.category_name) && c.type === targetType && !c.isDeleted && c.isActive !== false);
+          if (cat) {
+            const isHighConfidence = bestGlobalMatch.occurrences >= 5;
+            return {
+              categoryId: cat.id,
+              source: isHighConfidence ? 'keywords_high' : 'keywords_low'
+            };
+          }
+        }
+      }
+    }
+
+    const isTransferOrPix = type === 'income' && (
+      normDesc.includes("pix") || 
+      normDesc.includes("recebido") || 
+      normDesc.includes("ted") || 
+      normDesc.includes("doc") || 
+      normDesc.includes("transferencia")
+    );
+
+    if (isTransferOrPix) {
+      const ownerName = activeProfile?.name ? normalizeText(activeProfile.name) : "";
+      if (ownerName && normDesc.includes(ownerName)) {
+        const ownTransferCatId = findCategoryByTerm("transferencia", type) || findCategoryByTerm("outros", type);
+        if (ownTransferCatId) {
+          return { categoryId: ownTransferCatId, source: 'keywords_low' };
+        }
+      }
+
+      const pixCatId = findCategoryByTerm("pix_recebido", type);
+      if (pixCatId) {
+        return { categoryId: pixCatId, source: 'keywords_low' };
+      }
+    }
+
+    for (const rule of STATIC_CATEGORIZATION_RULES) {
+      const match = rule.keywords.some(keyword => normDesc.includes(normalizeText(keyword)));
+      if (match) {
+        const termCatId = findCategoryByTerm(rule.categoryTerm, type);
+        if (termCatId) {
+          return { categoryId: termCatId, source: rule.level };
+        }
+      }
+    }
+
+    if (targetType === 'expense') {
+      const outrosExpenseCat = categories.find(c => {
+        const nameNorm = normalizeText(c.name);
+        return c.type === 'expense' && !c.isDeleted && c.isActive !== false && !c.parentId &&
+          (nameNorm.includes("outros") || nameNorm.includes("outras despesas") || nameNorm.includes("diversos"));
+      });
+      if (outrosExpenseCat) {
+        return { categoryId: outrosExpenseCat.id, source: 'fallback' };
+      }
+    } else if (targetType === 'income') {
+      const outrasIncomeCat = categories.find(c => {
+        const nameNorm = normalizeText(c.name);
+        return c.type === 'income' && !c.isDeleted && c.isActive !== false &&
+          (nameNorm.includes("outras receitas") || nameNorm.includes("receitas") || nameNorm.includes("outros") || nameNorm.includes("diversos"));
+      });
+      if (outrasIncomeCat) {
+        return { categoryId: outrasIncomeCat.id, source: 'fallback' };
+      }
+    }
+
+    const firstActiveCat = categories.find(c => c.type === targetType && !c.isDeleted && c.isActive !== false && !c.parentId);
+    if (firstActiveCat) {
+      return { categoryId: firstActiveCat.id, source: 'fallback' };
+    }
+
+    return { categoryId: '', source: undefined };
+  };
 
   useEffect(() => {
     const handleResize = () => {
@@ -208,7 +662,7 @@ export const Import: React.FC<ImportProps> = ({ setActiveTab }) => {
     setIsProcessing(true);
     const reader = new FileReader();
 
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
       try {
         const data = event.target?.result;
         const wb = XLSX.read(data, { type: 'array', cellDates: true });
@@ -262,7 +716,7 @@ export const Import: React.FC<ImportProps> = ({ setActiveTab }) => {
           return isNaN(num) ? null : num;
         };
 
-        const rows: ImportRow[] = jsonData.slice(1)
+        const tempRows: ImportRow[] = jsonData.slice(1)
           .filter(row => row.some(cell => cell !== null && cell !== undefined && String(cell).trim() !== ""))
           .map(row => {
             // 1. Encontrar coluna de Data
@@ -323,7 +777,17 @@ export const Import: React.FC<ImportProps> = ({ setActiveTab }) => {
             };
           });
 
-        setData(rows);
+        const loadedPatterns = await loadDbPatterns(tempRows);
+        const finalRows = tempRows.map(r => {
+          const suggestion = suggestCategory(r.description, r.type, loadedPatterns);
+          return {
+            ...r,
+            categoryId: suggestion.categoryId,
+            suggestionSource: suggestion.source
+          };
+        });
+
+        setData(finalRows);
         setStep('configure');
       } catch (err) {
         console.error("Erro ao processar arquivo:", err);
@@ -397,7 +861,23 @@ export const Import: React.FC<ImportProps> = ({ setActiveTab }) => {
         throw new Error("Formato de resposta inválido da API");
       }
 
-      setData(resData.transactions);
+      const loadedPatterns = await loadDbPatterns(resData.transactions);
+      const mappedTransactions = resData.transactions.map((tx: any) => {
+        if (!tx.categoryId) {
+          const suggestion = suggestCategory(tx.description || '', tx.type, loadedPatterns);
+          return {
+            ...tx,
+            categoryId: suggestion.categoryId,
+            suggestionSource: suggestion.source
+          };
+        }
+        return {
+          ...tx,
+          suggestionSource: tx.suggestionSource || 'keywords_high'
+        };
+      });
+
+      setData(mappedTransactions);
       setStep('configure');
     } catch (err: any) {
       console.error("Erro ao processar PDF:", err);
@@ -468,6 +948,68 @@ export const Import: React.FC<ImportProps> = ({ setActiveTab }) => {
 
     try {
       await addTransactions(finalTxs);
+
+      // Gravação assíncrona e independente dos padrões de categorias
+      try {
+        const userPatternsUpsert: any[] = [];
+        const globalPatternsUpsert: any[] = [];
+
+        data.forEach(row => {
+          if (!row.categoryId) return;
+
+          const normDesc = normalizeText(row.description);
+          if (!normDesc || normDesc.length < 3) return;
+
+          const cat = categories.find(c => c.id === row.categoryId);
+          if (!cat) return;
+
+          // 1. Padrão do Usuário
+          const existingUserPattern = dbPatterns.user?.find(p => p.description_pattern === normDesc);
+          let userOccurrences = 1;
+          if (existingUserPattern) {
+            userOccurrences = existingUserPattern.category_id === row.categoryId 
+              ? (existingUserPattern.occurrences || 0) + 1 
+              : 1;
+          }
+
+          userPatternsUpsert.push({
+            user_id: activeProfile?.id,
+            description_pattern: normDesc,
+            category_id: row.categoryId,
+            occurrences: userOccurrences,
+            last_used: new Date().toISOString()
+          });
+
+          // 2. Padrão Global
+          const existingGlobalPattern = dbPatterns.global?.find(
+            p => p.description_pattern === normDesc && normalizeText(p.category_name) === normalizeText(cat.name)
+          );
+          const globalOccurrences = existingGlobalPattern 
+            ? (existingGlobalPattern.occurrences || 0) + 1 
+            : 1;
+
+          globalPatternsUpsert.push({
+            description_pattern: normDesc,
+            category_name: cat.name,
+            occurrences: globalOccurrences,
+            last_used: new Date().toISOString()
+          });
+        });
+
+        if (userPatternsUpsert.length > 0) {
+          await supabase
+            .from('user_category_patterns')
+            .upsert(userPatternsUpsert, { onConflict: 'user_id,description_pattern' });
+        }
+
+        if (globalPatternsUpsert.length > 0) {
+          await supabase
+            .from('global_category_patterns')
+            .upsert(globalPatternsUpsert, { onConflict: 'description_pattern,category_name' });
+        }
+      } catch (patternErr) {
+        console.error("Erro ao salvar padrões de categorias:", patternErr);
+      }
 
       // Incrementar contador de importações se for importação via IA (PDF)
       if (activeProfile && uploadType === 'pdf') {
@@ -1320,14 +1862,42 @@ export const Import: React.FC<ImportProps> = ({ setActiveTab }) => {
                         </td>
                         <td className="px-6 py-6 space-y-2">
                           {(row.type === 'income' || row.type === 'expense') && (
-                            <CustomSelect
-                              options={getCategoryOptions(row.type)}
-                              value={row.categoryId}
-                              onChange={(val) => setData(prev => prev.map(r => r.id === row.id ? { ...r, categoryId: val } : r))}
-                              placeholder="Selecionar Categoria"
-                              error={!row.categoryId}
-                              searchable={true}
-                            />
+                            <>
+                              <CustomSelect
+                                options={getCategoryOptions(row.type)}
+                                value={row.categoryId}
+                                onChange={(val) => setData(prev => prev.map(r => r.id === row.id ? { ...r, categoryId: val, suggestionSource: 'manual' } : r))}
+                                placeholder="Selecionar Categoria"
+                                error={!row.categoryId}
+                                searchable={true}
+                              />
+                              {row.categoryId && row.suggestionSource && (
+                                <div className="mt-1.5 flex items-center gap-1.5 pl-1.5">
+                                  <span className={cn(
+                                    "w-1.5 h-1.5 rounded-full shrink-0",
+                                    row.suggestionSource === 'history' && "bg-blue-500",
+                                    row.suggestionSource === 'keywords_high' && "bg-amber-500",
+                                    row.suggestionSource === 'keywords_low' && "bg-rose-500",
+                                    row.suggestionSource === 'fallback' && "bg-black dark:bg-white",
+                                    row.suggestionSource === 'manual' && "bg-emerald-500"
+                                  )} />
+                                  <span className={cn(
+                                    "text-[9px] font-black uppercase tracking-wider",
+                                    row.suggestionSource === 'history' && "text-blue-500",
+                                    row.suggestionSource === 'keywords_high' && "text-amber-500",
+                                    row.suggestionSource === 'keywords_low' && "text-rose-500",
+                                    row.suggestionSource === 'fallback' && "text-black dark:text-white",
+                                    row.suggestionSource === 'manual' && "text-emerald-500"
+                                  )}>
+                                    {row.suggestionSource === 'history' && "Já categorizado assim antes"}
+                                    {row.suggestionSource === 'keywords_high' && "Categorizado de acordo com descrição"}
+                                    {row.suggestionSource === 'keywords_low' && "Apenas Categorizado"}
+                                    {row.suggestionSource === 'fallback' && "Sem Sugestão (Conferir)"}
+                                    {row.suggestionSource === 'manual' && "Ajustado Manualmente"}
+                                  </span>
+                                </div>
+                              )}
+                            </>
                           )}
 
                           {(row.type === 'transfer' || row.type === 'provision') && (
