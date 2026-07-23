@@ -268,7 +268,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
         )}
 
-        <nav className={cn("flex-1 space-y-1 overflow-y-auto transition-all duration-300", isCollapsed ? "px-2" : "px-4")}>
+        <nav className={cn("flex-1 space-y-1 overflow-y-auto no-scrollbar transition-all duration-300", isCollapsed ? "px-2" : "px-4")}>
           {menuItems.map((item) => {
             const isDisabled = isEducatorExpired && item.id !== 'settings';
             
